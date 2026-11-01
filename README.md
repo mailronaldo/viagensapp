@@ -1,0 +1,69 @@
+# Minhas Viagens
+
+Gestão de viagens de turismo: cadastro da viagem, roteiro dia a dia, reservas (voos, hotéis…), central de custos com recibos e central de documentos. Multiusuário. Versão 1 apenas web; a arquitetura já foi pensada para receber o WhatsApp depois.
+
+## Rodando localmente
+
+Requisitos: Node 22+, PostgreSQL 16.
+
+```bash
+cp .env.example .env        # ajuste DATABASE_URL e AUTH_SECRET
+npm install
+npm run db:migrate          # cria as tabelas
+npm run dev                 # http://localhost:3000
+```
+
+Variáveis (`.env`):
+
+| Variável | Para quê |
+|---|---|
+| `DATABASE_URL` | conexão Postgres |
+| `AUTH_SECRET` | segredo da sessão (`openssl rand -hex 32`) |
+| `UPLOAD_DIR` | pasta dos arquivos enviados (padrão `./uploads`) |
+| `COOKIE_SECURE` | `false` só para rodar em HTTP puro; em produção use HTTPS |
+
+Testes: `npm run test:services` (serviços + isolamento, direto no banco) e, com o servidor no ar, `python3 scripts/e2e.py` (fluxo completo por HTTP, 25 verificações).
+
+## Arquitetura
+
+```
+src/
+  db/schema.ts        modelo de dados (Drizzle + Postgres)
+  lib/access.ts       ÚNICO ponto de autorização: só membros enxergam a viagem
+  lib/storage.ts      arquivos atrás de 3 funções (disco hoje; S3/R2 depois)
+  services/           regras de negócio SEM Next/HTTP  ← o WhatsApp reaproveita
+    agenda.ts         getAgenda(trip, data)
+    expenses.ts       addExpense(..., source), getExpenseSummary
+    documents.ts      addDocument, listDocuments, getDocument
+  app/actions/        server actions (validação + chamam os services)
+  app/(app)/trips/    telas: visão geral, roteiro, reservas, custos, documentos
+  app/api/files/      download autenticado de documentos
+```
+
+Decisões que importam:
+
+- **Multi-tenant**: toda leitura/escrita passa por `requireTripAccess`; quem não é membro recebe 404. Papéis `OWNER/EDITOR/VIEWER` já existem em `trip_members`.
+- **Datas/horários** de roteiro e reservas são "relógio de parede" do destino (sem fuso embutido); "hoje" é calculado no fuso da viagem.
+- **Custos** em qualquer moeda, com cotação opcional para a moeda base; lançamentos sem cotação ficam fora do total convertido e o app avisa.
+- `expenses.source` já distingue `web` de `whatsapp`; `users.whatsappPhone` (E.164) já está no schema.
+
+## Plano para o WhatsApp (próxima fase)
+
+1. Rota `POST /api/whatsapp/webhook` (WhatsApp Cloud API da Meta) com verificação de assinatura.
+2. Vincular número: o usuário informa o telefone no perfil e confirma por código enviado no WhatsApp → grava `whatsappPhone`. Mensagens de números não vinculados são ignoradas.
+3. Viagem ativa: a do usuário em andamento hoje (ou a escolhida por comando).
+4. Comandos mapeados para os services que já existem:
+   - "agenda" / "agenda amanhã" → `getAgenda`
+   - foto de nota → extrair valor/data/descrição (visão computacional via API do Claude) → confirmar com o usuário → `addExpense(..., "whatsapp")` + `addDocument` como recibo
+   - "recibos" / "reserva do hotel" → `listDocuments` / `getDocument` e envio do arquivo
+5. Fase seguinte: localização compartilhada → dicas próximas (usa `latitude/longitude` já presentes nos itens do roteiro).
+
+Pontos de atenção da Meta: conta business verificada, número dedicado, janela de 24 h para respostas livres e templates aprovados para mensagens proativas.
+
+## O que ainda não existe (v1)
+
+- Convite de acompanhantes (o modelo suporta; falta a tela e o fluxo de convite).
+- Edição de itens já criados (hoje: adicionar e remover).
+- Limite de tentativas de login, recuperação de senha e verificação de e-mail.
+- Storage em nuvem e backups — hoje os arquivos ficam em disco local.
+- Mapa/GPS e integração com WhatsApp.

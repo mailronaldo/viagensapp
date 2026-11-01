@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.gitignore
+uploads
+.env
+.env.*
+!.env.example
+deploy
+*.tar.gz
+tsconfig.tsbuildinfo
+npm-debug.log
+Dockerfile
+.dockerignore
