@@ -57,7 +57,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
       <form
         action="/"
-        className="relative -mt-6 mb-6 flex flex-wrap gap-1 rounded-lg border-[3px] border-highlight bg-white p-1"
+        className="relative -mt-6 mb-6 flex flex-wrap gap-1 rounded-2xl border-2 border-highlight bg-white p-1.5 shadow-lg shadow-brand-950/10"
       >
         <input
           name="q"
@@ -65,7 +65,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           defaultValue={query}
           placeholder="Buscar viagem ou destino"
           aria-label="Buscar viagem ou destino"
-          className="min-w-40 flex-1 rounded px-3 py-2 text-sm placeholder:text-slate-500 focus:outline-none"
+          className="min-w-40 flex-1 rounded-xl px-3 py-2 text-sm placeholder:text-slate-500 focus:outline-none"
         />
         <button className={btnOutline}>Buscar</button>
         <Link href="/trips/new" className={`${btnPrimary} grow sm:grow-0`}>

@@ -24,19 +24,25 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               Tudo que fizer aqui altera os dados dele.
             </span>
             <form action={stopImpersonationAction}>
-              <button className="cursor-pointer rounded-md border border-amber-400 bg-white px-3 py-1 font-medium hover:bg-amber-50">
+              <button className="cursor-pointer rounded-lg border border-amber-400 bg-white px-3 py-1 font-medium shadow-sm transition hover:bg-amber-50">
                 ← Voltar à agência
               </button>
             </form>
           </div>
         </div>
       )}
-      <header className="bg-brand-800 text-white">
+      <header className="bg-brand-800 text-white shadow-md shadow-brand-950/10">
         <div className="mx-auto max-w-5xl px-4 pt-3">
           <div className="flex items-center justify-between gap-4">
-            <Link href={isAgencyView ? "/agency" : isTraveler ? "/traveler" : "/"} className="text-lg font-semibold">
-              ✈ Minhas Viagens
-              {isAgencyView && <span className="ml-2 text-xs font-normal text-brand-100">Agência</span>}
+            <Link
+              href={isAgencyView ? "/agency" : isTraveler ? "/traveler" : "/"}
+              className="flex items-center gap-2 text-lg font-semibold tracking-tight"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 text-base">✈️</span>
+              Minhas Viagens
+              {isAgencyView && (
+                <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs font-normal text-brand-100">Agência</span>
+              )}
             </Link>
             <div className="flex items-center gap-3 text-sm">
               <span className="hidden sm:inline">{realUser.name}</span>
@@ -44,7 +50,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 Senha
               </Link>
               <form action={logoutAction}>
-                <button className="cursor-pointer rounded-lg border border-white/70 px-3 py-1 hover:bg-white/10">
+                <button className="cursor-pointer rounded-xl border border-white/20 bg-white/5 px-3 py-1.5 transition hover:border-white/40 hover:bg-white/10">
                   Sair
                 </button>
               </form>

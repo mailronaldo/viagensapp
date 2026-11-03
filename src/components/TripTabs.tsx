@@ -17,7 +17,7 @@ export function TripTabs({ tripId }: { tripId: string }) {
   const pathname = usePathname();
   const base = `/trips/${tripId}`;
   return (
-    <nav className="-mb-6 flex gap-1 overflow-x-auto">
+    <nav className="thin-scroll -mb-6 flex gap-1 overflow-x-auto">
       {TABS.map((tab) => {
         const href = `${base}${tab.href}`;
         const active = tab.href === "" ? pathname === base : pathname.startsWith(href);
@@ -26,10 +26,10 @@ export function TripTabs({ tripId }: { tripId: string }) {
             key={tab.label}
             href={href}
             aria-current={active ? "page" : undefined}
-            className={`whitespace-nowrap border-b-[3px] px-3 py-2 text-sm ${
+            className={`whitespace-nowrap rounded-t-lg border-b-2 px-3.5 py-2.5 text-sm transition ${
               active
-                ? "border-white font-medium text-white"
-                : "border-transparent text-brand-100 hover:text-white"
+                ? "border-highlight font-medium text-white"
+                : "border-transparent text-brand-100 hover:border-white/30 hover:text-white"
             }`}
           >
             {tab.label}

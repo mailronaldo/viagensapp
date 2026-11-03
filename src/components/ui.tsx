@@ -1,19 +1,19 @@
 import type { ReactNode } from "react";
 
 export const inputCls =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-600/20";
+  "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 transition focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/15";
 
 export const btnPrimary =
-  "inline-flex cursor-pointer items-center justify-center rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-600/40";
+  "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-gradient-to-b from-brand-600 to-brand-700 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-brand-900/20 transition hover:shadow-md hover:shadow-brand-900/25 hover:brightness-110 focus:outline-none focus:ring-4 focus:ring-brand-600/30 active:brightness-95";
 
 export const btnOutline =
-  "inline-flex cursor-pointer items-center justify-center whitespace-nowrap rounded-lg border border-brand-700 bg-white px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50";
+  "inline-flex cursor-pointer items-center justify-center whitespace-nowrap rounded-xl border border-brand-200 bg-white px-3.5 py-2 text-sm font-medium text-brand-700 shadow-sm transition hover:border-brand-300 hover:bg-brand-50";
 
 export const btnGhost =
-  "inline-flex cursor-pointer items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50";
+  "inline-flex cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-700 shadow-sm transition hover:bg-slate-50";
 
 export const btnDanger =
-  "cursor-pointer text-xs text-rose-600 hover:text-rose-800 hover:underline";
+  "cursor-pointer text-xs font-medium text-rose-600 transition hover:text-rose-700 hover:underline";
 
 export function Field({
   label,
@@ -43,23 +43,23 @@ export function Card({
   className?: string;
 }) {
   return (
-    <div className={`rounded-lg border border-slate-200 bg-white p-5 ${className}`}>
+    <div className={`rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm shadow-slate-200/50 ${className}`}>
       {children}
     </div>
   );
 }
 
 const TAG_TONE = {
-  ok: "bg-emerald-100 text-emerald-800",
-  warn: "bg-amber-100 text-amber-800",
-  info: "bg-brand-50 text-brand-900",
-  neutral: "bg-slate-100 text-slate-600",
+  ok: "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/15",
+  warn: "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/15",
+  info: "bg-brand-50 text-brand-800 ring-1 ring-inset ring-brand-600/15",
+  neutral: "bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-500/10",
 };
 export type TagTone = keyof typeof TAG_TONE;
 
 /** Classes da etiqueta de status; use direto quando a etiqueta for um link. */
 export function tagCls(tone: TagTone) {
-  return `inline-block whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium first-letter:uppercase ${TAG_TONE[tone]}`;
+  return `inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium first-letter:uppercase ${TAG_TONE[tone]}`;
 }
 
 export function Tag({ tone, children }: { tone: TagTone; children: ReactNode }) {
@@ -76,7 +76,7 @@ export function ErrorBanner({ message }: { message?: string | null }) {
   return (
     <div
       role="alert"
-      className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+      className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 shadow-sm"
     >
       {message}
     </div>
@@ -85,7 +85,7 @@ export function ErrorBanner({ message }: { message?: string | null }) {
 
 export function EmptyState({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-xl border border-dashed border-slate-300 bg-white/60 px-6 py-10 text-center text-sm text-slate-500">
+    <div className="rounded-2xl border border-dashed border-slate-300 bg-white/70 px-6 py-12 text-center text-sm text-slate-500">
       {children}
     </div>
   );
@@ -104,10 +104,18 @@ export function AddPanel({
   return (
     <details
       open={defaultOpen}
-      className="group mb-6 rounded-lg border border-slate-200 bg-white"
+      className="group mb-6 overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm shadow-slate-200/50"
     >
-      <summary className="flex cursor-pointer items-center justify-between px-5 py-3 text-sm font-medium text-brand-800">
-        <span>+ {title}</span>
+      <summary className="flex cursor-pointer items-center justify-between px-5 py-3.5 text-sm font-medium text-brand-800 transition hover:bg-brand-50/60">
+        <span className="flex items-center gap-2">
+          <span
+            aria-hidden
+            className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-100 text-brand-700 transition-transform group-open:rotate-45"
+          >
+            +
+          </span>
+          {title}
+        </span>
         <span className="text-xs text-slate-400 group-open:hidden">abrir</span>
         <span className="hidden text-xs text-slate-400 group-open:inline">fechar</span>
       </summary>
