@@ -29,26 +29,34 @@
   --color-highlight-600: #e3a221;
 }
 
-/* Faixa colorida de ponta a ponta, sem criar rolagem horizontal */
+/* Faixa colorida de ponta a ponta, sem criar rolagem horizontal.
+   Começa na MESMA cor sólida do <header> (brand-800) para não criar costura
+   na junção entre os dois; só escurece a partir daí. */
 .hero-bleed {
   position: relative;
-  isolation: isolate;
-  background: radial-gradient(120% 160% at 15% 0%, var(--color-brand-600) 0%, var(--color-brand-800) 45%, var(--color-brand-950) 100%);
+  background: linear-gradient(
+    175deg,
+    var(--color-brand-800) 0%,
+    var(--color-brand-700) 28%,
+    var(--color-brand-900) 68%,
+    var(--color-brand-950) 100%
+  );
   box-shadow: 0 0 0 100vmax var(--color-brand-800);
   clip-path: inset(0 -100vmax);
   overflow: hidden;
 }
 
-/* Brilho decorativo sutil, só estética */
+/* Brilho decorativo sutil, só estética; fica atrás do conteúdo por ordem no DOM */
 .hero-bleed::before {
   content: "";
   position: absolute;
-  inset: -40% -10% auto auto;
-  width: 60vmax;
-  height: 60vmax;
-  background: radial-gradient(circle, color-mix(in srgb, var(--color-highlight) 22%, transparent) 0%, transparent 65%);
+  inset: 0;
+  background: radial-gradient(
+    55% 90% at 88% -10%,
+    color-mix(in srgb, var(--color-highlight) 20%, transparent) 0%,
+    transparent 60%
+  );
   pointer-events: none;
-  z-index: -1;
 }
 
 body {
