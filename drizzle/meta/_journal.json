@@ -29,6 +29,13 @@
       "when": 1793717348218,
       "tag": "0003_hospedagens_reserva_atividade",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793720729024,
+      "tag": "0004_painel_viajante",
+      "breakpoints": true
     }
   ]
 }

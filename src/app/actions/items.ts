@@ -152,3 +152,22 @@ export async function deleteItemAction(tripId: string, itemId: string, day: stri
     ISO_DATE.test(day) ? `/trips/${tripId}/itinerary/day/${day}` : `/trips/${tripId}/itinerary`,
   );
 }
+
+/** Remove só a reserva da atividade (a atividade fica). O voucher continua na Central de documentos. */
+export async function removeReservationAction(tripId: string, itemId: string, returnTo: string) {
+  await requireTripAccess(tripId, { write: true });
+  const [item] = await db
+    .update(t.itineraryItems)
+    .set({
+      reservationProvider: null,
+      reservationCode: null,
+      reservationPrice: null,
+      reservationCurrency: null,
+      reservationDetails: null,
+      reservationDocumentId: null,
+    })
+    .where(and(eq(t.itineraryItems.id, itemId), eq(t.itineraryItems.tripId, tripId)))
+    .returning({ date: t.itineraryItems.date });
+  const day = `/trips/${tripId}/itinerary/day/${item?.date ?? ""}`;
+  redirect(returnTo === "edit" ? `/trips/${tripId}/itinerary/items/${itemId}` : item ? day : `/trips/${tripId}/itinerary`);
+}

@@ -22,7 +22,7 @@ Variáveis (`.env`):
 | `UPLOAD_DIR` | pasta dos arquivos enviados (padrão `./uploads`) |
 | `COOKIE_SECURE` | `false` só para rodar em HTTP puro; em produção use HTTPS |
 
-Testes: `npm run test:services` (serviços + isolamento, direto no banco) e, com o servidor no ar, `python3 scripts/e2e_roles.py` (fluxo completo por HTTP, 124 verificações; precisa de `BASE`, `MASTER_EMAIL` e `MASTER_PASSWORD`, num banco novo).
+Testes: `npm run test:services` (serviços + isolamento, direto no banco) e, com o servidor no ar, `python3 scripts/e2e_roles.py` (fluxo completo por HTTP, 181 verificações; precisa de `BASE`, `MASTER_EMAIL` e `MASTER_PASSWORD`, num banco novo).
 
 ## Arquitetura
 
@@ -88,3 +88,10 @@ Atividades (`/trips/:id/itinerary/items/:itemId`), reservas (`/bookings/:booking
 - **Hospedagens** (`/lodgings`): hotéis, aluguéis/Airbnb, hostels e resorts, com check-in/check-out (que aparecem na agenda do dia), código, valor e voucher. A migração `0003` move automaticamente os hotéis que estavam em Reservas.
 - **Reserva da atividade**: dentro de cada atividade (fornecedor, código, valor, voucher, detalhes). A lista do dia mostra "sem reserva" ou "reservado" com link para os detalhes (`#reserva`).
 - Cidades não têm mais datas: o vínculo com os dias é feito no resumo de cada dia do roteiro.
+
+## Painel do viajante
+- O cliente gera o acesso na ficha do viajante (`/travelers/:id`, precisa de e-mail): e-mail + senha temporária exibida uma única vez; no primeiro acesso o viajante escolhe a senha. Dá para redefinir, desativar e reativar; excluir o viajante apaga o login.
+- Papel `TRAVELER`: entra em `/traveler`, vê só as viagens em que está no grupo, **somente leitura**: roteiro resumido, agenda de cada dia, transportes, hospedagens, reservas/ingressos das atividades e documentos liberados. **Sem custos e sem valores.**
+- O dono (e a agência, ao acessar o cliente) abre o mesmo painel em `/traveler/trips/:id` para conferir o que o viajante vê.
+- **Visibilidade dos documentos** (Central de documentos): *Somente eu* (padrão, inclusive para os já existentes), *Grupo da viagem* ou *um viajante específico*. Arquivos anexados a atividade, transporte ou hospedagem abrem para quem vê esses itens; recibos nunca.
+- Excluir só a reserva de uma atividade: na agenda do dia ("excluir reserva") ou na tela de edição da atividade.

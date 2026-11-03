@@ -28,6 +28,7 @@ export type AgendaEntry = {
     code: string | null;
     price: string | null;
     currency: string | null;
+    documentId: string | null;
   } | null;
 };
 
@@ -139,6 +140,7 @@ export async function getAgenda(
               code: i.reservationCode,
               price: i.reservationPrice,
               currency: i.reservationCurrency,
+              documentId: i.reservationDocumentId,
             }
           : null,
     })),

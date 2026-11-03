@@ -11,6 +11,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!impersonating && realUser.mustChangePassword) redirect("/account/password");
 
   const isAgencyView = user.role === "MASTER";
+  const isTraveler = user.role === "TRAVELER";
 
   return (
     <>
@@ -32,7 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
           <div className="flex items-center gap-6">
-            <Link href={isAgencyView ? "/agency" : "/"} className="text-base font-semibold text-teal-800">
+            <Link href={isAgencyView ? "/agency" : isTraveler ? "/traveler" : "/"} className="text-base font-semibold text-teal-800">
               ✈ Minhas Viagens
               {isAgencyView && <span className="ml-2 text-xs font-normal text-slate-500">Agência</span>}
             </Link>
@@ -40,6 +41,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               {isAgencyView ? (
                 <Link href="/agency" className="hover:text-teal-800">
                   Clientes
+                </Link>
+              ) : isTraveler ? (
+                <Link href="/traveler" className="hover:text-teal-800">
+                  Minhas viagens
                 </Link>
               ) : (
                 <>

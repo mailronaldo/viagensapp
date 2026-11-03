@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { getSession } from "./session";
 
-export type Role = "MASTER" | "CLIENT";
+export type Role = "MASTER" | "CLIENT" | "TRAVELER";
 
 export type CurrentUser = {
   id: string;
@@ -87,6 +87,7 @@ export async function requireUser(): Promise<CurrentUser> {
 /** Área do cliente: o usuário efetivo precisa ser CLIENT (a agência entra via personificação). */
 export async function requireClient(): Promise<CurrentUser> {
   const { user } = await requireAuth();
+  if (user.role === "TRAVELER") redirect("/traveler");
   if (user.role !== "CLIENT") redirect("/agency");
   return user;
 }

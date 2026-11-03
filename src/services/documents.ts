@@ -23,7 +23,12 @@ export function validateUpload(file: File) {
 export async function addDocument(
   tripId: string,
   file: File,
-  meta: { type: DocType; title?: string },
+  meta: {
+    type: DocType;
+    title?: string;
+    visibility?: "OWNER" | "GROUP" | "TRAVELER";
+    travelerId?: string | null;
+  },
 ) {
   validateUpload(file);
   const storageKey = await saveFile(tripId, file);
@@ -37,6 +42,8 @@ export async function addDocument(
       mimeType: file.type,
       sizeBytes: file.size,
       storageKey,
+      visibility: meta.visibility ?? "OWNER",
+      travelerId: meta.visibility === "TRAVELER" ? (meta.travelerId ?? null) : null,
     })
     .returning();
   return doc;

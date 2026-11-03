@@ -67,7 +67,9 @@ export const documentType = pgEnum("document_type", [
 
 // MASTER = a agência de turismo (dona do sistema); CLIENT = cliente da agência.
 // Viajantes não são usuários: são cadastros (tabela travelers) de cada cliente.
-export const userRole = pgEnum("user_role", ["MASTER", "CLIENT"]);
+export const userRole = pgEnum("user_role", ["MASTER", "CLIENT", "TRAVELER"]);
+// Quem enxerga o documento além do dono da viagem: ninguém, todo o grupo ou um viajante.
+export const docVisibility = pgEnum("doc_visibility", ["OWNER", "GROUP", "TRAVELER"]);
 
 export const users = pgTable("users", {
   id: id(),
@@ -221,6 +223,9 @@ export const documents = pgTable(
     sizeBytes: integer("size_bytes").notNull(),
     // Chave no storage (disco local no dev; S3/R2 em produção)
     storageKey: text("storage_key").notNull(),
+    visibility: docVisibility("visibility").notNull().default("OWNER"),
+    // Só quando visibility = TRAVELER: o viajante dono do documento.
+    travelerId: text("traveler_id").references(() => travelers.id, { onDelete: "set null" }),
     createdAt: createdAt(),
   },
   (t) => [index("documents_trip_type_idx").on(t.tripId, t.type)],

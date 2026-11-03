@@ -72,6 +72,29 @@ def T(r):
     return soup(r).get_text()
 
 
+def submit_in_li(sess, url, li_text, button_text, fields=None):
+    """Envia o formulário (com um botão `button_text`) que está no <li> que contém `li_text`."""
+    for li in soup(sess.get(url)).find_all("li"):
+        if li_text not in li.get_text():
+            continue
+        for form in li.find_all("form"):
+            if button_text not in form.get_text():
+                continue
+            data = {}
+            for inp in form.find_all(["input", "select"]):
+                if not inp.get("name"):
+                    continue
+                if inp.name == "select":
+                    opt = inp.find("option", selected=True) or inp.find("option")
+                    data[inp["name"]] = opt.get("value", opt.text) if opt else ""
+                else:
+                    data[inp["name"]] = inp.get("value", "")
+            data.update(fields or {})
+            target = requests.compat.urljoin(url, form.get("action") or url)
+            return sess.post(target, files={k: (None, v) for k, v in data.items()}, headers={"Origin": BASE})
+    raise SystemExit(f"formulário '{button_text}' em '{li_text}' não encontrado em {url}")
+
+
 def temp_password(r):
     m = re.search(r"<code[^>]*>([A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4})</code>", r.text)
     return m.group(1) if m else None
@@ -352,6 +375,132 @@ check("Joao do Bob" not in alice.get(TV).text, "viajantes de um cliente não apa
 check(alice.get(BASE + bob_trav_href, allow_redirects=False).status_code == 404, "cliente não abre viajante de outro (404)")
 r = submit(alice, trip_url, 'name="travelerId"', {"travelerId": bob_trav_id})
 check("Joao do Bob" not in r.text, "não dá para incluir viajante de outro cliente na própria viagem")
+
+print("Excluir reserva e links na agenda do dia")
+d11 = f"{it}/day/2026-11-11"
+submit(alice, item_url, 'name="reservationCode"', {"reservationProvider": "Museu", "reservationCode": "MUS9", "reservationPrice": "10,00", "reservationCurrency": "EUR"})
+page = soup(alice.get(d11))
+check(any(a.get_text(strip=True) == "reservado" for a in page.find_all("a")), "reserva cadastrada para testar a exclusão")
+r = submit(alice, d11, "excluir reserva")
+page = soup(r)
+check(any(a.get_text(strip=True) == "sem reserva" for a in page.find_all("a")) and "MUS9" not in T(r), "excluir reserva pela agenda do dia")
+check("Torre de Belém (editada)" in T(r), "a atividade continua depois de excluir a reserva")
+submit(alice, item_url, 'name="reservationCode"', {"reservationProvider": "Museu", "reservationCode": "MUS9"})
+r = submit(alice, item_url, "Excluir só a reserva")
+check('value="MUS9"' not in alice.get(item_url).text and "Torre de Belém (editada)" in alice.get(d11).text, "excluir reserva pela tela de edição")
+r = alice.get(item_url)
+check("Excluir só a reserva" not in T(r), "sem reserva, a opção de excluir some")
+
+d10 = f"{it}/day/2026-11-10"
+submit(alice, lg, 'name="checkInDate"', {"name": "Pousada Teste", "checkInDate": "2026-11-10", "checkOutDate": "2026-11-11", "confirmationCode": "P77"},
+       files={"voucher": ("pousada.pdf", io.BytesIO(b"%PDF-1.4 pousada"), "application/pdf")})
+page = soup(alice.get(d10))
+tr_link = [a for a in page.find_all("a") if a.get_text(strip=True) == "transporte"]
+lg_link = [a for a in page.find_all("a") if a.get_text(strip=True) == "hospedagem"]
+check(tr_link and "/transports/" in tr_link[0]["href"], "transporte na agenda tem link para detalhes/edição")
+check(lg_link and "/lodgings/" in lg_link[0]["href"], "hospedagem na agenda tem link para detalhes/edição")
+check(alice.get(BASE + lg_link[0]["href"]).status_code == 200, "o link da hospedagem abre a edição")
+
+print("Painel do viajante")
+maria_href = alice_hrefs[1]
+maria_url = BASE + maria_href
+maria_id = maria_href.rsplit("/", 1)[1]
+r = alice.get(BASE + alice_hrefs[0])
+check("Cadastre o e-mail do viajante" in T(r), "viajante sem e-mail não gera acesso")
+submit(alice, trip_url, 'name="travelerId"', {"travelerId": maria_id})
+r = submit(alice, maria_url, "Gerar acesso")
+m_temp = temp_password(r)
+check(m_temp is not None, "acesso do viajante gerado com senha temporária")
+check("Status:" in T(alice.get(maria_url)) and "ativo" in T(alice.get(maria_url)), "ficha mostra acesso ativo")
+mar, r = login("maria@teste.dev", m_temp)
+check("/account/password" in r.url or "Defina sua senha" in r.text, "viajante troca a senha no primeiro acesso")
+r = submit(mar, PW, 'name="confirm"', {"current": m_temp, "next": "senha-da-maria-1", "confirm": "senha-da-maria-1"})
+check("somente para consulta" in T(r), "viajante cai no painel dele")
+mar, r = login("maria@teste.dev", "senha-da-maria-1")
+check("somente para consulta" in T(r) and "Portugal E2E editada" in T(r), "painel lista a viagem em que ela está")
+check(mar.get(f"{BASE}/", allow_redirects=False).headers.get("location", "").endswith("/traveler"), "home do viajante vai para /traveler")
+panel = f"{BASE}/traveler/trips/{tid}"
+r = mar.get(panel)
+txt = T(r)
+check(r.status_code == 200 and "Roteiro resumido" in txt and "Transportes" in txt and "Hospedagens" in txt and "Documentos" in txt, "dashboard do viajante tem roteiro, transportes, hospedagens e documentos")
+check("R$" not in txt and "€" not in txt and "Custos" not in txt, "painel não mostra custos nem valores")
+check("Passaporte" not in txt, "documentos só do dono não aparecem")
+day_link = [a["href"] for a in soup(r).find_all("a") if "/day/" in a.get("href", "")]
+check(len(day_link) >= 6, "dias do roteiro resumido têm link para a agenda")
+r = mar.get(BASE + day_link[0])
+check(r.status_code == 200 and "Agenda do dia" in T(r), "agenda do dia no painel do viajante")
+check("Pousada Teste" in T(mar.get(f"{panel}/day/2026-11-10")), "agenda do viajante mostra a hospedagem")
+check("Editar" not in T(mar.get(f"{panel}/day/2026-11-11")) and "Remover" not in T(mar.get(f"{panel}/day/2026-11-11")), "painel é somente leitura (sem editar/remover)")
+for path in (f"/trips/{tid}", f"/trips/{tid}/expenses", f"/trips/{tid}/itinerary", "/travelers", "/agency"):
+    check(mar.get(BASE + path, allow_redirects=False).status_code in (404, 307, 303), f"viajante não acessa {path}")
+check(mar.get(f"{BASE}/trips/new", allow_redirects=False).status_code in (303, 307, 404), "viajante não cria viagem")
+
+# documentos: dono / grupo / viajante
+dc = f"{trip_url}/documents"
+pdf = lambda n: {"file": (n, io.BytesIO(b"%PDF-1.4 " + n.encode()), "application/pdf")}
+submit(alice, dc, 'name="file"', {"type": "INSURANCE", "title": "Seguro do grupo", "visibility": "GROUP"}, files=pdf("seguro.pdf"))
+submit(alice, dc, 'name="file"', {"type": "PASSPORT", "title": "Passaporte Maria", "visibility": f"TRAVELER:{maria_id}"}, files=pdf("pass-maria.pdf"))
+submit(alice, dc, 'name="file"', {"type": "PASSPORT", "title": "Passaporte Carlos", "visibility": f"TRAVELER:{carlos_id}"}, files=pdf("pass-carlos.pdf"))
+r = submit(alice, dc, 'name="file"', {"type": "OTHER", "title": "Fora do grupo", "visibility": "TRAVELER:inexistente"}, files=pdf("x.pdf"))
+check("não faz parte do grupo" in T(r), "documento para viajante fora do grupo é rejeitado")
+def doc_ids(sess):
+    out = {}
+    for a in soup(sess.get(dc)).find_all("a", href=re.compile(r"^/api/files/")):
+        out[a.get_text(strip=True)] = a["href"]
+    return out
+ids = doc_ids(alice)
+check({"Seguro do grupo", "Passaporte Maria", "Passaporte Carlos", "Passaporte Alice"} <= set(ids), "dono vê todos os documentos")
+txt = T(mar.get(panel))
+check("Seguro do grupo" in txt and "Passaporte Maria" in txt, "viajante vê o documento do grupo e o dele")
+check("Passaporte Carlos" not in txt and "Passaporte Alice" not in txt, "viajante não vê o de outro viajante nem o do dono")
+check(mar.get(BASE + ids["Seguro do grupo"]).status_code == 200, "viajante baixa documento do grupo")
+check(mar.get(BASE + ids["Passaporte Maria"]).status_code == 200, "viajante baixa o próprio documento")
+check(mar.get(BASE + ids["Passaporte Carlos"], allow_redirects=False).status_code == 404, "viajante não baixa o de outro viajante")
+check(mar.get(BASE + ids["Passaporte Alice"], allow_redirects=False).status_code == 404, "viajante não baixa documento só do dono")
+rec = [h for k, h in ids.items() if k.startswith("Recibo")]
+check(rec and alice.get(BASE + rec[0]).status_code in (200, 404), "recibo existe na central do dono")
+check(mar.get(BASE + rec[0], allow_redirects=False).status_code == 404, "viajante não baixa recibo")
+lodg_doc = [a["href"] for a in soup(alice.get(lg)).find_all("a", href=re.compile(r"^/api/files/")) if "pousada.pdf" in a.get_text()][0]
+check(mar.get(BASE + lodg_doc).status_code == 200, "viajante baixa voucher anexado à hospedagem")
+r = submit_in_li(alice, dc, "Passaporte Alice", "Salvar", {"visibility": f"TRAVELER:{maria_id}"})
+check(mar.get(BASE + ids["Passaporte Alice"]).status_code == 200 and "Passaporte Alice" in T(mar.get(panel)), "dono muda a visibilidade e o viajante passa a ver")
+r = submit_in_li(alice, dc, "Passaporte Alice", "Salvar", {"visibility": "OWNER"})
+check(mar.get(BASE + ids["Passaporte Alice"], allow_redirects=False).status_code == 404, "voltando para só o dono, o acesso some")
+check(requests.get(BASE + ids["Seguro do grupo"]).status_code == 401, "anônimo não baixa documento do grupo")
+check(bob.get(BASE + ids["Seguro do grupo"], allow_redirects=False).status_code == 404, "outro cliente não baixa documento do grupo")
+check(bob.get(panel, allow_redirects=False).status_code == 404, "outro cliente não abre o painel")
+
+# dono visualiza o painel
+r = alice.get(panel)
+check(r.status_code == 200 and "como o viajante o enxerga" in T(r) and "Passaporte Alice" in T(r), "dono abre o painel do viajante (vê tudo)")
+check(len(soup(alice.get(trip_url)).find_all("a", string=re.compile("painel do viajante"))) == 1, "link para o painel na viagem")
+
+# tirar do grupo corta o acesso
+submit_in_li(alice, trip_url, "Maria Silva", "Remover")
+check(mar.get(panel, allow_redirects=False).status_code == 404, "fora do grupo, o viajante perde o painel")
+check(mar.get(BASE + ids["Seguro do grupo"], allow_redirects=False).status_code == 404, "fora do grupo, perde os arquivos")
+submit(alice, trip_url, 'name="travelerId"', {"travelerId": maria_id})
+check(mar.get(panel).status_code == 200, "de volta ao grupo, o acesso volta")
+
+# desativar / redefinir / excluir
+r = submit(alice, maria_url, "Desativar acesso")
+check("desativado" in T(alice.get(maria_url)), "acesso desativado")
+check("/login" in mar.get(panel).url, "sessão do viajante desativado cai na hora")
+_, r = login("maria@teste.dev", "senha-da-maria-1")
+check("desativada" in T(r), "viajante desativado não entra")
+submit(alice, maria_url, "Reativar acesso")
+_, r = login("maria@teste.dev", "senha-da-maria-1")
+check("somente para consulta" in T(r), "acesso reativado")
+r = submit(alice, maria_url, "Gerar nova senha temporária")
+m_temp2 = temp_password(r)
+check(m_temp2 and m_temp2 != m_temp, "nova senha temporária gerada")
+_, r = login("maria@teste.dev", "senha-da-maria-1")
+check("incorretos" in T(r), "senha antiga deixa de valer")
+r = submit(alice, maria_url, 'name="documentNumber"', {"name": "Maria Silva Souza", "email": "outro@teste.dev"})
+check('value="maria@teste.dev"' in alice.get(maria_url).text, "e-mail com acesso gerado não muda")
+r = submit(alice, maria_url, "Excluir este viajante")
+_, r = login("maria@teste.dev", m_temp2)
+check("incorretos" in T(r), "excluir o viajante apaga o login dele")
 
 print("Isolamento entre clientes")
 check(bob.get(trip_url, allow_redirects=False).status_code == 404, "Bob recebe 404 na viagem da Alice")

@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireClient } from "@/lib/auth";
-import { deleteTravelerAction, updateTravelerAction } from "@/app/actions/travelers";
-import { Card, ErrorBanner, Field, btnDanger, btnPrimary, inputCls } from "@/components/ui";
+import { deleteTravelerAction, setTravelerAccessActiveAction, updateTravelerAction } from "@/app/actions/travelers";
+import { TravelerAccessForm } from "@/components/TravelerAccess";
+import { getLoginUrl } from "@/lib/origin";
+import { Card, ErrorBanner, Field, btnDanger, btnGhost, btnPrimary, inputCls } from "@/components/ui";
 
 export const metadata = { title: "Editar viajante" };
 
@@ -27,6 +29,15 @@ export default async function EditTravelerPage({
     .limit(1);
   if (!tr) notFound();
 
+  const [login] = tr.userId
+    ? await db
+        .select({ active: t.users.active, mustChangePassword: t.users.mustChangePassword })
+        .from(t.users)
+        .where(eq(t.users.id, tr.userId))
+        .limit(1)
+    : [];
+  const loginUrl = await getLoginUrl();
+
   return (
     <div className="mx-auto max-w-2xl">
       <Link href="/travelers" className="text-xs text-slate-500 hover:underline">
@@ -43,7 +54,13 @@ export default async function EditTravelerPage({
             <input name="birthDate" type="date" defaultValue={tr.birthDate ?? ""} className={inputCls} />
           </Field>
           <Field label="E-mail" className="sm:col-span-3">
-            <input name="email" type="email" defaultValue={tr.email ?? ""} className={inputCls} />
+            <input
+              name="email"
+              type="email"
+              defaultValue={tr.email ?? ""}
+              readOnly={!!tr.userId}
+              className={inputCls}
+            />
           </Field>
           <Field label="Telefone / WhatsApp" className="sm:col-span-3">
             <input name="phone" inputMode="tel" defaultValue={tr.phone ?? ""} className={inputCls} />
@@ -58,6 +75,33 @@ export default async function EditTravelerPage({
             <button className={btnPrimary}>Salvar</button>
           </div>
         </form>
+      </Card>
+      <Card className="mt-6">
+        <h2 className="mb-1 font-medium">Acesso ao painel do viajante</h2>
+        <p className="mb-3 text-sm text-slate-600">
+          Com o acesso, {tr.name.split(" ")[0]} entra com o e-mail do cadastro e vê, somente para leitura, o
+          roteiro, as agendas, transportes, hospedagens e os documentos liberados para ele nas viagens em que
+          estiver no grupo.
+        </p>
+        {tr.userId ? (
+          <p className="mb-3 text-sm">
+            Status:{" "}
+            <strong className={login?.active ? "text-emerald-700" : "text-rose-700"}>
+              {login?.active ? "ativo" : "desativado"}
+            </strong>
+            {login?.mustChangePassword ? " · ainda não trocou a senha temporária" : ""}
+          </p>
+        ) : !tr.email ? (
+          <p className="mb-3 text-sm text-amber-700">Cadastre o e-mail do viajante acima e salve para poder gerar o acesso.</p>
+        ) : null}
+        {tr.email && (
+          <TravelerAccessForm travelerId={tr.id} hasAccess={!!tr.userId} loginUrl={loginUrl} />
+        )}
+        {tr.userId && (
+          <form action={setTravelerAccessActiveAction.bind(null, tr.id, !login?.active)} className="mt-3">
+            <button className={btnGhost}>{login?.active ? "Desativar acesso" : "Reativar acesso"}</button>
+          </form>
+        )}
       </Card>
       <form action={deleteTravelerAction.bind(null, tr.id)} className="mt-4">
         <button className={btnDanger}>Excluir este viajante</button>

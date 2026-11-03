@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { and, asc, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
-import { deleteItemAction, updateItemAction } from "@/app/actions/items";
+import { deleteItemAction, removeReservationAction, updateItemAction } from "@/app/actions/items";
 import { ItemFields } from "@/components/TripFields";
 import { Card, ErrorBanner, btnDanger, btnGhost, btnPrimary } from "@/components/ui";
 
@@ -66,6 +66,16 @@ export default async function EditItemPage({
           </div>
         </form>
       </Card>
+      {(item.reservationProvider ||
+        item.reservationCode ||
+        item.reservationPrice ||
+        item.reservationDetails ||
+        item.reservationDocumentId) && (
+        <form action={removeReservationAction.bind(null, trip.id, item.id, "edit")} className="mt-4">
+          <button className={btnDanger}>Excluir só a reserva desta atividade</button>
+          <span className="ml-2 text-xs text-slate-400">(a atividade e o arquivo do voucher ficam)</span>
+        </form>
+      )}
       <form action={deleteItemAction.bind(null, trip.id, item.id, item.date)} className="mt-4">
         <button className={btnDanger}>Excluir esta atividade</button>
       </form>

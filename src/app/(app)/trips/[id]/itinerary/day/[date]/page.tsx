@@ -8,7 +8,7 @@ import { addDays, formatDate, formatMoney, formatWeekday } from "@/lib/format";
 import { BOOKING_TYPE_LABEL, ITEM_TYPE_LABEL, LODGING_TYPE_LABEL } from "@/lib/labels";
 import { getAgenda } from "@/services/agenda";
 import { getDayPlan } from "@/services/itinerary";
-import { addItemAction, deleteItemAction } from "@/app/actions/items";
+import { addItemAction, deleteItemAction, removeReservationAction } from "@/app/actions/items";
 import { saveDayAction } from "@/app/actions/days";
 import { ItemFields } from "@/components/TripFields";
 import {
@@ -134,14 +134,20 @@ export default async function ItineraryDayPage({
                   <p className="text-sm font-medium">
                     {e.title}
                     {e.kind === "booking" && (
-                      <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-normal uppercase text-slate-500">
+                      <Link
+                        href={`/trips/${trip.id}/transports/${e.id}`}
+                        className="ml-2 rounded bg-sky-50 px-1.5 py-0.5 text-[10px] font-normal uppercase text-sky-800 hover:bg-sky-100"
+                      >
                         transporte
-                      </span>
+                      </Link>
                     )}
                     {e.kind === "lodging" && (
-                      <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-normal uppercase text-slate-500">
+                      <Link
+                        href={`/trips/${trip.id}/lodgings/${e.id}`}
+                        className="ml-2 rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-normal uppercase text-violet-800 hover:bg-violet-100"
+                      >
                         hospedagem
-                      </span>
+                      </Link>
                     )}
                     {e.kind === "item" && e.type !== "FREE_TIME" && (
                       <Link
@@ -180,6 +186,11 @@ export default async function ItineraryDayPage({
                       <Link href={`${base}/items/${e.id}#reserva`} className="underline">
                         ver / editar
                       </Link>
+                      {canWrite && (
+                        <form action={removeReservationAction.bind(null, trip.id, e.id, "day")} className="ml-2 inline">
+                          <button className={btnDanger}>excluir reserva</button>
+                        </form>
+                      )}
                     </p>
                   )}
                   {e.address && <p className="text-xs text-slate-400">{e.address}</p>}

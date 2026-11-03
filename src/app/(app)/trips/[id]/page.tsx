@@ -165,6 +165,9 @@ export default async function TripOverviewPage({
               <button className={btnGhost}>Incluir</button>
             </form>
           )}
+          <Link href={`/traveler/trips/${trip.id}`} className="mt-3 inline-block text-sm text-teal-700 hover:underline">
+            Ver o painel do viajante (como eles veem)
+          </Link>
           {canWrite && ownerTravelers.length === 0 && (
             <p className="mt-3 text-xs text-slate-500">
               Cadastre pessoas em{" "}

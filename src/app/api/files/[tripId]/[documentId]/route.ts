@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getTripAccessFor } from "@/lib/access";
 import { getDocument } from "@/services/documents";
+import { getTravelerIdFor, travelerCanReadDocument } from "@/lib/traveler-access";
 import { readStoredFile } from "@/lib/storage";
 
-// Download autenticado: só membros da viagem acessam o arquivo. A agência, ao acessar a
+// Download autenticado: membros da viagem e viajantes (com as regras de visibilidade) acessam o arquivo. A agência, ao acessar a
 // área de um cliente, é tratada como o próprio cliente (usuário efetivo).
 export async function GET(
   _req: Request,
@@ -15,10 +16,16 @@ export async function GET(
   const user = await getCurrentUser();
   if (!user) return new NextResponse("Não autenticado", { status: 401 });
 
-  const access = await getTripAccessFor(user.id, tripId);
-  if (!access) return new NextResponse("Não encontrado", { status: 404 });
-
   const doc = await getDocument(tripId, documentId);
+
+  const access = await getTripAccessFor(user.id, tripId);
+  if (!access) {
+    // Viajante: só abre o que é do grupo, dele, ou está anexado ao que ele vê no painel.
+    const travelerId = user.role === "TRAVELER" ? await getTravelerIdFor(user.id, tripId) : null;
+    if (!doc || !travelerId || !(await travelerCanReadDocument(tripId, travelerId, doc))) {
+      return new NextResponse("Não encontrado", { status: 404 });
+    }
+  }
   if (!doc) return new NextResponse("Não encontrado", { status: 404 });
 
   let data: Buffer;
