@@ -4,21 +4,11 @@ import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
+import { attachmentFromForm } from "@/lib/attachment";
 import { BOOKING_TYPE_LABEL, CURRENCIES } from "@/lib/labels";
-import {
-  LOCAL_DATETIME,
-  fail,
-  file,
-  parseDecimal,
-  str,
-  toWallClock,
-} from "@/lib/form";
-import { addDocument } from "@/services/documents";
+import { LOCAL_DATETIME, fail, parseDecimal, str, toWallClock } from "@/lib/form";
 
-export async function addBookingAction(tripId: string, formData: FormData) {
-  await requireTripAccess(tripId, { write: true });
-  const back = `/trips/${tripId}/bookings`;
-
+function parseBooking(formData: FormData, back: string) {
   const type = str(formData, "type") ?? "OTHER";
   const title = str(formData, "title");
   const startAt = str(formData, "startAt");
@@ -39,22 +29,7 @@ export async function addBookingAction(tripId: string, formData: FormData) {
   if (priceRaw && totalPrice === null) fail(back, "Valor inválido.");
   if (totalPrice && !currency) fail(back, "Informe a moeda do valor.");
 
-  let documentId: string | null = null;
-  const voucher = file(formData, "voucher");
-  if (voucher) {
-    try {
-      const doc = await addDocument(tripId, voucher, {
-        type: "RESERVATION",
-        title: `Reserva — ${title}`,
-      });
-      documentId = doc.id;
-    } catch (e) {
-      fail(back, e instanceof Error ? e.message : "Falha no upload do voucher.");
-    }
-  }
-
-  await db.insert(t.bookings).values({
-    tripId,
+  return {
     type: type as keyof typeof BOOKING_TYPE_LABEL,
     title,
     provider: str(formData, "provider"),
@@ -66,11 +41,56 @@ export async function addBookingAction(tripId: string, formData: FormData) {
     address: str(formData, "address"),
     details: str(formData, "details"),
     totalPrice,
-    currency,
-    documentId,
+    // Sem valor, a moeda não faz sentido guardar.
+    currency: totalPrice ? currency : null,
+  };
+}
+
+export async function addBookingAction(tripId: string, formData: FormData) {
+  await requireTripAccess(tripId, { write: true });
+  const back = `/trips/${tripId}/bookings`;
+  const v = parseBooking(formData, back);
+
+  const documentId = await attachmentFromForm({
+    tripId,
+    formData,
+    fileField: "voucher",
+    doc: { type: "RESERVATION", title: `Reserva — ${v.title}` },
+    back,
+    current: null,
   });
 
+  await db.insert(t.bookings).values({ tripId, ...v, documentId });
   redirect(back);
+}
+
+export async function updateBookingAction(tripId: string, bookingId: string, formData: FormData) {
+  await requireTripAccess(tripId, { write: true });
+  const back = `/trips/${tripId}/bookings/${bookingId}`;
+
+  const [current] = await db
+    .select()
+    .from(t.bookings)
+    .where(and(eq(t.bookings.id, bookingId), eq(t.bookings.tripId, tripId)))
+    .limit(1);
+  if (!current) redirect(`/trips/${tripId}/bookings`);
+
+  const v = parseBooking(formData, back);
+  const documentId = await attachmentFromForm({
+    tripId,
+    formData,
+    fileField: "voucher",
+    removeField: "removeVoucher",
+    doc: { type: "RESERVATION", title: `Reserva — ${v.title}` },
+    back,
+    current: current.documentId,
+  });
+
+  await db
+    .update(t.bookings)
+    .set({ ...v, documentId })
+    .where(and(eq(t.bookings.id, bookingId), eq(t.bookings.tripId, tripId)));
+  redirect(`/trips/${tripId}/bookings`);
 }
 
 export async function deleteBookingAction(tripId: string, bookingId: string) {

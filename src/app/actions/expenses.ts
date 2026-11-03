@@ -4,15 +4,16 @@ import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
+import { attachmentFromForm } from "@/lib/attachment";
 import { CURRENCIES, EXPENSE_CATEGORY_LABEL } from "@/lib/labels";
-import { ISO_DATE, fail, file, parseDecimal, parseRate, str } from "@/lib/form";
-import { addDocument } from "@/services/documents";
+import { ISO_DATE, fail, parseDecimal, parseRate, str } from "@/lib/form";
 import { addExpense } from "@/services/expenses";
 
-export async function addExpenseAction(tripId: string, formData: FormData) {
-  const { user, trip } = await requireTripAccess(tripId, { write: true });
-  const back = `/trips/${tripId}/expenses`;
-
+function parseExpense(
+  trip: { baseCurrency: string },
+  formData: FormData,
+  back: string,
+) {
   const date = str(formData, "date");
   const description = str(formData, "description");
   const category = str(formData, "category") ?? "OTHER";
@@ -30,21 +31,7 @@ export async function addExpenseAction(tripId: string, formData: FormData) {
   const exchangeRate = parseRate(rateRaw);
   if (rateRaw && exchangeRate === null) fail(back, "Cotação inválida.");
 
-  let receiptDocumentId: string | null = null;
-  const receipt = file(formData, "receipt");
-  if (receipt) {
-    try {
-      const doc = await addDocument(tripId, receipt, {
-        type: "RECEIPT",
-        title: `Recibo — ${description}`,
-      });
-      receiptDocumentId = doc.id;
-    } catch (e) {
-      fail(back, e instanceof Error ? e.message : "Falha no upload do recibo.");
-    }
-  }
-
-  await addExpense(tripId, user.id, {
+  return {
     date,
     category: category as keyof typeof EXPENSE_CATEGORY_LABEL,
     description,
@@ -52,10 +39,55 @@ export async function addExpenseAction(tripId: string, formData: FormData) {
     currency,
     exchangeRate: currency === trip.baseCurrency ? null : exchangeRate,
     paymentMethod: str(formData, "paymentMethod"),
-    receiptDocumentId,
+  };
+}
+
+export async function addExpenseAction(tripId: string, formData: FormData) {
+  const { user, trip } = await requireTripAccess(tripId, { write: true });
+  const back = `/trips/${tripId}/expenses`;
+  const v = parseExpense(trip, formData, back);
+
+  const receiptDocumentId = await attachmentFromForm({
+    tripId,
+    formData,
+    fileField: "receipt",
+    doc: { type: "RECEIPT", title: `Recibo — ${v.description}` },
+    back,
+    current: null,
   });
 
+  await addExpense(tripId, user.id, { ...v, receiptDocumentId });
   redirect(back);
+}
+
+export async function updateExpenseAction(tripId: string, expenseId: string, formData: FormData) {
+  const { trip } = await requireTripAccess(tripId, { write: true });
+  const back = `/trips/${tripId}/expenses/${expenseId}`;
+
+  const [current] = await db
+    .select()
+    .from(t.expenses)
+    .where(and(eq(t.expenses.id, expenseId), eq(t.expenses.tripId, tripId)))
+    .limit(1);
+  if (!current) redirect(`/trips/${tripId}/expenses`);
+
+  const v = parseExpense(trip, formData, back);
+  const receiptDocumentId = await attachmentFromForm({
+    tripId,
+    formData,
+    fileField: "receipt",
+    removeField: "removeReceipt",
+    doc: { type: "RECEIPT", title: `Recibo — ${v.description}` },
+    back,
+    current: current.receiptDocumentId,
+  });
+
+  // paidById e source (origem do lançamento) permanecem como foram criados.
+  await db
+    .update(t.expenses)
+    .set({ ...v, receiptDocumentId })
+    .where(and(eq(t.expenses.id, expenseId), eq(t.expenses.tripId, tripId)));
+  redirect(`/trips/${tripId}/expenses`);
 }
 
 export async function deleteExpenseAction(tripId: string, expenseId: string) {

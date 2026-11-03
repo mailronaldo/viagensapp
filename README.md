@@ -22,7 +22,7 @@ Variáveis (`.env`):
 | `UPLOAD_DIR` | pasta dos arquivos enviados (padrão `./uploads`) |
 | `COOKIE_SECURE` | `false` só para rodar em HTTP puro; em produção use HTTPS |
 
-Testes: `npm run test:services` (serviços + isolamento, direto no banco) e, com o servidor no ar, `python3 scripts/e2e_roles.py` (fluxo completo por HTTP, 63 verificações; precisa de `BASE`, `MASTER_EMAIL` e `MASTER_PASSWORD`, num banco novo).
+Testes: `npm run test:services` (serviços + isolamento, direto no banco) e, com o servidor no ar, `python3 scripts/e2e_roles.py` (fluxo completo por HTTP, 88 verificações; precisa de `BASE`, `MASTER_EMAIL` e `MASTER_PASSWORD`, num banco novo).
 
 ## Arquitetura
 
@@ -74,3 +74,6 @@ Pontos de atenção da Meta: conta business verificada, número dedicado, janela
 - **CLIENT**: tem seu painel de viagens e cadastra **viajantes** (`/travelers`), que podem ser incluídos no grupo de cada viagem. No primeiro acesso troca a senha temporária.
 - Não há cadastro público. A primeira conta MASTER nasce no start a partir de `MASTER_EMAIL`, `MASTER_PASSWORD` e `MASTER_NAME`; depois remova `MASTER_PASSWORD`.
 - Login/permissões dos viajantes dentro da viagem ficam para uma próxima versão.
+
+## Edição
+Atividades (`/trips/:id/itinerary/items/:itemId`), reservas (`/bookings/:bookingId`) e custos (`/expenses/:expenseId`) podem ser editados e excluídos. Em cada um é possível manter, substituir ou remover o anexo (ingresso, voucher, recibo); o arquivo antigo continua na Central de documentos.

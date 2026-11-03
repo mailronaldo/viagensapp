@@ -2,17 +2,17 @@ import { asc, eq, sql } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { formatDateTime, formatMoney } from "@/lib/format";
-import { BOOKING_TYPE_LABEL, CURRENCIES } from "@/lib/labels";
+import { BOOKING_TYPE_LABEL } from "@/lib/labels";
+import Link from "next/link";
+import { BookingFields } from "@/components/TripFields";
 import { addBookingAction, deleteBookingAction } from "@/app/actions/bookings";
 import {
   AddPanel,
   Card,
   EmptyState,
   ErrorBanner,
-  Field,
   btnDanger,
   btnPrimary,
-  inputCls,
 } from "@/components/ui";
 
 const ICON: Record<string, string> = {
@@ -52,55 +52,7 @@ export default async function BookingsPage({
             action={addBookingAction.bind(null, trip.id)}
             className="grid gap-3 sm:grid-cols-6"
           >
-            <Field label="Tipo" className="sm:col-span-2">
-              <select name="type" className={inputCls} defaultValue="FLIGHT">
-                {Object.entries(BOOKING_TYPE_LABEL).map(([v, l]) => (
-                  <option key={v} value={v}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Título" className="sm:col-span-4">
-              <input name="title" required placeholder="Ex.: Voo GRU → LIS" className={inputCls} />
-            </Field>
-            <Field label="Companhia / fornecedor" className="sm:col-span-3">
-              <input name="provider" className={inputCls} />
-            </Field>
-            <Field label="Código de confirmação" className="sm:col-span-3">
-              <input name="confirmationCode" className={inputCls} />
-            </Field>
-            <Field label="Início (horário local do local)" className="sm:col-span-3">
-              <input name="startAt" type="datetime-local" className={inputCls} />
-            </Field>
-            <Field label="Término (horário local do local)" className="sm:col-span-3">
-              <input name="endAt" type="datetime-local" className={inputCls} />
-            </Field>
-            <Field label="Origem (voos/trens)" className="sm:col-span-3">
-              <input name="origin" className={inputCls} />
-            </Field>
-            <Field label="Destino (voos/trens)" className="sm:col-span-3">
-              <input name="destination" className={inputCls} />
-            </Field>
-            <Field label="Endereço (hotéis/locais)" className="sm:col-span-6">
-              <input name="address" className={inputCls} />
-            </Field>
-            <Field label="Valor total" className="sm:col-span-2">
-              <input name="totalPrice" inputMode="decimal" placeholder="0,00" className={inputCls} />
-            </Field>
-            <Field label="Moeda" className="sm:col-span-1">
-              <select name="currency" defaultValue={trip.baseCurrency} className={inputCls}>
-                {CURRENCIES.map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Voucher / e-ticket (PDF ou imagem)" className="sm:col-span-3">
-              <input name="voucher" type="file" accept="application/pdf,image/*" className={inputCls} />
-            </Field>
-            <Field label="Detalhes" className="sm:col-span-6">
-              <textarea name="details" rows={2} className={inputCls} />
-            </Field>
+            <BookingFields trip={trip} />
             <div className="sm:col-span-6">
               <button className={btnPrimary}>Salvar reserva</button>
             </div>
@@ -157,9 +109,14 @@ export default async function BookingsPage({
                   )}
                 </div>
                 {canWrite && (
-                  <form action={deleteBookingAction.bind(null, trip.id, b.id)}>
-                    <button className={btnDanger}>Remover</button>
-                  </form>
+                  <div className="flex shrink-0 items-start gap-3">
+                    <Link href={`/trips/${trip.id}/bookings/${b.id}`} className="text-xs text-teal-700 hover:underline">
+                      Editar
+                    </Link>
+                    <form action={deleteBookingAction.bind(null, trip.id, b.id)}>
+                      <button className={btnDanger}>Remover</button>
+                    </form>
+                  </div>
                 )}
               </Card>
             </li>

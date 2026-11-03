@@ -157,6 +157,63 @@ file_link = next(a["href"] for a in soup(alice.get(dc)).find_all("a") if a.get("
 r = alice.get(BASE + file_link)
 check(r.status_code == 200 and r.content.startswith(b"%PDF"), "download do próprio cliente")
 
+print("Editar e excluir atividades, reservas e custos")
+def hrefs(sess, url, prefix):
+    return [a["href"] for a in soup(sess.get(url)).find_all("a") if a.get("href", "").startswith(prefix)]
+
+# atividade
+item_href = hrefs(alice, f"{it}?day=2026-11-10", f"/trips/{trip_url.rsplit('/', 1)[1]}/itinerary/items/")[0]
+item_url = BASE + item_href
+r = alice.get(item_url)
+check(r.status_code == 200 and 'value="Torre de Belém"' in r.text and "ingresso.pdf" in r.text, "tela de edição traz os dados e o anexo atual")
+r = submit(alice, item_url, 'name="startTime"', {"title": "Torre de Belém (editada)", "startTime": "11:15", "date": "2026-11-11", "costEstimate": "35,50"})
+check("Torre de Belém (editada)" in alice.get(f"{it}?day=2026-11-11").text, "atividade editada mudou de dia")
+check("11:15" in alice.get(f"{it}?day=2026-11-11").text, "novo horário gravado")
+check("Nada planejado para este dia" in alice.get(f"{it}?day=2026-11-10").text, "dia antigo não lista mais a atividade")
+check("ingresso.pdf" in alice.get(f"{it}?day=2026-11-11").text, "ingresso mantido sem reenviar")
+r = submit(alice, item_url, 'name="startTime"', {"date": "2027-01-01"})
+check("dentro do período" in r.text, "data fora da viagem rejeitada na edição")
+r = submit(alice, item_url, 'name="startTime"', {"startTime": "12:00", "endTime": "11:00", "date": "2026-11-11"})
+check("antes do início" in r.text, "término antes do início rejeitado")
+r = submit(alice, item_url, 'name="startTime"', {"date": "2026-11-11", "endTime": "", "removeTicket": "on"})
+check("ingresso.pdf" not in alice.get(f"{it}?day=2026-11-11").text, "anexo removido ao marcar a caixa")
+
+# reserva
+bk = f"{trip_url}/bookings"
+submit(alice, bk, 'name="voucher"', {"title": "Voo GRU-LIS", "type": "FLIGHT", "startAt": "2026-11-10T09:00",
+       "totalPrice": "3.500,00", "currency": "BRL"},
+       files={"voucher": ("eticket.pdf", io.BytesIO(b"%PDF-1.4 v1"), "application/pdf")})
+tid = trip_url.rsplit("/", 1)[1]
+bk_href = hrefs(alice, bk, f"/trips/{tid}/bookings/")[0]
+bk_url = BASE + bk_href
+r = alice.get(bk_url)
+check('value="Voo GRU-LIS"' in r.text and 'value="3500,00"' in r.text and 'value="2026-11-10T09:00"' in r.text, "reserva carrega valores (preço e data/hora)")
+r = submit(alice, bk_url, 'name="voucher"', {"title": "Voo GRU-LIS (remarcado)", "startAt": "2026-11-10T21:40", "confirmationCode": "ABC123"},
+           files={"voucher": ("eticket2.pdf", io.BytesIO(b"%PDF-1.4 v2"), "application/pdf")})
+lst = alice.get(bk).text
+check("remarcado" in lst and "ABC123" in lst and "21:40" in lst, "reserva editada")
+check("eticket2.pdf" in lst and "eticket.pdf" not in lst.replace("eticket2.pdf", ""), "voucher substituído por outro arquivo")
+r = submit(alice, bk_url, 'name="voucher"', {"totalPrice": "", "removeVoucher": "on"})
+lst = alice.get(bk).text
+check("eticket2.pdf" not in lst and "R$" not in lst.split("remarcado")[1][:400], "sem valor a moeda é descartada e voucher removido")
+
+# custo
+exp_href = hrefs(alice, ex, f"/trips/{tid}/expenses/")[0]
+exp_url = BASE + exp_href
+r = alice.get(exp_url)
+check('value="Almoço"' in r.text and 'value="20,00"' in r.text and 'value="6"' in r.text, "custo carrega valores")
+r = submit(alice, exp_url, 'name="amount"', {"description": "Almoço (editado)", "amount": "25,00", "category": "FOOD", "currency": "EUR", "exchangeRate": "6,00"})
+r = alice.get(ex)
+check("Almoço (editado)" in r.text and "150,00" in r.text, "custo editado e total reconvertido (25 EUR × 6 = R$ 150,00)")
+check("recibo" in r.text, "recibo mantido")
+r = submit(alice, exp_url, 'name="amount"', {"currency": "BRL", "exchangeRate": "9,99"})
+r = alice.get(ex)
+check("25,00" in r.text and "≈" not in r.text, "mudar para a moeda base zera a cotação")
+r = submit(alice, exp_url, 'name="amount"', {"amount": "0"})
+check("valor válido" in r.text, "valor zero rejeitado")
+r = submit(alice, exp_url, 'name="amount"', {"removeReceipt": "on", "amount": "25,00"})
+check("recibo" not in alice.get(ex).text.split("Almoço (editado)")[1][:600], "recibo removido")
+
 print("Viajantes")
 TV = f"{BASE}/travelers"
 r = submit(alice, TV, 'name="documentNumber"', {"name": "Maria Silva", "email": "maria@teste.dev", "birthDate": "1990-05-20", "phone": "+5511999998888"})
@@ -193,6 +250,17 @@ check(bob.get(trip_url, allow_redirects=False).status_code == 404, "Bob recebe 4
 check(bob.get(BASE + file_link, allow_redirects=False).status_code == 404, "Bob não baixa arquivo da Alice")
 check("Portugal E2E" not in bob.get(f"{BASE}/").text, "home do Bob não lista a viagem da Alice")
 check(requests.get(BASE + file_link).status_code == 401, "anônimo não baixa arquivo")
+for label, u in (("atividade", item_url), ("reserva", bk_url), ("custo", exp_url)):
+    check(bob.get(u, allow_redirects=False).status_code == 404, f"Bob não abre a edição de {label} da Alice")
+
+print("Excluir pela tela de edição")
+r = submit(alice, item_url, "Excluir esta atividade")
+check("Torre de Belém (editada)" not in alice.get(f"{it}?day=2026-11-11").text, "atividade excluída")
+check(alice.get(item_url, allow_redirects=False).status_code == 404, "atividade excluída some (404)")
+r = submit(alice, bk_url, "Excluir esta reserva")
+check("remarcado" not in alice.get(bk).text and alice.get(bk_url, allow_redirects=False).status_code == 404, "reserva excluída")
+r = submit(alice, exp_url, "Excluir este lançamento")
+check("Almoço (editado)" not in alice.get(ex).text and alice.get(exp_url, allow_redirects=False).status_code == 404, "custo excluído")
 
 print("Agência acessa a área do cliente")
 check(master.get(trip_url, allow_redirects=False).status_code == 404, "master, sem entrar na área do cliente, não vê a viagem")

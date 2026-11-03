@@ -4,14 +4,16 @@ import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
+import { attachmentFromForm } from "@/lib/attachment";
 import { ITEM_TYPE_LABEL } from "@/lib/labels";
-import { HH_MM, ISO_DATE, fail, file, parseDecimal, str } from "@/lib/form";
-import { addDocument } from "@/services/documents";
+import { HH_MM, ISO_DATE, fail, parseDecimal, str } from "@/lib/form";
 
-export async function addItemAction(tripId: string, formData: FormData) {
-  const { trip } = await requireTripAccess(tripId, { write: true });
-  const back = `/trips/${tripId}/itinerary`;
-
+async function parseItem(
+  tripId: string,
+  trip: { startDate: string; endDate: string },
+  formData: FormData,
+  back: string,
+) {
   const date = str(formData, "date");
   const title = str(formData, "title");
   const startTime = str(formData, "startTime");
@@ -26,6 +28,9 @@ export async function addItemAction(tripId: string, formData: FormData) {
   }
   if (startTime && !HH_MM.test(startTime)) fail(back, "Horário de início inválido.");
   if (endTime && !HH_MM.test(endTime)) fail(back, "Horário de término inválido.");
+  if (startTime && endTime && endTime < startTime) {
+    fail(back, "O término não pode ser antes do início.");
+  }
   if (!(type in ITEM_TYPE_LABEL)) fail(back, "Tipo inválido.");
 
   if (cityId) {
@@ -41,22 +46,7 @@ export async function addItemAction(tripId: string, formData: FormData) {
   const costEstimate = parseDecimal(costRaw);
   if (costRaw && costEstimate === null) fail(back, "Valor estimado inválido.");
 
-  let ticketDocumentId: string | null = null;
-  const ticket = file(formData, "ticket");
-  if (ticket) {
-    try {
-      const doc = await addDocument(tripId, ticket, {
-        type: "TICKET",
-        title: `Ingresso — ${title}`,
-      });
-      ticketDocumentId = doc.id;
-    } catch (e) {
-      fail(back, e instanceof Error ? e.message : "Falha no upload do ingresso.");
-    }
-  }
-
-  await db.insert(t.itineraryItems).values({
-    tripId,
+  return {
     cityId,
     date,
     startTime,
@@ -67,10 +57,54 @@ export async function addItemAction(tripId: string, formData: FormData) {
     address: str(formData, "address"),
     notes: str(formData, "notes"),
     costEstimate,
-    ticketDocumentId,
+  };
+}
+
+export async function addItemAction(tripId: string, formData: FormData) {
+  const { trip } = await requireTripAccess(tripId, { write: true });
+  const back = `/trips/${tripId}/itinerary`;
+  const v = await parseItem(tripId, trip, formData, back);
+
+  const ticketDocumentId = await attachmentFromForm({
+    tripId,
+    formData,
+    fileField: "ticket",
+    doc: { type: "TICKET", title: `Ingresso — ${v.title}` },
+    back,
+    current: null,
   });
 
-  redirect(`${back}?day=${date}`);
+  await db.insert(t.itineraryItems).values({ tripId, ...v, ticketDocumentId });
+  redirect(`${back}?day=${v.date}`);
+}
+
+export async function updateItemAction(tripId: string, itemId: string, formData: FormData) {
+  const { trip } = await requireTripAccess(tripId, { write: true });
+  const back = `/trips/${tripId}/itinerary/items/${itemId}`;
+
+  const [current] = await db
+    .select()
+    .from(t.itineraryItems)
+    .where(and(eq(t.itineraryItems.id, itemId), eq(t.itineraryItems.tripId, tripId)))
+    .limit(1);
+  if (!current) redirect(`/trips/${tripId}/itinerary`);
+
+  const v = await parseItem(tripId, trip, formData, back);
+  const ticketDocumentId = await attachmentFromForm({
+    tripId,
+    formData,
+    fileField: "ticket",
+    removeField: "removeTicket",
+    doc: { type: "TICKET", title: `Ingresso — ${v.title}` },
+    back,
+    current: current.ticketDocumentId,
+  });
+
+  await db
+    .update(t.itineraryItems)
+    .set({ ...v, ticketDocumentId })
+    .where(and(eq(t.itineraryItems.id, itemId), eq(t.itineraryItems.tripId, tripId)));
+  redirect(`/trips/${tripId}/itinerary?day=${v.date}`);
 }
 
 export async function deleteItemAction(tripId: string, itemId: string, day: string) {

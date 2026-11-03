@@ -5,6 +5,7 @@ import { requireTripAccess } from "@/lib/access";
 import { eachDay, formatDate, formatWeekday, todayIn } from "@/lib/format";
 import { ITEM_TYPE_LABEL } from "@/lib/labels";
 import { getAgenda } from "@/services/agenda";
+import { ItemFields } from "@/components/TripFields";
 import { addCityAction, deleteCityAction } from "@/app/actions/trips";
 import { addItemAction, deleteItemAction } from "@/app/actions/items";
 import {
@@ -155,10 +156,24 @@ export default async function ItineraryPage({
                     </a>
                   )}
                 </div>
-                {canWrite && e.kind === "item" && (
-                  <form action={deleteItemAction.bind(null, trip.id, e.id, selected)}>
-                    <button className={btnDanger}>Remover</button>
-                  </form>
+                {canWrite && (
+                  <div className="flex shrink-0 items-start gap-3">
+                    <Link
+                      href={
+                        e.kind === "item"
+                          ? `/trips/${trip.id}/itinerary/items/${e.id}`
+                          : `/trips/${trip.id}/bookings/${e.id}`
+                      }
+                      className="text-xs text-teal-700 hover:underline"
+                    >
+                      Editar
+                    </Link>
+                    {e.kind === "item" && (
+                      <form action={deleteItemAction.bind(null, trip.id, e.id, selected)}>
+                        <button className={btnDanger}>Remover</button>
+                      </form>
+                    )}
+                  </div>
                 )}
               </li>
             ))}
@@ -172,52 +187,7 @@ export default async function ItineraryPage({
             action={addItemAction.bind(null, trip.id)}
             className="grid gap-3 sm:grid-cols-6"
           >
-            <Field label="Título" className="sm:col-span-4">
-              <input name="title" required placeholder="Ex.: Torre de Belém" className={inputCls} />
-            </Field>
-            <Field label="Tipo" className="sm:col-span-2">
-              <select name="type" className={inputCls}>
-                {Object.entries(ITEM_TYPE_LABEL).map(([v, l]) => (
-                  <option key={v} value={v}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Data" className="sm:col-span-2">
-              <input name="date" type="date" required defaultValue={selected} min={trip.startDate} max={trip.endDate} className={inputCls} />
-            </Field>
-            <Field label="Início" className="sm:col-span-1">
-              <input name="startTime" type="time" className={inputCls} />
-            </Field>
-            <Field label="Fim" className="sm:col-span-1">
-              <input name="endTime" type="time" className={inputCls} />
-            </Field>
-            <Field label="Cidade" className="sm:col-span-2">
-              <select name="cityId" className={inputCls} defaultValue="">
-                <option value="">—</option>
-                {cities.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Local" className="sm:col-span-3">
-              <input name="location" className={inputCls} />
-            </Field>
-            <Field label="Endereço" className="sm:col-span-3">
-              <input name="address" className={inputCls} />
-            </Field>
-            <Field label="Custo estimado" className="sm:col-span-2">
-              <input name="costEstimate" inputMode="decimal" placeholder="0,00" className={inputCls} />
-            </Field>
-            <Field label="Ingresso / voucher (PDF ou imagem)" className="sm:col-span-4">
-              <input name="ticket" type="file" accept="application/pdf,image/*" className={inputCls} />
-            </Field>
-            <Field label="Observações" className="sm:col-span-6">
-              <textarea name="notes" rows={2} className={inputCls} />
-            </Field>
+            <ItemFields trip={trip} cities={cities} defaultDate={selected} />
             <div className="sm:col-span-6">
               <button className={btnPrimary}>Salvar atividade</button>
             </div>

@@ -1,17 +1,17 @@
 import { requireTripAccess } from "@/lib/access";
 import { formatDate, formatMoney, todayIn } from "@/lib/format";
-import { CURRENCIES, EXPENSE_CATEGORY_LABEL } from "@/lib/labels";
+import { EXPENSE_CATEGORY_LABEL } from "@/lib/labels";
 import { getExpenseSummary, listExpenses } from "@/services/expenses";
+import Link from "next/link";
+import { ExpenseFields } from "@/components/TripFields";
 import { addExpenseAction, deleteExpenseAction } from "@/app/actions/expenses";
 import {
   AddPanel,
   Card,
   EmptyState,
   ErrorBanner,
-  Field,
   btnDanger,
   btnPrimary,
-  inputCls,
 } from "@/components/ui";
 
 export default async function ExpensesPage({
@@ -91,50 +91,7 @@ export default async function ExpensesPage({
             action={addExpenseAction.bind(null, trip.id)}
             className="grid gap-3 sm:grid-cols-6"
           >
-            <Field label="Descrição" className="sm:col-span-4">
-              <input name="description" required placeholder="Ex.: Jantar no Time Out Market" className={inputCls} />
-            </Field>
-            <Field label="Categoria" className="sm:col-span-2">
-              <select name="category" defaultValue="FOOD" className={inputCls}>
-                {Object.entries(EXPENSE_CATEGORY_LABEL).map(([v, l]) => (
-                  <option key={v} value={v}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Data" className="sm:col-span-2">
-              <input
-                name="date"
-                type="date"
-                required
-                defaultValue={todayIn(trip.timezone)}
-                className={inputCls}
-              />
-            </Field>
-            <Field label="Valor" className="sm:col-span-2">
-              <input name="amount" required inputMode="decimal" placeholder="0,00" className={inputCls} />
-            </Field>
-            <Field label="Moeda" className="sm:col-span-1">
-              <select name="currency" defaultValue={trip.baseCurrency} className={inputCls}>
-                {CURRENCIES.map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
-            </Field>
-            <Field
-              label={`Cotação → ${trip.baseCurrency}`}
-              hint="Só se a moeda for diferente."
-              className="sm:col-span-1"
-            >
-              <input name="exchangeRate" inputMode="decimal" placeholder="5,40" className={inputCls} />
-            </Field>
-            <Field label="Forma de pagamento" className="sm:col-span-3">
-              <input name="paymentMethod" placeholder="Cartão, dinheiro, Pix…" className={inputCls} />
-            </Field>
-            <Field label="Nota / recibo (foto ou PDF)" className="sm:col-span-3">
-              <input name="receipt" type="file" accept="application/pdf,image/*" className={inputCls} />
-            </Field>
+            <ExpenseFields trip={trip} defaultDate={todayIn(trip.timezone)} />
             <div className="sm:col-span-6">
               <button className={btnPrimary}>Salvar lançamento</button>
             </div>
@@ -196,9 +153,14 @@ export default async function ExpensesPage({
                   </td>
                   <td className="px-4 py-2 text-right">
                     {canWrite && (
-                      <form action={deleteExpenseAction.bind(null, trip.id, e.id)}>
-                        <button className={btnDanger}>Remover</button>
-                      </form>
+                      <div className="flex items-center justify-end gap-3">
+                        <Link href={`/trips/${trip.id}/expenses/${e.id}`} className="text-xs text-teal-700 hover:underline">
+                          Editar
+                        </Link>
+                        <form action={deleteExpenseAction.bind(null, trip.id, e.id)}>
+                          <button className={btnDanger}>Remover</button>
+                        </form>
+                      </div>
                     )}
                   </td>
                 </tr>
