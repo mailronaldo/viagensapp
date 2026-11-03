@@ -68,6 +68,10 @@ def login(email, password):
     return s, r
 
 
+def T(r):
+    return soup(r).get_text()
+
+
 def temp_password(r):
     m = re.search(r"<code[^>]*>([A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4})</code>", r.text)
     return m.group(1) if m else None
@@ -141,7 +145,8 @@ r = submit(alice, NT, 'name="destination"', {
 check("Portugal E2E" in r.text and "/trips/" in r.url, "viagem criada")
 trip_url = r.url.split("?")[0].rstrip("/")
 it = f"{trip_url}/itinerary"
-r = submit(alice, it, 'name="startTime"', {"title": "Torre de Belém", "date": "2026-11-10", "startTime": "10:30"},
+day10 = f"{it}/day/2026-11-10"
+r = submit(alice, day10, 'name="startTime"', {"title": "Torre de Belém", "date": "2026-11-10", "startTime": "10:30"},
            files={"ticket": ("ingresso.pdf", io.BytesIO(b"%PDF-1.4 teste"), "application/pdf")})
 check("Torre de Belém" in r.text and "ingresso.pdf" in r.text, "atividade com ingresso")
 ex = f"{trip_url}/expenses"
@@ -157,26 +162,77 @@ file_link = next(a["href"] for a in soup(alice.get(dc)).find_all("a") if a.get("
 r = alice.get(BASE + file_link)
 check(r.status_code == 200 and r.content.startswith(b"%PDF"), "download do próprio cliente")
 
+print("Roteiro resumido e dia a dia")
+r = alice.get(it)
+check("Dia 1" in T(r) and "Dia 6" in T(r) and "Sem título" in T(r), "resumo lista os 6 dias da viagem")
+legacy = alice.get(f"{it}?day=2026-11-12")
+check(legacy.url.endswith("/itinerary/day/2026-11-12"), "link antigo ?day= redireciona para o dia")
+check(alice.get(f"{it}/day/2027-01-01", allow_redirects=False).status_code == 404, "dia fora da viagem dá 404")
+submit(alice, it, 'name="country"', {"name": "Lisboa", "country": "Portugal"})
+submit(alice, it, 'name="country"', {"name": "Porto", "country": "Portugal"})
+day12 = f"{it}/day/2026-11-12"
+page = soup(alice.get(day12))
+city_ids = {i.parent.get_text(strip=True): i["value"] for i in page.find_all("input", {"name": "cityIds"})}
+check(set(city_ids) == {"Lisboa", "Porto"}, "dia oferece as cidades cadastradas")
+# o harness envia um único valor por campo; para marcar 2 cidades, montamos o multipart na mão
+form = [f for f in page.find_all("form") if f.find("input", {"name": "cityIds"})][0]
+action_fields = {i["name"]: i.get("value", "") for i in form.find_all("input", type="hidden") if i.get("name")}
+multi = [(k, (None, v)) for k, v in action_fields.items()]
+multi += [("title", (None, "Lisboa → Porto")), ("summary", (None, "Trem de manhã e tarde livre no Porto.")),
+          ("cityIds", (None, city_ids["Lisboa"])), ("cityIds", (None, city_ids["Porto"]))]
+r = alice.post(requests.compat.urljoin(day12, form["action"]), files=multi, headers={"Origin": BASE})
+check("Lisboa → Porto" in T(r) and "📍 Lisboa" in T(r) and "📍 Porto" in T(r), "resumo do dia salvo com duas cidades")
+ov = T(alice.get(it))
+check("Lisboa → Porto" in ov and "Trem de manhã" in ov and "📍 Porto" in ov, "resumo mostra título, descrição e cidades do dia")
+r = submit(alice, day12, 'name="cityIds"', {"title": "", "summary": "", "cityIds": ""})
+check("Lisboa → Porto" not in alice.get(it).text, "limpar o resumo remove o dia")
+r = alice.get(f"{it}/day/2026-11-11")
+check("Dia anterior" in T(r) and "Próximo dia" in T(r), "navegação entre dias")
+submit(alice, day12, 'name="cityIds"', {"title": "Passeio", "summary": "x"})
+
+print("Editar viagem")
+ed = f"{trip_url}/edit"
+r = alice.get(ed)
+check(r.status_code == 200 and 'value="Portugal E2E"' in r.text, "tela de edição da viagem")
+r = submit(alice, ed, 'name="startDate"', {"endDate": "2026-11-11"})
+check("Não dá para alterar as datas" in r.text, "encurtar a viagem com atividades fora é bloqueado")
+r = submit(alice, ed, 'name="startDate"', {"startDate": "2026-11-12"})
+check("Não dá para alterar as datas" in r.text, "adiar a ida com atividade no primeiro dia é bloqueado")
+r = submit(alice, ed, 'name="startDate"', {"endDate": "2026-11-01"})
+check("antes da ida" in r.text, "volta antes da ida rejeitada")
+r = submit(alice, ed, 'name="startDate"', {"baseCurrency": "USD"})
+check("moeda base" in r.text, "trocar a moeda base com custos é bloqueado")
+r = submit(alice, ed, 'name="startDate"', {"title": "Portugal E2E editada", "destination": "Lisboa e Porto", "endDate": "2026-11-16", "notes": "nova obs"})
+check("Portugal E2E editada" in r.text and "Lisboa e Porto" in r.text, "nome, destino e volta alterados")
+check(len(soup(alice.get(it)).find_all("a", href=re.compile(r"/itinerary/day/"))) == 7, "roteiro ganhou o 7º dia")
+check(len(soup(alice.get(trip_url)).find_all("a", string="Editar viagem")) == 1, "dono vê o link Editar viagem")
+submit(alice, f"{it}/day/2026-11-16", 'name="cityIds"', {"title": "Extra", "cityIds": ""})
+r = submit(alice, ed, 'name="startDate"', {"endDate": "2026-11-15"})
+check("Não dá para alterar" in r.text and "resumo" in r.text, "resumo de dia fora do novo período bloqueia")
+submit(alice, f"{it}/day/2026-11-16", 'name="cityIds"', {"title": "", "summary": "", "cityIds": ""})
+r = submit(alice, ed, 'name="startDate"', {"endDate": "2026-11-15"})
+check("Portugal E2E editada" in r.text and len(soup(alice.get(it)).find_all("a", href=re.compile(r"/itinerary/day/"))) == 6, "sem nada fora, voltar para 15/11 funciona")
+
 print("Editar e excluir atividades, reservas e custos")
 def hrefs(sess, url, prefix):
     return [a["href"] for a in soup(sess.get(url)).find_all("a") if a.get("href", "").startswith(prefix)]
 
 # atividade
-item_href = hrefs(alice, f"{it}?day=2026-11-10", f"/trips/{trip_url.rsplit('/', 1)[1]}/itinerary/items/")[0]
+item_href = hrefs(alice, f"{it}/day/2026-11-10", f"/trips/{trip_url.rsplit('/', 1)[1]}/itinerary/items/")[0]
 item_url = BASE + item_href
 r = alice.get(item_url)
 check(r.status_code == 200 and 'value="Torre de Belém"' in r.text and "ingresso.pdf" in r.text, "tela de edição traz os dados e o anexo atual")
 r = submit(alice, item_url, 'name="startTime"', {"title": "Torre de Belém (editada)", "startTime": "11:15", "date": "2026-11-11", "costEstimate": "35,50"})
-check("Torre de Belém (editada)" in alice.get(f"{it}?day=2026-11-11").text, "atividade editada mudou de dia")
-check("11:15" in alice.get(f"{it}?day=2026-11-11").text, "novo horário gravado")
-check("Nada planejado para este dia" in alice.get(f"{it}?day=2026-11-10").text, "dia antigo não lista mais a atividade")
-check("ingresso.pdf" in alice.get(f"{it}?day=2026-11-11").text, "ingresso mantido sem reenviar")
+check("Torre de Belém (editada)" in alice.get(f"{it}/day/2026-11-11").text, "atividade editada mudou de dia")
+check("11:15" in alice.get(f"{it}/day/2026-11-11").text, "novo horário gravado")
+check("Nada planejado para este dia" in alice.get(f"{it}/day/2026-11-10").text, "dia antigo não lista mais a atividade")
+check("ingresso.pdf" in alice.get(f"{it}/day/2026-11-11").text, "ingresso mantido sem reenviar")
 r = submit(alice, item_url, 'name="startTime"', {"date": "2027-01-01"})
 check("dentro do período" in r.text, "data fora da viagem rejeitada na edição")
 r = submit(alice, item_url, 'name="startTime"', {"startTime": "12:00", "endTime": "11:00", "date": "2026-11-11"})
 check("antes do início" in r.text, "término antes do início rejeitado")
 r = submit(alice, item_url, 'name="startTime"', {"date": "2026-11-11", "endTime": "", "removeTicket": "on"})
-check("ingresso.pdf" not in alice.get(f"{it}?day=2026-11-11").text, "anexo removido ao marcar a caixa")
+check("ingresso.pdf" not in alice.get(f"{it}/day/2026-11-11").text, "anexo removido ao marcar a caixa")
 
 # reserva
 bk = f"{trip_url}/bookings"
@@ -255,7 +311,7 @@ for label, u in (("atividade", item_url), ("reserva", bk_url), ("custo", exp_url
 
 print("Excluir pela tela de edição")
 r = submit(alice, item_url, "Excluir esta atividade")
-check("Torre de Belém (editada)" not in alice.get(f"{it}?day=2026-11-11").text, "atividade excluída")
+check("Torre de Belém (editada)" not in alice.get(f"{it}/day/2026-11-11").text, "atividade excluída")
 check(alice.get(item_url, allow_redirects=False).status_code == 404, "atividade excluída some (404)")
 r = submit(alice, bk_url, "Excluir esta reserva")
 check("remarcado" not in alice.get(bk).text and alice.get(bk_url, allow_redirects=False).status_code == 404, "reserva excluída")

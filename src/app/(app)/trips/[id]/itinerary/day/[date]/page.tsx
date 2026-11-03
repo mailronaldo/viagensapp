@@ -1,0 +1,194 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { asc, eq } from "drizzle-orm";
+import { db, t } from "@/db";
+import { requireTripAccess } from "@/lib/access";
+import { ISO_DATE } from "@/lib/form";
+import { addDays, formatDate, formatWeekday } from "@/lib/format";
+import { ITEM_TYPE_LABEL } from "@/lib/labels";
+import { getAgenda } from "@/services/agenda";
+import { getDayPlan } from "@/services/itinerary";
+import { addItemAction, deleteItemAction } from "@/app/actions/items";
+import { saveDayAction } from "@/app/actions/days";
+import { ItemFields } from "@/components/TripFields";
+import {
+  AddPanel,
+  Card,
+  EmptyState,
+  ErrorBanner,
+  Field,
+  btnDanger,
+  btnPrimary,
+  inputCls,
+} from "@/components/ui";
+
+export default async function ItineraryDayPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string; date: string }>;
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { id, date } = await params;
+  const { error } = await searchParams;
+  const { trip, canWrite } = await requireTripAccess(id);
+  if (!ISO_DATE.test(date) || date < trip.startDate || date > trip.endDate) notFound();
+
+  const [cities, agenda, plan, docs] = await Promise.all([
+    db.select({ id: t.cities.id, name: t.cities.name }).from(t.cities).where(eq(t.cities.tripId, trip.id)).orderBy(asc(t.cities.position)),
+    getAgenda(trip, date),
+    getDayPlan(trip.id, date),
+    db.select({ id: t.documents.id, fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.tripId, trip.id)),
+  ]);
+  const docName = new Map(docs.map((d) => [d.id, d.fileName]));
+  const dayNumber = Math.round((Date.parse(date) - Date.parse(trip.startDate)) / 86_400_000) + 1;
+  const prev = date > trip.startDate ? addDays(date, -1) : null;
+  const next = date < trip.endDate ? addDays(date, 1) : null;
+  const base = `/trips/${trip.id}/itinerary`;
+  const planCityIds = new Set(plan.cities.map((c) => c.id));
+
+  return (
+    <>
+      <ErrorBanner message={error} />
+
+      <div className="mb-4 flex items-center justify-between gap-3 text-sm">
+        <Link href={base} className="text-slate-500 hover:underline">
+          ← Roteiro resumido
+        </Link>
+        <div className="flex gap-4">
+          {prev ? (
+            <Link href={`${base}/day/${prev}`} className="text-teal-700 hover:underline">
+              ← Dia anterior
+            </Link>
+          ) : null}
+          {next ? (
+            <Link href={`${base}/day/${next}`} className="text-teal-700 hover:underline">
+              Próximo dia →
+            </Link>
+          ) : null}
+        </div>
+      </div>
+
+      <Card className="mb-6">
+        <p className="text-xs font-medium uppercase text-slate-400">
+          Dia {dayNumber} · {formatDate(date)}
+        </p>
+        <h2 className="text-xl font-semibold">
+          <span className="capitalize">{formatWeekday(date)}</span>
+          {plan.title ? <span className="font-normal text-slate-500"> — {plan.title}</span> : null}
+        </h2>
+        {plan.cities.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {plan.cities.map((c) => (
+              <span key={c.id} className="rounded-full bg-teal-50 px-2 py-0.5 text-xs text-teal-900">
+                📍 {c.name}
+              </span>
+            ))}
+          </div>
+        )}
+        {plan.summary && <p className="mt-2 whitespace-pre-line text-sm text-slate-600">{plan.summary}</p>}
+        {canWrite && (
+          <div className="mt-3">
+            <AddPanel title="Editar resumo do dia">
+              <form action={saveDayAction.bind(null, trip.id, date)} className="grid gap-3">
+                <Field label="Título do dia">
+                  <input name="title" maxLength={120} defaultValue={plan.title ?? ""} placeholder="Ex.: Chegada e Alfama" className={inputCls} />
+                </Field>
+                <Field label="Descrição breve">
+                  <textarea name="summary" rows={3} maxLength={1000} defaultValue={plan.summary ?? ""} className={inputCls} />
+                </Field>
+                <fieldset>
+                  <legend className="mb-1 text-xs font-medium text-slate-600">Cidades neste dia</legend>
+                  {cities.length === 0 ? (
+                    <p className="text-xs text-slate-400">Cadastre as cidades na tela do roteiro resumido.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                      {cities.map((c) => (
+                        <label key={c.id} className="inline-flex items-center gap-1.5 text-sm">
+                          <input type="checkbox" name="cityIds" value={c.id} defaultChecked={planCityIds.has(c.id)} />
+                          {c.name}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </fieldset>
+                <div>
+                  <button className={btnPrimary}>Salvar resumo</button>
+                </div>
+              </form>
+            </AddPanel>
+          </div>
+        )}
+      </Card>
+
+      <Card className="mb-6">
+        <h3 className="mb-3 font-medium">Agenda do dia</h3>
+        {agenda.entries.length === 0 ? (
+          <EmptyState>Nada planejado para este dia.</EmptyState>
+        ) : (
+          <ol className="divide-y divide-slate-100">
+            {agenda.entries.map((e) => (
+              <li key={`${e.kind}-${e.id}`} className="flex gap-4 py-3">
+                <span className="w-12 shrink-0 text-sm tabular-nums text-slate-500">{e.time ?? "—"}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">
+                    {e.title}
+                    {e.kind === "booking" && (
+                      <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-normal uppercase text-slate-500">
+                        reserva
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {e.kind === "item" ? ITEM_TYPE_LABEL[e.type as keyof typeof ITEM_TYPE_LABEL] : "Reserva"}
+                    {e.cityName ? ` · ${e.cityName}` : ""}
+                    {e.location ? ` · ${e.location}` : ""}
+                  </p>
+                  {e.address && <p className="text-xs text-slate-400">{e.address}</p>}
+                  {e.notes && <p className="mt-1 text-xs text-slate-500">{e.notes}</p>}
+                  {e.ticketDocumentId && (
+                    <a
+                      href={`/api/files/${trip.id}/${e.ticketDocumentId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-1 inline-block text-xs text-teal-700 hover:underline"
+                    >
+                      📎 {docName.get(e.ticketDocumentId) ?? "Ingresso"}
+                    </a>
+                  )}
+                </div>
+                {canWrite && (
+                  <div className="flex shrink-0 items-start gap-3">
+                    <Link
+                      href={e.kind === "item" ? `${base}/items/${e.id}` : `/trips/${trip.id}/bookings/${e.id}`}
+                      className="text-xs text-teal-700 hover:underline"
+                    >
+                      Editar
+                    </Link>
+                    {e.kind === "item" && (
+                      <form action={deleteItemAction.bind(null, trip.id, e.id, date)}>
+                        <button className={btnDanger}>Remover</button>
+                      </form>
+                    )}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ol>
+        )}
+      </Card>
+
+      {canWrite && (
+        <AddPanel title="Adicionar atividade" defaultOpen={agenda.entries.length === 0}>
+          <form action={addItemAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-6">
+            <input type="hidden" name="day" value={date} />
+            <ItemFields trip={trip} cities={cities} defaultDate={date} />
+            <div className="sm:col-span-6">
+              <button className={btnPrimary}>Salvar atividade</button>
+            </div>
+          </form>
+        </AddPanel>
+      )}
+    </>
+  );
+}

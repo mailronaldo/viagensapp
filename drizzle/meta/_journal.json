@@ -15,6 +15,13 @@
       "when": 1793576329853,
       "tag": "0001_papeis_viajantes",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793715586525,
+      "tag": "0002_roteiro_resumido",
+      "breakpoints": true
     }
   ]
 }

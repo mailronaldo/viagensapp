@@ -63,7 +63,7 @@ export default async function TripOverviewPage({
             </span>
           </h2>
           <Link
-            href={`/trips/${trip.id}/itinerary?day=${agenda.date}`}
+            href={`/trips/${trip.id}/itinerary/day/${agenda.date}`}
             className="text-sm text-teal-700 hover:underline"
           >
             Ver roteiro

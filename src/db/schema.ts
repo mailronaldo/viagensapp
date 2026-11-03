@@ -168,6 +168,36 @@ export const cities = pgTable(
   (t) => [index("cities_trip_idx").on(t.tripId)],
 );
 
+// ---------- Roteiro resumido (um registro por dia) ----------
+
+export const tripDays = pgTable(
+  "trip_days",
+  {
+    id: id(),
+    tripId: text("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    title: text("title"),
+    summary: text("summary"),
+  },
+  (t) => [uniqueIndex("trip_days_trip_date_idx").on(t.tripId, t.date)],
+);
+
+/** Cidades em que o viajante está em cada dia (uma ou mais). */
+export const tripDayCities = pgTable(
+  "trip_day_cities",
+  {
+    tripDayId: text("trip_day_id")
+      .notNull()
+      .references(() => tripDays.id, { onDelete: "cascade" }),
+    cityId: text("city_id")
+      .notNull()
+      .references(() => cities.id, { onDelete: "cascade" }),
+  },
+  (t) => [uniqueIndex("trip_day_cities_idx").on(t.tripDayId, t.cityId)],
+);
+
 // ---------- Central de documentos ----------
 
 export const documents = pgTable(
@@ -284,6 +314,7 @@ export const expenses = pgTable(
 );
 
 export type User = typeof users.$inferSelect;
+export type TripDay = typeof tripDays.$inferSelect;
 export type Traveler = typeof travelers.$inferSelect;
 export type Trip = typeof trips.$inferSelect;
 export type City = typeof cities.$inferSelect;

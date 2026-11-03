@@ -62,7 +62,10 @@ async function parseItem(
 
 export async function addItemAction(tripId: string, formData: FormData) {
   const { trip } = await requireTripAccess(tripId, { write: true });
-  const back = `/trips/${tripId}/itinerary`;
+  // O formulário fica na página do dia; erros voltam para ela.
+  const day = str(formData, "day");
+  const back =
+    day && ISO_DATE.test(day) ? `/trips/${tripId}/itinerary/day/${day}` : `/trips/${tripId}/itinerary`;
   const v = await parseItem(tripId, trip, formData, back);
 
   const ticketDocumentId = await attachmentFromForm({
@@ -75,7 +78,7 @@ export async function addItemAction(tripId: string, formData: FormData) {
   });
 
   await db.insert(t.itineraryItems).values({ tripId, ...v, ticketDocumentId });
-  redirect(`${back}?day=${v.date}`);
+  redirect(`/trips/${tripId}/itinerary/day/${v.date}`);
 }
 
 export async function updateItemAction(tripId: string, itemId: string, formData: FormData) {
@@ -104,7 +107,7 @@ export async function updateItemAction(tripId: string, itemId: string, formData:
     .update(t.itineraryItems)
     .set({ ...v, ticketDocumentId })
     .where(and(eq(t.itineraryItems.id, itemId), eq(t.itineraryItems.tripId, tripId)));
-  redirect(`/trips/${tripId}/itinerary?day=${v.date}`);
+  redirect(`/trips/${tripId}/itinerary/day/${v.date}`);
 }
 
 export async function deleteItemAction(tripId: string, itemId: string, day: string) {
@@ -112,5 +115,7 @@ export async function deleteItemAction(tripId: string, itemId: string, day: stri
   await db
     .delete(t.itineraryItems)
     .where(and(eq(t.itineraryItems.id, itemId), eq(t.itineraryItems.tripId, tripId)));
-  redirect(`/trips/${tripId}/itinerary?day=${encodeURIComponent(day)}`);
+  redirect(
+    ISO_DATE.test(day) ? `/trips/${tripId}/itinerary/day/${day}` : `/trips/${tripId}/itinerary`,
+  );
 }

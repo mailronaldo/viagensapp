@@ -22,7 +22,7 @@ Variáveis (`.env`):
 | `UPLOAD_DIR` | pasta dos arquivos enviados (padrão `./uploads`) |
 | `COOKIE_SECURE` | `false` só para rodar em HTTP puro; em produção use HTTPS |
 
-Testes: `npm run test:services` (serviços + isolamento, direto no banco) e, com o servidor no ar, `python3 scripts/e2e_roles.py` (fluxo completo por HTTP, 88 verificações; precisa de `BASE`, `MASTER_EMAIL` e `MASTER_PASSWORD`, num banco novo).
+Testes: `npm run test:services` (serviços + isolamento, direto no banco) e, com o servidor no ar, `python3 scripts/e2e_roles.py` (fluxo completo por HTTP, 106 verificações; precisa de `BASE`, `MASTER_EMAIL` e `MASTER_PASSWORD`, num banco novo).
 
 ## Arquitetura
 
@@ -77,3 +77,8 @@ Pontos de atenção da Meta: conta business verificada, número dedicado, janela
 
 ## Edição
 Atividades (`/trips/:id/itinerary/items/:itemId`), reservas (`/bookings/:bookingId`) e custos (`/expenses/:expenseId`) podem ser editados e excluídos. Em cada um é possível manter, substituir ou remover o anexo (ingresso, voucher, recibo); o arquivo antigo continua na Central de documentos.
+
+## Roteiro
+- `/trips/:id/itinerary` — **roteiro resumido**: cidades da viagem e uma linha por dia (título, descrição breve, cidades e nº de atividades).
+- `/trips/:id/itinerary/day/AAAA-MM-DD` — **dia a dia**: resumo do dia (editável), agenda com horários e cadastro de atividades; navegação entre dias.
+- `/trips/:id/edit` — **editar viagem** (só o dono). Não permite mover/encurtar o período deixando atividades, resumos de dia ou cidades fora das novas datas, nem trocar a moeda base com custos lançados.

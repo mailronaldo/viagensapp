@@ -37,7 +37,7 @@ export default async function EditItemPage({
   const attachment = doc[0]
     ? { name: doc[0].fileName, href: `/api/files/${trip.id}/${item.ticketDocumentId}` }
     : null;
-  const back = `/trips/${trip.id}/itinerary?day=${item.date}`;
+  const back = `/trips/${trip.id}/itinerary/day/${item.date}`;
 
   return (
     <div className="mx-auto max-w-3xl">
