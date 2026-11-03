@@ -3,14 +3,15 @@
 import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
-import { requireUser } from "@/lib/auth";
+import { requireClient } from "@/lib/auth";
 import { requireTripAccess } from "@/lib/access";
 import { CURRENCIES, TIMEZONES } from "@/lib/labels";
 import { ISO_DATE, fail, str } from "@/lib/form";
 import { removeDocument } from "@/services/documents";
 
 export async function createTripAction(formData: FormData) {
-  const user = await requireUser();
+  // Só clientes têm viagens; a agência cria viagens "como" um cliente (área do cliente).
+  const user = await requireClient();
   const back = "/trips/new";
 
   const title = str(formData, "title");

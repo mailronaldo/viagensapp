@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
 import { db, t } from "@/db";
-import { requireUser } from "@/lib/auth";
+import { requireClient } from "@/lib/auth";
 import { formatDate, todayIn } from "@/lib/format";
 import { EmptyState, btnPrimary } from "@/components/ui";
 
 export const metadata = { title: "Minhas viagens" };
 
 export default async function HomePage() {
-  const user = await requireUser();
+  // A agência (MASTER) é redirecionada para /agency; a área do cliente é só de clientes.
+  const user = await requireClient();
 
   const rows = await db
     .select({ trip: t.trips, role: t.tripMembers.role })

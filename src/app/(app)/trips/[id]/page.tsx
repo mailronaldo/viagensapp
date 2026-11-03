@@ -7,7 +7,8 @@ import { BOOKING_TYPE_LABEL, ITEM_TYPE_LABEL } from "@/lib/labels";
 import { getAgenda } from "@/services/agenda";
 import { getExpenseSummary } from "@/services/expenses";
 import { deleteTripAction } from "@/app/actions/trips";
-import { Card, EmptyState, btnDanger } from "@/components/ui";
+import { linkTravelerAction, unlinkTravelerAction } from "@/app/actions/travelers";
+import { Card, EmptyState, btnDanger, btnGhost, inputCls } from "@/components/ui";
 
 export default async function TripOverviewPage({
   params,
@@ -15,13 +16,13 @@ export default async function TripOverviewPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { trip, role } = await requireTripAccess(id);
+  const { trip, role, canWrite } = await requireTripAccess(id);
 
   const today = todayIn(trip.timezone);
   const inTrip = today >= trip.startDate && today <= trip.endDate;
   const agendaDay = inTrip ? today : trip.startDate;
 
-  const [agenda, summary, upcoming] = await Promise.all([
+  const [agenda, summary, upcoming, linked, ownerTravelers] = await Promise.all([
     getAgenda(trip, agendaDay),
     getExpenseSummary(trip.id, trip.baseCurrency),
     db
@@ -35,7 +36,21 @@ export default async function TripOverviewPage({
       )
       .orderBy(asc(t.bookings.startAt))
       .limit(4),
+    db
+      .select({ id: t.travelers.id, name: t.travelers.name })
+      .from(t.tripTravelers)
+      .innerJoin(t.travelers, eq(t.travelers.id, t.tripTravelers.travelerId))
+      .where(eq(t.tripTravelers.tripId, trip.id))
+      .orderBy(asc(t.travelers.name)),
+    // Viajantes do cliente dono da viagem (candidatos a entrar no grupo).
+    db
+      .select({ id: t.travelers.id, name: t.travelers.name })
+      .from(t.travelers)
+      .where(eq(t.travelers.clientId, trip.ownerId))
+      .orderBy(asc(t.travelers.name)),
   ]);
+  const linkedIds = new Set(linked.map((l) => l.id));
+  const available = ownerTravelers.filter((tr) => !linkedIds.has(tr.id));
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
@@ -112,6 +127,50 @@ export default async function TripOverviewPage({
                 </li>
               ))}
             </ul>
+          )}
+        </Card>
+
+        <Card>
+          <h2 className="mb-2 font-medium">Viajantes ({linked.length})</h2>
+          {linked.length === 0 ? (
+            <p className="text-sm text-slate-500">Ninguém no grupo desta viagem ainda.</p>
+          ) : (
+            <ul className="space-y-1">
+              {linked.map((l) => (
+                <li key={l.id} className="flex items-center justify-between text-sm">
+                  <span>{l.name}</span>
+                  {canWrite && (
+                    <form action={unlinkTravelerAction.bind(null, trip.id, l.id)}>
+                      <button className={btnDanger}>Remover</button>
+                    </form>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {canWrite && available.length > 0 && (
+            <form action={linkTravelerAction.bind(null, trip.id)} className="mt-3 flex gap-2">
+              <select name="travelerId" required defaultValue="" className={inputCls}>
+                <option value="" disabled>
+                  Incluir viajante…
+                </option>
+                {available.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+              <button className={btnGhost}>Incluir</button>
+            </form>
+          )}
+          {canWrite && ownerTravelers.length === 0 && (
+            <p className="mt-3 text-xs text-slate-500">
+              Cadastre pessoas em{" "}
+              <Link href="/travelers" className="text-teal-700 hover:underline">
+                Viajantes
+              </Link>{" "}
+              para incluí-las aqui.
+            </p>
           )}
         </Card>
 

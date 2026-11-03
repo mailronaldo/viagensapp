@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireClient } from "@/lib/auth";
 import { createTripAction } from "@/app/actions/trips";
 import { CURRENCIES, TIMEZONES } from "@/lib/labels";
 import { Card, ErrorBanner, Field, btnGhost, btnPrimary, inputCls } from "@/components/ui";
@@ -10,6 +11,7 @@ export default async function NewTripPage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
+  await requireClient();
   const { error } = await searchParams;
   return (
     <div className="mx-auto max-w-2xl">

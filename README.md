@@ -1,6 +1,6 @@
 # Minhas Viagens
 
-Gestão de viagens de turismo: cadastro da viagem, roteiro dia a dia, reservas (voos, hotéis…), central de custos com recibos e central de documentos. Multiusuário. Versão 1 apenas web; a arquitetura já foi pensada para receber o WhatsApp depois.
+Gestão de viagens de turismo: cadastro da viagem, roteiro dia a dia, reservas (voos, hotéis…), central de custos com recibos e central de documentos. Multiusuário com papéis. Versão 1 apenas web; a arquitetura já foi pensada para receber o WhatsApp depois.
 
 ## Rodando localmente
 
@@ -22,7 +22,7 @@ Variáveis (`.env`):
 | `UPLOAD_DIR` | pasta dos arquivos enviados (padrão `./uploads`) |
 | `COOKIE_SECURE` | `false` só para rodar em HTTP puro; em produção use HTTPS |
 
-Testes: `npm run test:services` (serviços + isolamento, direto no banco) e, com o servidor no ar, `python3 scripts/e2e.py` (fluxo completo por HTTP, 25 verificações).
+Testes: `npm run test:services` (serviços + isolamento, direto no banco) e, com o servidor no ar, `python3 scripts/e2e_roles.py` (fluxo completo por HTTP, 63 verificações; precisa de `BASE`, `MASTER_EMAIL` e `MASTER_PASSWORD`, num banco novo).
 
 ## Arquitetura
 
@@ -67,3 +67,10 @@ Pontos de atenção da Meta: conta business verificada, número dedicado, janela
 - Limite de tentativas de login, recuperação de senha e verificação de e-mail.
 - Storage em nuvem e backups — hoje os arquivos ficam em disco local.
 - Mapa/GPS e integração com WhatsApp.
+
+## Papéis
+
+- **MASTER (agência)**: dono do sistema. Painel em `/agency`; cria clientes (gera senha temporária, mostrada uma única vez), edita, redefine senha, desativa/reativa e pode "Acessar área do cliente" (banner âmbar + "Voltar à agência").
+- **CLIENT**: tem seu painel de viagens e cadastra **viajantes** (`/travelers`), que podem ser incluídos no grupo de cada viagem. No primeiro acesso troca a senha temporária.
+- Não há cadastro público. A primeira conta MASTER nasce no start a partir de `MASTER_EMAIL`, `MASTER_PASSWORD` e `MASTER_NAME`; depois remova `MASTER_PASSWORD`.
+- Login/permissões dos viajantes dentro da viagem ficam para uma próxima versão.

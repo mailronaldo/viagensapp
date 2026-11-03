@@ -64,7 +64,7 @@ Clique em **Deploy**. O Coolify constrói a imagem, sobe o contêiner (que aplic
 sozinho) e o Traefik emite o certificado Let's Encrypt para o domínio. O DNS de
 `ronaldof.apps.hospedagem2k.com` já aponta para este servidor.
 
-Abra `https://ronaldof.apps.hospedagem2k.com`, crie sua conta e teste cadastrando uma viagem.
+Abra `https://ronaldof.apps.hospedagem2k.com`, entre com o `MASTER_EMAIL` / `MASTER_PASSWORD` definidos nas variáveis (não existe cadastro público), crie um cliente em *Clientes → Novo cliente* e teste com ele.
 Os logs do build e do app aparecem no próprio painel.
 
 ## Atualizar
@@ -93,3 +93,13 @@ Banco e arquivos enviados são preservados; migrações novas são aplicadas no 
 A instalação direta deixou no servidor: Postgres do sistema, Node, Apache (desativado), certbot, a pasta
 `/opt/viagens` e o usuário `viagens`. Nada disso atrapalha o Coolify. Se você não usava Postgres no servidor
 antes, pode liberar recursos com `systemctl disable --now postgresql`. Não remova nada que você já usava.
+
+
+## Variáveis da agência (MASTER)
+
+Adicione em *Environment Variables* (Runtime): `MASTER_EMAIL`, `MASTER_PASSWORD` (mín. 8 caracteres) e, se quiser, `MASTER_NAME`. Elas só têm efeito se ainda não existir MASTER; se o e-mail já existir como usuário, ele é promovido a MASTER sem trocar a senha. Depois do primeiro acesso, **apague `MASTER_PASSWORD`** e faça Redeploy.
+
+## Arquivos somem após o redeploy?
+
+O volume precisa estar em *Persistent Storage* com destino `/data/uploads`. Confira no servidor:
+`sudo docker inspect $(sudo docker ps -q --filter "name=<id-da-aplicação>") --format '{{json .Mounts}}'` — deve listar um volume com `Destination":"/data/uploads"`. Sem isso o arquivo é apagado a cada deploy (a tela passa a mostrar "O arquivo não foi encontrado" em vez de erro 500) e é preciso reenviá-lo.

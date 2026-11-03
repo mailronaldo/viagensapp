@@ -8,6 +8,13 @@
       "when": 1793477149731,
       "tag": "0000_tan_wendigo",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793576329853,
+      "tag": "0001_papeis_viajantes",
+      "breakpoints": true
     }
   ]
 }

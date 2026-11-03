@@ -4,6 +4,7 @@ import {
   text,
   integer,
   doublePrecision,
+  boolean,
   numeric,
   date,
   timestamp,
@@ -57,11 +58,20 @@ export const documentType = pgEnum("document_type", [
 
 // ---------- Contas e acesso ----------
 
+// MASTER = a agência de turismo (dona do sistema); CLIENT = cliente da agência.
+// Viajantes não são usuários: são cadastros (tabela travelers) de cada cliente.
+export const userRole = pgEnum("user_role", ["MASTER", "CLIENT"]);
+
 export const users = pgTable("users", {
   id: id(),
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
   passwordHash: text("password_hash").notNull(),
+  role: userRole("role").notNull().default("CLIENT"),
+  // Cliente desativado não consegue entrar (sessões existentes também caem).
+  active: boolean("active").notNull().default(true),
+  // Senha temporária criada pela agência: força a troca no primeiro acesso.
+  mustChangePassword: boolean("must_change_password").notNull().default(false),
   // Preparado para o WhatsApp: número em E.164 (ex.: +5511999998888)
   whatsappPhone: text("whatsapp_phone").unique(),
   createdAt: createdAt(),
@@ -85,6 +95,43 @@ export const trips = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("trips_owner_idx").on(t.ownerId)],
+);
+
+// ---------- Viajantes (cadastros do cliente) ----------
+
+export const travelers = pgTable(
+  "travelers",
+  {
+    id: id(),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    email: text("email"),
+    phone: text("phone"),
+    // Passaporte, RG ou CPF — texto livre por enquanto.
+    documentNumber: text("document_number"),
+    birthDate: date("birth_date"),
+    notes: text("notes"),
+    // Reservado para o futuro: viajante com login próprio.
+    userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("travelers_client_idx").on(t.clientId)],
+);
+
+export const tripTravelers = pgTable(
+  "trip_travelers",
+  {
+    id: id(),
+    tripId: text("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    travelerId: text("traveler_id")
+      .notNull()
+      .references(() => travelers.id, { onDelete: "cascade" }),
+  },
+  (t) => [uniqueIndex("trip_travelers_unique").on(t.tripId, t.travelerId)],
 );
 
 export const tripMembers = pgTable(
@@ -237,6 +284,7 @@ export const expenses = pgTable(
 );
 
 export type User = typeof users.$inferSelect;
+export type Traveler = typeof travelers.$inferSelect;
 export type Trip = typeof trips.$inferSelect;
 export type City = typeof cities.$inferSelect;
 export type ItineraryItem = typeof itineraryItems.$inferSelect;

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { AuthForm } from "@/components/AuthForm";
+import { LoginForm } from "@/components/AuthForm";
 import { Card } from "@/components/ui";
 
 export const metadata = { title: "Entrar · Minhas Viagens" };
@@ -14,7 +14,7 @@ export default async function LoginPage() {
         Entre para gerenciar roteiros, reservas, custos e documentos.
       </p>
       <Card>
-        <AuthForm mode="login" />
+        <LoginForm />
       </Card>
     </main>
   );

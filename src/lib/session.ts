@@ -5,6 +5,13 @@ import { SignJWT, jwtVerify } from "jose";
 const COOKIE_NAME = "viagens_session";
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 dias
 
+export type SessionData = {
+  /** Quem de fato fez login. */
+  userId: string;
+  /** Preenchido quando a agência (MASTER) está acessando a área de um cliente. */
+  impersonatingId: string | null;
+};
+
 function secret() {
   const value = process.env.AUTH_SECRET;
   if (!value || value.length < 16) {
@@ -13,8 +20,8 @@ function secret() {
   return new TextEncoder().encode(value);
 }
 
-export async function createSession(userId: string) {
-  const token = await new SignJWT({})
+export async function createSession(userId: string, impersonatingId: string | null = null) {
+  const token = await new SignJWT(impersonatingId ? { imp: impersonatingId } : {})
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(userId)
     .setIssuedAt()
@@ -35,12 +42,16 @@ export async function createSession(userId: string) {
   });
 }
 
-export async function getSessionUserId(): Promise<string | null> {
+export async function getSession(): Promise<SessionData | null> {
   const token = (await cookies()).get(COOKIE_NAME)?.value;
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secret());
-    return payload.sub ?? null;
+    if (!payload.sub) return null;
+    return {
+      userId: payload.sub,
+      impersonatingId: typeof payload.imp === "string" ? payload.imp : null,
+    };
   } catch {
     return null;
   }
