@@ -28,14 +28,20 @@ export default async function EditItemPage({
     .limit(1);
   if (!item) notFound();
 
-  const [cities, doc] = await Promise.all([
+  const [cities, doc, resDoc] = await Promise.all([
     db.select({ id: t.cities.id, name: t.cities.name }).from(t.cities).where(eq(t.cities.tripId, trip.id)).orderBy(asc(t.cities.position)),
     item.ticketDocumentId
       ? db.select({ fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.id, item.ticketDocumentId)).limit(1)
       : Promise.resolve([]),
+    item.reservationDocumentId
+      ? db.select({ fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.id, item.reservationDocumentId)).limit(1)
+      : Promise.resolve([]),
   ]);
   const attachment = doc[0]
     ? { name: doc[0].fileName, href: `/api/files/${trip.id}/${item.ticketDocumentId}` }
+    : null;
+  const reservationAttachment = resDoc[0]
+    ? { name: resDoc[0].fileName, href: `/api/files/${trip.id}/${item.reservationDocumentId}` }
     : null;
   const back = `/trips/${trip.id}/itinerary/day/${item.date}`;
 
@@ -45,7 +51,13 @@ export default async function EditItemPage({
       <Card>
         <ErrorBanner message={error} />
         <form action={updateItemAction.bind(null, trip.id, item.id)} className="grid gap-3 sm:grid-cols-6">
-          <ItemFields trip={trip} cities={cities} item={item} attachment={attachment} />
+          <ItemFields
+            trip={trip}
+            cities={cities}
+            item={item}
+            attachment={attachment}
+            reservationAttachment={reservationAttachment}
+          />
           <div className="flex gap-2 sm:col-span-6">
             <button className={btnPrimary}>Salvar alterações</button>
             <Link href={back} className={btnGhost}>

@@ -235,12 +235,12 @@ r = submit(alice, item_url, 'name="startTime"', {"date": "2026-11-11", "endTime"
 check("ingresso.pdf" not in alice.get(f"{it}/day/2026-11-11").text, "anexo removido ao marcar a caixa")
 
 # reserva
-bk = f"{trip_url}/bookings"
+bk = f"{trip_url}/transports"
 submit(alice, bk, 'name="voucher"', {"title": "Voo GRU-LIS", "type": "FLIGHT", "startAt": "2026-11-10T09:00",
        "totalPrice": "3.500,00", "currency": "BRL"},
        files={"voucher": ("eticket.pdf", io.BytesIO(b"%PDF-1.4 v1"), "application/pdf")})
 tid = trip_url.rsplit("/", 1)[1]
-bk_href = hrefs(alice, bk, f"/trips/{tid}/bookings/")[0]
+bk_href = hrefs(alice, bk, f"/trips/{tid}/transports/")[0]
 bk_url = BASE + bk_href
 r = alice.get(bk_url)
 check('value="Voo GRU-LIS"' in r.text and 'value="3500,00"' in r.text and 'value="2026-11-10T09:00"' in r.text, "reserva carrega valores (preço e data/hora)")
@@ -269,6 +269,58 @@ r = submit(alice, exp_url, 'name="amount"', {"amount": "0"})
 check("valor válido" in r.text, "valor zero rejeitado")
 r = submit(alice, exp_url, 'name="amount"', {"removeReceipt": "on", "amount": "25,00"})
 check("recibo" not in alice.get(ex).text.split("Almoço (editado)")[1][:600], "recibo removido")
+
+print("Cidades, abas, hospedagens e reserva na atividade")
+check(soup(alice.get(it)).find("input", {"name": "arrival"}) is None, "cadastro de cidade não pede mais datas")
+nav = [a.get_text(strip=True) for a in soup(alice.get(trip_url)).find_all("a", href=re.compile(rf"/trips/{tid}/(transports|lodgings|bookings)$"))]
+check("Transportes" in nav and "Hospedagens" in nav and "Reservas" not in nav, "abas Transportes e Hospedagens")
+
+# reserva dentro da atividade (a atividade está no dia 11/11)
+d11 = f"{it}/day/2026-11-11"
+page = soup(alice.get(d11))
+check(any(a.get_text(strip=True) == "sem reserva" for a in page.find_all("a")), "atividade sem reserva mostra o aviso")
+r = submit(alice, item_url, 'name="reservationCode"', {"reservationProvider": "GetYourGuide", "reservationCode": "GYG42",
+           "reservationPrice": "45,90", "reservationCurrency": "EUR"},
+           files={"reservationVoucher": ("voucher-gyg.pdf", io.BytesIO(b"%PDF-1.4 gyg"), "application/pdf")})
+page = soup(alice.get(d11))
+badge = [a for a in page.find_all("a") if a.get_text(strip=True) == "reservado"]
+check(len(badge) == 1 and badge[0]["href"].endswith("#reserva") and "/itinerary/items/" in badge[0]["href"], "aviso reservado com link para detalhes/edição")
+check("GYG42" in T(alice.get(d11)) and "GetYourGuide" in T(alice.get(d11)), "agenda mostra fornecedor e código da reserva")
+r = alice.get(item_url)
+check('value="GYG42"' in r.text and 'value="45,90"' in r.text and "voucher-gyg.pdf" in r.text and 'id="reserva"' in r.text, "edição mostra os dados e o voucher da reserva")
+r = submit(alice, item_url, 'name="reservationCode"', {"reservationPrice": "abc"})
+check("Valor da reserva inválido" in T(r), "valor de reserva inválido rejeitado")
+r = submit(alice, item_url, 'name="reservationCode"', {"reservationProvider": "", "reservationCode": "", "reservationPrice": "",
+           "reservationDetails": "", "removeReservationVoucher": "on"})
+page = soup(alice.get(d11))
+check(any(a.get_text(strip=True) == "sem reserva" for a in page.find_all("a")) and not any(a.get_text(strip=True) == "reservado" for a in page.find_all("a")), "limpando os campos volta para sem reserva")
+
+# transportes não aceitam mais Hotel
+r = submit(alice, bk, 'name="voucher"', {"title": "Hotel velho", "type": "HOTEL"})
+check("Tipo de transporte inválido" in T(r), "Hotel não é mais tipo de transporte")
+
+# hospedagens
+lg = f"{trip_url}/lodgings"
+check(alice.get(lg).status_code == 200 and "Nenhuma hospedagem" in T(alice.get(lg)), "aba Hospedagens vazia")
+r = submit(alice, lg, 'name="checkInDate"', {"name": "Hotel Avenida", "type": "HOTEL", "checkInDate": "2026-11-10", "checkInTime": "15:00",
+           "checkOutDate": "2026-11-12", "checkOutTime": "11:00", "totalPrice": "1.200,00", "currency": "EUR", "confirmationCode": "H123",
+           "provider": "Booking", "address": "Av. da Liberdade 1"},
+           files={"voucher": ("hotel.pdf", io.BytesIO(b"%PDF-1.4 h"), "application/pdf")})
+txt = T(r)
+check("Hotel Avenida" in txt and "2 noites" in txt and "H123" in txt and "hotel.pdf" in txt, "hospedagem cadastrada com noites, código e voucher")
+r = submit(alice, lg, 'name="checkInDate"', {"name": "Errada", "checkInDate": "2026-11-12", "checkOutDate": "2026-11-10"})
+check("check-out não pode ser antes" in T(r), "check-out antes do check-in rejeitado")
+check("Check-in: Hotel Avenida" in T(alice.get(f"{it}/day/2026-11-10")), "check-in aparece na agenda do dia")
+check("Check-out: Hotel Avenida" in T(alice.get(f"{it}/day/2026-11-12")), "check-out aparece na agenda do dia")
+lg_href = hrefs(alice, lg, f"/trips/{tid}/lodgings/")[0]
+lg_url = BASE + lg_href
+check('value="Hotel Avenida"' in alice.get(lg_url).text and 'value="1200,00"' in alice.get(lg_url).text, "edição de hospedagem carrega valores")
+r = submit(alice, lg_url, 'name="checkInDate"', {"name": "Hotel Avenida Palace", "checkOutDate": "2026-11-13", "removeVoucher": "on"})
+txt = T(r)
+check("Hotel Avenida Palace" in txt and "3 noites" in txt and "hotel.pdf" not in txt, "hospedagem editada (nome, noites, voucher removido)")
+check(bob.get(lg_url, allow_redirects=False).status_code == 404, "Bob não abre hospedagem da Alice")
+r = submit(alice, lg_url, "Excluir esta hospedagem")
+check("Hotel Avenida" not in T(alice.get(lg)) and alice.get(lg_url, allow_redirects=False).status_code == 404, "hospedagem excluída")
 
 print("Viajantes")
 TV = f"{BASE}/travelers"
@@ -306,15 +358,15 @@ check(bob.get(trip_url, allow_redirects=False).status_code == 404, "Bob recebe 4
 check(bob.get(BASE + file_link, allow_redirects=False).status_code == 404, "Bob não baixa arquivo da Alice")
 check("Portugal E2E" not in bob.get(f"{BASE}/").text, "home do Bob não lista a viagem da Alice")
 check(requests.get(BASE + file_link).status_code == 401, "anônimo não baixa arquivo")
-for label, u in (("atividade", item_url), ("reserva", bk_url), ("custo", exp_url)):
+for label, u in (("atividade", item_url), ("transporte", bk_url), ("custo", exp_url)):
     check(bob.get(u, allow_redirects=False).status_code == 404, f"Bob não abre a edição de {label} da Alice")
 
 print("Excluir pela tela de edição")
 r = submit(alice, item_url, "Excluir esta atividade")
 check("Torre de Belém (editada)" not in alice.get(f"{it}/day/2026-11-11").text, "atividade excluída")
 check(alice.get(item_url, allow_redirects=False).status_code == 404, "atividade excluída some (404)")
-r = submit(alice, bk_url, "Excluir esta reserva")
-check("remarcado" not in alice.get(bk).text and alice.get(bk_url, allow_redirects=False).status_code == 404, "reserva excluída")
+r = submit(alice, bk_url, "Excluir este transporte")
+check("remarcado" not in alice.get(bk).text and alice.get(bk_url, allow_redirects=False).status_code == 404, "transporte excluído")
 r = submit(alice, exp_url, "Excluir este lançamento")
 check("Almoço (editado)" not in alice.get(ex).text and alice.get(exp_url, allow_redirects=False).status_code == 404, "custo excluído")
 

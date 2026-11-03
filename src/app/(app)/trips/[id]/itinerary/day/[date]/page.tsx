@@ -4,8 +4,8 @@ import { asc, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { ISO_DATE } from "@/lib/form";
-import { addDays, formatDate, formatWeekday } from "@/lib/format";
-import { ITEM_TYPE_LABEL } from "@/lib/labels";
+import { addDays, formatDate, formatMoney, formatWeekday } from "@/lib/format";
+import { BOOKING_TYPE_LABEL, ITEM_TYPE_LABEL, LODGING_TYPE_LABEL } from "@/lib/labels";
 import { getAgenda } from "@/services/agenda";
 import { getDayPlan } from "@/services/itinerary";
 import { addItemAction, deleteItemAction } from "@/app/actions/items";
@@ -135,15 +135,53 @@ export default async function ItineraryDayPage({
                     {e.title}
                     {e.kind === "booking" && (
                       <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-normal uppercase text-slate-500">
-                        reserva
+                        transporte
                       </span>
+                    )}
+                    {e.kind === "lodging" && (
+                      <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-normal uppercase text-slate-500">
+                        hospedagem
+                      </span>
+                    )}
+                    {e.kind === "item" && e.type !== "FREE_TIME" && (
+                      <Link
+                        href={`${base}/items/${e.id}#reserva`}
+                        className={`ml-2 rounded px-1.5 py-0.5 text-[10px] font-normal uppercase ${
+                          e.reservation
+                            ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                            : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                        }`}
+                      >
+                        {e.reservation ? "reservado" : "sem reserva"}
+                      </Link>
                     )}
                   </p>
                   <p className="text-xs text-slate-500">
-                    {e.kind === "item" ? ITEM_TYPE_LABEL[e.type as keyof typeof ITEM_TYPE_LABEL] : "Reserva"}
+                    {e.kind === "item"
+                      ? ITEM_TYPE_LABEL[e.type as keyof typeof ITEM_TYPE_LABEL]
+                      : e.kind === "lodging"
+                        ? LODGING_TYPE_LABEL[e.type as keyof typeof LODGING_TYPE_LABEL]
+                        : BOOKING_TYPE_LABEL[e.type as keyof typeof BOOKING_TYPE_LABEL]}
                     {e.cityName ? ` · ${e.cityName}` : ""}
                     {e.location ? ` · ${e.location}` : ""}
                   </p>
+                  {e.reservation && (
+                    <p className="text-xs text-emerald-800">
+                      Reserva:{" "}
+                      {[
+                        e.reservation.provider,
+                        e.reservation.code ? `cód. ${e.reservation.code}` : null,
+                        e.reservation.price && e.reservation.currency
+                          ? formatMoney(e.reservation.price, e.reservation.currency)
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || "dados no detalhe"}{" "}
+                      <Link href={`${base}/items/${e.id}#reserva`} className="underline">
+                        ver / editar
+                      </Link>
+                    </p>
+                  )}
                   {e.address && <p className="text-xs text-slate-400">{e.address}</p>}
                   {e.notes && <p className="mt-1 text-xs text-slate-500">{e.notes}</p>}
                   {e.ticketDocumentId && (
@@ -160,7 +198,13 @@ export default async function ItineraryDayPage({
                 {canWrite && (
                   <div className="flex shrink-0 items-start gap-3">
                     <Link
-                      href={e.kind === "item" ? `${base}/items/${e.id}` : `/trips/${trip.id}/bookings/${e.id}`}
+                      href={
+                        e.kind === "item"
+                          ? `${base}/items/${e.id}`
+                          : e.kind === "lodging"
+                            ? `/trips/${trip.id}/lodgings/${e.id}`
+                            : `/trips/${trip.id}/transports/${e.id}`
+                      }
                       className="text-xs text-teal-700 hover:underline"
                     >
                       Editar

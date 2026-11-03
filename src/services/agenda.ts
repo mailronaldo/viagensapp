@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, lte, or, sql } from "drizzle-orm";
 import { db, t } from "@/db";
 import { todayIn } from "@/lib/format";
 
@@ -12,7 +12,7 @@ import { todayIn } from "@/lib/format";
 
 export type AgendaEntry = {
   id: string;
-  kind: "item" | "booking";
+  kind: "item" | "booking" | "lodging";
   time: string | null; // "HH:MM"
   title: string;
   type: string;
@@ -22,6 +22,13 @@ export type AgendaEntry = {
   cityName: string | null;
   hasTicket: boolean;
   ticketDocumentId: string | null;
+  /** Só para atividades: dados da reserva (null = sem reserva). */
+  reservation: {
+    provider: string | null;
+    code: string | null;
+    price: string | null;
+    currency: string | null;
+  } | null;
 };
 
 export type Agenda = {
@@ -46,6 +53,12 @@ export async function getAgenda(
       notes: t.itineraryItems.notes,
       cityName: t.cities.name,
       ticketDocumentId: t.itineraryItems.ticketDocumentId,
+      reservationProvider: t.itineraryItems.reservationProvider,
+      reservationCode: t.itineraryItems.reservationCode,
+      reservationPrice: t.itineraryItems.reservationPrice,
+      reservationCurrency: t.itineraryItems.reservationCurrency,
+      reservationDetails: t.itineraryItems.reservationDetails,
+      reservationDocumentId: t.itineraryItems.reservationDocumentId,
     })
     .from(t.itineraryItems)
     .leftJoin(t.cities, eq(t.cities.id, t.itineraryItems.cityId))
@@ -55,7 +68,7 @@ export async function getAgenda(
       asc(t.itineraryItems.title),
     );
 
-  // Reservas que começam nesse dia (voos, check-in de hotel, transfers...)
+  // Transportes que começam nesse dia (voos, transfers, trens...)
   const dayStart = `${day} 00:00:00`;
   const dayEnd = `${day} 23:59:59`;
   const bookings = await db
@@ -68,6 +81,39 @@ export async function getAgenda(
         lte(t.bookings.startAt, dayEnd),
       ),
     );
+
+  // Hospedagens: check-in e check-out caem no dia como entradas da agenda.
+  const lodgingRows = await db
+    .select()
+    .from(t.lodgings)
+    .where(
+      and(
+        eq(t.lodgings.tripId, trip.id),
+        or(eq(t.lodgings.checkInDate, day), eq(t.lodgings.checkOutDate, day)),
+      ),
+    );
+  const lodgingEntries: AgendaEntry[] = lodgingRows.flatMap((l) => {
+    const base = {
+      id: l.id,
+      kind: "lodging" as const,
+      type: l.type,
+      location: null,
+      address: l.address,
+      notes: l.confirmationCode ? `Código: ${l.confirmationCode}` : null,
+      cityName: null,
+      hasTicket: !!l.documentId,
+      ticketDocumentId: l.documentId,
+      reservation: null,
+    };
+    const out: AgendaEntry[] = [];
+    if (l.checkOutDate === day) {
+      out.push({ ...base, time: l.checkOutTime, title: `Check-out: ${l.name}` });
+    }
+    if (l.checkInDate === day) {
+      out.push({ ...base, time: l.checkInTime, title: `Check-in: ${l.name}` });
+    }
+    return out;
+  });
 
   const entries: AgendaEntry[] = [
     ...items.map((i) => ({
@@ -82,6 +128,19 @@ export async function getAgenda(
       cityName: i.cityName,
       hasTicket: !!i.ticketDocumentId,
       ticketDocumentId: i.ticketDocumentId,
+      reservation:
+        i.reservationProvider ||
+        i.reservationCode ||
+        i.reservationPrice ||
+        i.reservationDetails ||
+        i.reservationDocumentId
+          ? {
+              provider: i.reservationProvider,
+              code: i.reservationCode,
+              price: i.reservationPrice,
+              currency: i.reservationCurrency,
+            }
+          : null,
     })),
     ...bookings.map((b) => ({
       id: b.id,
@@ -95,7 +154,9 @@ export async function getAgenda(
       cityName: null,
       hasTicket: !!b.documentId,
       ticketDocumentId: b.documentId,
+      reservation: null,
     })),
+    ...lodgingEntries,
   ];
 
   entries.sort((a, b) => {

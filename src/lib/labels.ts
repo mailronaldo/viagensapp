@@ -11,10 +11,22 @@ export const ITEM_TYPE_LABEL = {
 
 export const BOOKING_TYPE_LABEL = {
   FLIGHT: "Voo",
-  HOTEL: "Hotel",
+  HOTEL: "Hotel (antigo)", // legado: hotéis agora ficam em Hospedagens
+
   CAR_RENTAL: "Aluguel de carro",
   TRANSFER: "Transfer",
   TRAIN: "Trem",
+  OTHER: "Outro",
+} as const;
+
+/** Tipos oferecidos nos formulários de Transportes (sem Hotel). */
+export const BOOKING_TYPE_OPTIONS = ["FLIGHT", "TRANSFER", "TRAIN", "CAR_RENTAL", "OTHER"] as const;
+
+export const LODGING_TYPE_LABEL = {
+  HOTEL: "Hotel",
+  RENTAL: "Aluguel / Airbnb",
+  HOSTEL: "Hostel / pousada",
+  RESORT: "Resort",
   OTHER: "Outro",
 } as const;
 

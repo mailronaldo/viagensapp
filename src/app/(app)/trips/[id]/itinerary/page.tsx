@@ -45,7 +45,6 @@ export default async function ItineraryPage({
               className="inline-flex items-center gap-2 rounded-full bg-teal-50 px-3 py-1 text-xs text-teal-900"
             >
               {c.name}
-              {c.arrival ? ` · ${formatDate(c.arrival, { day: "2-digit", month: "short" })}` : ""}
               {canWrite && (
                 <form action={deleteCityAction.bind(null, trip.id, c.id)}>
                   <button aria-label={`Remover ${c.name}`} className="cursor-pointer text-teal-700 hover:text-rose-700">
@@ -58,20 +57,14 @@ export default async function ItineraryPage({
         </div>
         {canWrite && (
           <AddPanel title="Adicionar cidade" defaultOpen={cities.length === 0}>
-            <form action={addCityAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-4">
+            <form action={addCityAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-3">
               <Field label="Cidade">
                 <input name="name" required className={inputCls} />
               </Field>
               <Field label="País">
                 <input name="country" className={inputCls} />
               </Field>
-              <Field label="Chegada">
-                <input name="arrival" type="date" min={trip.startDate} max={trip.endDate} className={inputCls} />
-              </Field>
-              <Field label="Saída">
-                <input name="departure" type="date" min={trip.startDate} max={trip.endDate} className={inputCls} />
-              </Field>
-              <div className="sm:col-span-4">
+              <div className="sm:col-span-3">
                 <button className={btnPrimary}>Salvar cidade</button>
               </div>
             </form>

@@ -3,7 +3,7 @@ import { and, asc, eq, gte } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { formatDateTime, formatMoney, formatWeekday, todayIn } from "@/lib/format";
-import { BOOKING_TYPE_LABEL, ITEM_TYPE_LABEL } from "@/lib/labels";
+import { BOOKING_TYPE_LABEL, ITEM_TYPE_LABEL, LODGING_TYPE_LABEL } from "@/lib/labels";
 import { getAgenda } from "@/services/agenda";
 import { getExpenseSummary } from "@/services/expenses";
 import { deleteTripAction } from "@/app/actions/trips";
@@ -83,7 +83,9 @@ export default async function TripOverviewPage({
                   <p className="text-xs text-slate-500">
                     {e.kind === "booking"
                       ? BOOKING_TYPE_LABEL[e.type as keyof typeof BOOKING_TYPE_LABEL]
-                      : ITEM_TYPE_LABEL[e.type as keyof typeof ITEM_TYPE_LABEL]}
+                      : e.kind === "lodging"
+                        ? LODGING_TYPE_LABEL[e.type as keyof typeof LODGING_TYPE_LABEL]
+                        : ITEM_TYPE_LABEL[e.type as keyof typeof ITEM_TYPE_LABEL]}
                     {e.location ? ` · ${e.location}` : ""}
                   </p>
                 </div>
@@ -113,9 +115,9 @@ export default async function TripOverviewPage({
         </Card>
 
         <Card>
-          <h2 className="mb-2 font-medium">Próximas reservas</h2>
+          <h2 className="mb-2 font-medium">Próximos transportes</h2>
           {upcoming.length === 0 ? (
-            <p className="text-sm text-slate-500">Nenhuma reserva futura cadastrada.</p>
+            <p className="text-sm text-slate-500">Nenhum transporte futuro cadastrado.</p>
           ) : (
             <ul className="space-y-2">
               {upcoming.map((b) => (

@@ -38,8 +38,7 @@ export default async function EditTripPage({
             <input name="endDate" type="date" required defaultValue={trip.endDate} className={inputCls} />
           </Field>
           <p className="text-xs text-slate-500 sm:col-span-2">
-            Para encurtar ou mover o período, o roteiro não pode ter atividades, resumos de dia ou cidades fora
-            das novas datas.
+            Para encurtar ou mover o período, o roteiro não pode ter atividades ou resumos de dia fora das novas datas.
           </p>
           <Field label="Fuso horário do destino" hint="Define o que é “hoje” na agenda.">
             <select name="timezone" defaultValue={trip.timezone} className={inputCls}>

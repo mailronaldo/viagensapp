@@ -79,7 +79,7 @@ export async function updateTripAction(tripId: string, formData: FormData) {
   if (startDate !== trip.startDate || endDate !== trip.endDate) {
     const outside = (col: AnyPgColumn) => or(lt(col, startDate), gt(col, endDate));
 
-    const [items, plans, cityDates] = await Promise.all([
+    const [items, plans] = await Promise.all([
       db
         .select({ date: t.itineraryItems.date })
         .from(t.itineraryItems)
@@ -95,21 +95,7 @@ export async function updateTripAction(tripId: string, formData: FormData) {
             or(isNotNull(t.tripDays.title), isNotNull(t.tripDays.summary)),
           ),
         )
-        .orderBy(asc(t.tripDays.date)),
-      db
-        .select({ arrival: t.cities.arrival, departure: t.cities.departure })
-        .from(t.cities)
-        .where(
-          and(
-            eq(t.cities.tripId, tripId),
-            or(
-              lt(t.cities.arrival, startDate),
-              gt(t.cities.arrival, endDate),
-              lt(t.cities.departure, startDate),
-              gt(t.cities.departure, endDate),
-            ),
-          ),
-        ),
+        .orderBy(asc(t.tripDays.date))
     ]);
 
     const problems: string[] = [];
@@ -120,9 +106,6 @@ export async function updateTripAction(tripId: string, formData: FormData) {
     }
     if (plans.length) {
       problems.push(`${plans.length} resumo(s) de dia fora do novo período (${formatDate(plans[0].date)})`);
-    }
-    if (cityDates.length) {
-      problems.push(`${cityDates.length} cidade(s) com chegada/saída fora do novo período`);
     }
     if (problems.length) {
       fail(
@@ -182,10 +165,6 @@ export async function addCityAction(tripId: string, formData: FormData) {
   const back = `/trips/${tripId}/itinerary`;
   const name = str(formData, "name");
   if (!name) fail(back, "Informe o nome da cidade.");
-  const arrival = str(formData, "arrival");
-  const departure = str(formData, "departure");
-  if (arrival && !ISO_DATE.test(arrival)) fail(back, "Data de chegada inválida.");
-  if (departure && !ISO_DATE.test(departure)) fail(back, "Data de saída inválida.");
 
   const existing = await db
     .select({ id: t.cities.id })
@@ -196,8 +175,6 @@ export async function addCityAction(tripId: string, formData: FormData) {
     tripId,
     name,
     country: str(formData, "country"),
-    arrival,
-    departure,
     position: existing.length,
   });
   redirect(back);

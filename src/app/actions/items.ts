@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { ITEM_TYPE_LABEL } from "@/lib/labels";
+import { CURRENCIES, ITEM_TYPE_LABEL } from "@/lib/labels";
 import { HH_MM, ISO_DATE, fail, parseDecimal, str } from "@/lib/form";
 
 async function parseItem(
@@ -46,7 +46,21 @@ async function parseItem(
   const costEstimate = parseDecimal(costRaw);
   if (costRaw && costEstimate === null) fail(back, "Valor estimado inválido.");
 
+  const resPriceRaw = str(formData, "reservationPrice");
+  const reservationPrice = parseDecimal(resPriceRaw, { positive: true });
+  if (resPriceRaw && reservationPrice === null) fail(back, "Valor da reserva inválido.");
+  const resCurrency = str(formData, "reservationCurrency");
+  if (resCurrency && !(CURRENCIES as readonly string[]).includes(resCurrency)) {
+    fail(back, "Moeda da reserva inválida.");
+  }
+
   return {
+    reservationProvider: str(formData, "reservationProvider"),
+    reservationCode: str(formData, "reservationCode"),
+    reservationPrice,
+    // Sem valor, a moeda não é guardada.
+    reservationCurrency: reservationPrice ? (resCurrency ?? "BRL") : null,
+    reservationDetails: str(formData, "reservationDetails"),
     cityId,
     date,
     startTime,
@@ -77,7 +91,16 @@ export async function addItemAction(tripId: string, formData: FormData) {
     current: null,
   });
 
-  await db.insert(t.itineraryItems).values({ tripId, ...v, ticketDocumentId });
+  const reservationDocumentId = await attachmentFromForm({
+    tripId,
+    formData,
+    fileField: "reservationVoucher",
+    doc: { type: "RESERVATION", title: `Reserva — ${v.title}` },
+    back,
+    current: null,
+  });
+
+  await db.insert(t.itineraryItems).values({ tripId, ...v, ticketDocumentId, reservationDocumentId });
   redirect(`/trips/${tripId}/itinerary/day/${v.date}`);
 }
 
@@ -103,9 +126,19 @@ export async function updateItemAction(tripId: string, itemId: string, formData:
     current: current.ticketDocumentId,
   });
 
+  const reservationDocumentId = await attachmentFromForm({
+    tripId,
+    formData,
+    fileField: "reservationVoucher",
+    removeField: "removeReservationVoucher",
+    doc: { type: "RESERVATION", title: `Reserva — ${v.title}` },
+    back,
+    current: current.reservationDocumentId,
+  });
+
   await db
     .update(t.itineraryItems)
-    .set({ ...v, ticketDocumentId })
+    .set({ ...v, ticketDocumentId, reservationDocumentId })
     .where(and(eq(t.itineraryItems.id, itemId), eq(t.itineraryItems.tripId, tripId)));
   redirect(`/trips/${tripId}/itinerary/day/${v.date}`);
 }

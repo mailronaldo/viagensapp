@@ -35,6 +35,13 @@ export const bookingType = pgEnum("booking_type", [
   "TRAIN",
   "OTHER",
 ]);
+export const lodgingType = pgEnum("lodging_type", [
+  "HOTEL",
+  "RENTAL",
+  "HOSTEL",
+  "RESORT",
+  "OTHER",
+]);
 export const expenseCategory = pgEnum("expense_category", [
   "FLIGHT",
   "LODGING",
@@ -247,6 +254,35 @@ export const bookings = pgTable(
   (t) => [index("bookings_trip_start_idx").on(t.tripId, t.startAt)],
 );
 
+// ---------- Hospedagens (hotéis, aluguéis, Airbnb…) ----------
+
+export const lodgings = pgTable(
+  "lodgings",
+  {
+    id: id(),
+    tripId: text("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    cityId: text("city_id").references(() => cities.id, { onDelete: "set null" }),
+    type: lodgingType("type").notNull().default("HOTEL"),
+    name: text("name").notNull(),
+    provider: text("provider"), // Booking, Airbnb, direto com o hotel…
+    address: text("address"),
+    checkInDate: date("check_in_date"),
+    checkInTime: text("check_in_time"), // "HH:MM"
+    checkOutDate: date("check_out_date"),
+    checkOutTime: text("check_out_time"),
+    confirmationCode: text("confirmation_code"),
+    totalPrice: numeric("total_price", { precision: 12, scale: 2 }),
+    currency: text("currency"),
+    notes: text("notes"),
+    documentId: text("document_id").references(() => documents.id, {
+      onDelete: "set null",
+    }),
+  },
+  (t) => [index("lodgings_trip_checkin_idx").on(t.tripId, t.checkInDate)],
+);
+
 // ---------- Roteiro dia a dia ----------
 
 export const itineraryItems = pgTable(
@@ -278,6 +314,16 @@ export const itineraryItems = pgTable(
     bookingId: text("booking_id").references(() => bookings.id, {
       onDelete: "set null",
     }),
+    // Reserva da atividade (opcional): existe quando qualquer um destes campos está preenchido.
+    reservationProvider: text("reservation_provider"),
+    reservationCode: text("reservation_code"),
+    reservationPrice: numeric("reservation_price", { precision: 12, scale: 2 }),
+    reservationCurrency: text("reservation_currency"),
+    reservationDetails: text("reservation_details"),
+    reservationDocumentId: text("reservation_document_id").references(
+      () => documents.id,
+      { onDelete: "set null" },
+    ),
   },
   (t) => [index("items_trip_date_idx").on(t.tripId, t.date)],
 );
@@ -319,6 +365,7 @@ export type Traveler = typeof travelers.$inferSelect;
 export type Trip = typeof trips.$inferSelect;
 export type City = typeof cities.$inferSelect;
 export type ItineraryItem = typeof itineraryItems.$inferSelect;
+export type Lodging = typeof lodgings.$inferSelect;
 export type Booking = typeof bookings.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type Document = typeof documents.$inferSelect;

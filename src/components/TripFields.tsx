@@ -1,5 +1,12 @@
-import type { Booking, Expense, ItineraryItem } from "@/db/schema";
-import { BOOKING_TYPE_LABEL, CURRENCIES, EXPENSE_CATEGORY_LABEL, ITEM_TYPE_LABEL } from "@/lib/labels";
+import type { Booking, Expense, ItineraryItem, Lodging } from "@/db/schema";
+import {
+  BOOKING_TYPE_LABEL,
+  BOOKING_TYPE_OPTIONS,
+  CURRENCIES,
+  EXPENSE_CATEGORY_LABEL,
+  ITEM_TYPE_LABEL,
+  LODGING_TYPE_LABEL,
+} from "@/lib/labels";
 import { Field, inputCls } from "@/components/ui";
 
 /** "1234.50" → "1234,50" (formato do campo, aceito por parseDecimal). */
@@ -48,12 +55,14 @@ export function ItemFields({
   item,
   defaultDate,
   attachment,
+  reservationAttachment,
 }: {
-  trip: { id: string; startDate: string; endDate: string };
+  trip: { id: string; startDate: string; endDate: string; baseCurrency: string };
   cities: { id: string; name: string }[];
   item?: ItineraryItem;
   defaultDate?: string;
   attachment?: { name: string; href: string } | null;
+  reservationAttachment?: { name: string; href: string } | null;
 }) {
   return (
     <>
@@ -116,6 +125,119 @@ export function ItemFields({
       <Field label="Observações" className="sm:col-span-6">
         <textarea name="notes" rows={2} defaultValue={item?.notes ?? ""} className={inputCls} />
       </Field>
+      <fieldset id="reserva" className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:col-span-6 sm:grid-cols-6">
+        <legend className="px-1 text-xs font-medium text-slate-600">
+          Reserva desta atividade (opcional — preencha se já reservou)
+        </legend>
+        <Field label="Fornecedor / site" className="sm:col-span-3">
+          <input name="reservationProvider" defaultValue={item?.reservationProvider ?? ""} className={inputCls} />
+        </Field>
+        <Field label="Código da reserva" className="sm:col-span-3">
+          <input name="reservationCode" defaultValue={item?.reservationCode ?? ""} className={inputCls} />
+        </Field>
+        <Field label="Valor" className="sm:col-span-2">
+          <input name="reservationPrice" inputMode="decimal" defaultValue={dec(item?.reservationPrice)} placeholder="0,00" className={inputCls} />
+        </Field>
+        <Field label="Moeda" className="sm:col-span-1">
+          <select name="reservationCurrency" defaultValue={item?.reservationCurrency ?? trip.baseCurrency} className={inputCls}>
+            {CURRENCIES.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+        </Field>
+        <AttachmentField
+          label="Voucher da reserva (PDF ou imagem)"
+          name="reservationVoucher"
+          removeName="removeReservationVoucher"
+          current={reservationAttachment?.name}
+          href={reservationAttachment?.href}
+          className="sm:col-span-3"
+        />
+        <Field label="Detalhes da reserva" className="sm:col-span-6">
+          <textarea name="reservationDetails" rows={2} defaultValue={item?.reservationDetails ?? ""} className={inputCls} />
+        </Field>
+      </fieldset>
+    </>
+  );
+}
+
+export function LodgingFields({
+  trip,
+  cities,
+  lodging,
+  attachment,
+}: {
+  trip: { baseCurrency: string };
+  cities: { id: string; name: string }[];
+  lodging?: Lodging;
+  attachment?: { name: string; href: string } | null;
+}) {
+  return (
+    <>
+      <Field label="Nome" className="sm:col-span-4">
+        <input name="name" required defaultValue={lodging?.name} placeholder="Ex.: Hotel Avenida Palace" className={inputCls} />
+      </Field>
+      <Field label="Tipo" className="sm:col-span-2">
+        <select name="type" defaultValue={lodging?.type ?? "HOTEL"} className={inputCls}>
+          {Object.entries(LODGING_TYPE_LABEL).map(([v, l]) => (
+            <option key={v} value={v}>
+              {l}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Cidade" className="sm:col-span-2">
+        <select name="cityId" defaultValue={lodging?.cityId ?? ""} className={inputCls}>
+          <option value="">—</option>
+          {cities.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Site / plataforma" className="sm:col-span-2">
+        <input name="provider" defaultValue={lodging?.provider ?? ""} placeholder="Booking, Airbnb…" className={inputCls} />
+      </Field>
+      <Field label="Código de confirmação" className="sm:col-span-2">
+        <input name="confirmationCode" defaultValue={lodging?.confirmationCode ?? ""} className={inputCls} />
+      </Field>
+      <Field label="Check-in (data)" className="sm:col-span-2">
+        <input name="checkInDate" type="date" defaultValue={lodging?.checkInDate ?? ""} className={inputCls} />
+      </Field>
+      <Field label="Check-in (hora)" className="sm:col-span-1">
+        <input name="checkInTime" type="time" defaultValue={lodging?.checkInTime ?? ""} className={inputCls} />
+      </Field>
+      <Field label="Check-out (data)" className="sm:col-span-2">
+        <input name="checkOutDate" type="date" defaultValue={lodging?.checkOutDate ?? ""} className={inputCls} />
+      </Field>
+      <Field label="Check-out (hora)" className="sm:col-span-1">
+        <input name="checkOutTime" type="time" defaultValue={lodging?.checkOutTime ?? ""} className={inputCls} />
+      </Field>
+      <Field label="Endereço" className="sm:col-span-6">
+        <input name="address" defaultValue={lodging?.address ?? ""} className={inputCls} />
+      </Field>
+      <Field label="Valor total" className="sm:col-span-2">
+        <input name="totalPrice" inputMode="decimal" defaultValue={dec(lodging?.totalPrice)} placeholder="0,00" className={inputCls} />
+      </Field>
+      <Field label="Moeda" className="sm:col-span-1">
+        <select name="currency" defaultValue={lodging?.currency ?? trip.baseCurrency} className={inputCls}>
+          {CURRENCIES.map((c) => (
+            <option key={c}>{c}</option>
+          ))}
+        </select>
+      </Field>
+      <AttachmentField
+        label="Voucher / confirmação (PDF ou imagem)"
+        name="voucher"
+        removeName="removeVoucher"
+        current={attachment?.name}
+        href={attachment?.href}
+        className="sm:col-span-3"
+      />
+      <Field label="Observações" className="sm:col-span-6">
+        <textarea name="notes" rows={2} defaultValue={lodging?.notes ?? ""} className={inputCls} />
+      </Field>
     </>
   );
 }
@@ -133,9 +255,9 @@ export function BookingFields({
     <>
       <Field label="Tipo" className="sm:col-span-2">
         <select name="type" className={inputCls} defaultValue={booking?.type ?? "FLIGHT"}>
-          {Object.entries(BOOKING_TYPE_LABEL).map(([v, l]) => (
+          {BOOKING_TYPE_OPTIONS.map((v) => (
             <option key={v} value={v}>
-              {l}
+              {BOOKING_TYPE_LABEL[v]}
             </option>
           ))}
         </select>
