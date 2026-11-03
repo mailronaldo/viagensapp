@@ -1,4 +1,5 @@
 import { BOOKING_TYPE_LABEL, ITEM_TYPE_LABEL, LODGING_TYPE_LABEL } from "@/lib/labels";
+import { Tag } from "@/components/ui";
 import type { AgendaEntry } from "@/services/agenda";
 
 /** Agenda do dia, somente leitura e sem valores (o painel do viajante não mostra custos). */
@@ -17,36 +18,24 @@ export function TravelerAgenda({
         href={`/api/files/${tripId}/${docId}`}
         target="_blank"
         rel="noreferrer"
-        className="mr-3 inline-block text-xs text-teal-700 hover:underline"
+        className="mr-3 inline-block text-xs text-brand-700 hover:underline"
       >
         {icon} {docName.get(docId) ?? fallback}
       </a>
     ) : null;
 
   return (
-    <ol className="divide-y divide-slate-100">
+    <ol className="space-y-2">
       {entries.map((e) => (
-        <li key={`${e.kind}-${e.id}`} className="flex gap-4 py-3">
-          <span className="w-12 shrink-0 text-sm tabular-nums text-slate-500">{e.time ?? "—"}</span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium">
-              {e.title}
-              {e.kind === "booking" && (
-                <span className="ml-2 rounded bg-sky-50 px-1.5 py-0.5 text-[10px] font-normal uppercase text-sky-800">
-                  transporte
-                </span>
-              )}
-              {e.kind === "lodging" && (
-                <span className="ml-2 rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-normal uppercase text-violet-800">
-                  hospedagem
-                </span>
-              )}
-              {e.kind === "item" && e.reservation && (
-                <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-normal uppercase text-emerald-800">
-                  reservado
-                </span>
-              )}
-            </p>
+        <li key={`${e.kind}-${e.id}`} className="flex gap-3">
+          <span className="w-12 shrink-0 pt-3 text-sm font-medium tabular-nums">{e.time ?? "—"}</span>
+          <div className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white p-3">
+            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+              <p className="text-sm font-medium">{e.title}</p>
+              {e.kind === "booking" && <Tag tone="info">transporte</Tag>}
+              {e.kind === "lodging" && <Tag tone="info">hospedagem</Tag>}
+              {e.kind === "item" && e.reservation && <Tag tone="ok">reservado</Tag>}
+            </div>
             <p className="text-xs text-slate-500">
               {e.kind === "item"
                 ? ITEM_TYPE_LABEL[e.type as keyof typeof ITEM_TYPE_LABEL]

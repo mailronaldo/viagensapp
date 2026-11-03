@@ -2,14 +2,30 @@ import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireClient } from "@/lib/auth";
-import { formatDate, todayIn } from "@/lib/format";
-import { EmptyState, btnPrimary } from "@/components/ui";
+import { todayIn } from "@/lib/format";
+import { TripCard } from "@/components/TripCard";
+import { EmptyState, btnOutline, btnPrimary, type TagTone } from "@/components/ui";
 
 export const metadata = { title: "Minhas viagens" };
 
-export default async function HomePage() {
+// Busca sem diferenciar maiúsculas nem acentos ("sao paulo" acha "São Paulo").
+function normalize(text: string) {
+  return text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+}
+
+function daysBetween(from: string, to: string) {
+  return Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
+}
+
+function daysLabel(days: number) {
+  return days === 1 ? "Amanhã" : `Em ${days} dias`;
+}
+
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   // A agência (MASTER) é redirecionada para /agency; a área do cliente é só de clientes.
   const user = await requireClient();
+  const { q } = await searchParams;
+  const query = typeof q === "string" ? q.trim() : "";
 
   const rows = await db
     .select({ trip: t.trips, role: t.tripMembers.role })
@@ -18,57 +34,79 @@ export default async function HomePage() {
     .where(eq(t.tripMembers.userId, user.id))
     .orderBy(desc(t.trips.startDate));
 
+  const upcoming = rows
+    .map(({ trip }) => daysBetween(todayIn(trip.timezone), trip.startDate))
+    .filter((days) => days > 0);
+  const nextIn = upcoming.length > 0 ? Math.min(...upcoming) : null;
+
+  const needle = normalize(query);
+  const visible = rows.filter(({ trip }) => normalize(`${trip.title} ${trip.destination}`).includes(needle));
+
   return (
     <>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Minhas viagens</h1>
-        <Link href="/trips/new" className={btnPrimary}>
+      <div className="hero-bleed -mt-6 pb-10 pt-3 text-white">
+        <h1 className="text-2xl font-semibold">Para onde vamos, {user.name.split(" ")[0]}?</h1>
+        <p className="text-sm text-brand-100">
+          {rows.length === 0
+            ? "Comece cadastrando a sua primeira viagem."
+            : `${rows.length} ${rows.length === 1 ? "viagem" : "viagens"}${
+                nextIn === null ? "" : ` · a próxima começa ${nextIn === 1 ? "amanhã" : `em ${nextIn} dias`}`
+              }`}
+        </p>
+      </div>
+
+      <form
+        action="/"
+        className="relative -mt-6 mb-6 flex flex-wrap gap-1 rounded-lg border-[3px] border-highlight bg-white p-1"
+      >
+        <input
+          name="q"
+          type="search"
+          defaultValue={query}
+          placeholder="Buscar viagem ou destino"
+          aria-label="Buscar viagem ou destino"
+          className="min-w-40 flex-1 rounded px-3 py-2 text-sm placeholder:text-slate-500 focus:outline-none"
+        />
+        <button className={btnOutline}>Buscar</button>
+        <Link href="/trips/new" className={`${btnPrimary} grow sm:grow-0`}>
           Nova viagem
         </Link>
-      </div>
+      </form>
 
       {rows.length === 0 ? (
         <EmptyState>
           Você ainda não cadastrou nenhuma viagem.{" "}
-          <Link href="/trips/new" className="font-medium text-teal-700 hover:underline">
+          <Link href="/trips/new" className="font-medium text-brand-700 hover:underline">
             Criar a primeira
           </Link>
         </EmptyState>
+      ) : visible.length === 0 ? (
+        <EmptyState>
+          Nenhuma viagem encontrada para “{query}”.{" "}
+          <Link href="/" className="font-medium text-brand-700 hover:underline">
+            Ver todas
+          </Link>
+        </EmptyState>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2">
-          {rows.map(({ trip }) => {
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {visible.map(({ trip }) => {
             const today = todayIn(trip.timezone);
-            const status =
+            const status: { label: string; tone: TagTone } =
               today < trip.startDate
-                ? "Planejada"
+                ? { label: daysLabel(daysBetween(today, trip.startDate)), tone: "info" }
                 : today > trip.endDate
-                  ? "Concluída"
-                  : "Em andamento";
+                  ? { label: "Concluída", tone: "neutral" }
+                  : { label: "Em andamento", tone: "ok" };
             return (
               <li key={trip.id}>
-                <Link
+                <TripCard
                   href={`/trips/${trip.id}`}
-                  className="block rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-teal-600 hover:shadow"
-                >
-                  <div className="mb-2 flex items-start justify-between gap-2">
-                    <h2 className="font-medium">{trip.title}</h2>
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${
-                        status === "Em andamento"
-                          ? "bg-teal-100 text-teal-800"
-                          : status === "Planejada"
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-slate-100 text-slate-600"
-                      }`}
-                    >
-                      {status}
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-600">{trip.destination}</p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    {formatDate(trip.startDate)} → {formatDate(trip.endDate)}
-                  </p>
-                </Link>
+                  title={trip.title}
+                  destination={trip.destination}
+                  startDate={trip.startDate}
+                  endDate={trip.endDate}
+                  status={status}
+                />
               </li>
             );
           })}

@@ -109,7 +109,7 @@ export default async function DocumentsPage({
       <div className="mb-4 flex flex-wrap gap-2 text-xs">
         <Link
           href={`/trips/${trip.id}/documents`}
-          className={`rounded-full px-3 py-1 ${!filter ? "bg-teal-700 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}
+          className={`rounded-full px-3 py-1 ${!filter ? "bg-brand-700 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}
         >
           Todos
         </Link>
@@ -117,7 +117,7 @@ export default async function DocumentsPage({
           <Link
             key={v}
             href={`/trips/${trip.id}/documents?type=${v}`}
-            className={`rounded-full px-3 py-1 ${filter === v ? "bg-teal-700 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}
+            className={`rounded-full px-3 py-1 ${filter === v ? "bg-brand-700 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}
           >
             {l}
           </Link>
@@ -136,7 +136,7 @@ export default async function DocumentsPage({
                     href={`/api/files/${trip.id}/${d.id}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="block truncate text-sm font-medium text-teal-800 hover:underline"
+                    className="block truncate text-sm font-medium text-brand-800 hover:underline"
                   >
                     {d.title}
                   </a>
@@ -147,7 +147,7 @@ export default async function DocumentsPage({
                   <p className="mt-1 text-xs">
                     <span
                       className={`rounded px-1.5 py-0.5 ${
-                        d.visibility === "OWNER" ? "bg-slate-100 text-slate-600" : "bg-teal-50 text-teal-800"
+                        d.visibility === "OWNER" ? "bg-slate-100 text-slate-600" : "bg-brand-50 text-brand-800"
                       }`}
                     >
                       👁 {visLabel(d)}
@@ -161,7 +161,7 @@ export default async function DocumentsPage({
                       <select name="visibility" defaultValue={visValue(d)} className={`${inputCls} py-1 text-xs`}>
                         {visibilityOptions}
                       </select>
-                      <button className="cursor-pointer text-xs text-teal-700 hover:underline">Salvar</button>
+                      <button className="cursor-pointer text-xs text-brand-700 hover:underline">Salvar</button>
                     </form>
                   )}
                 </div>

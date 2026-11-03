@@ -37,7 +37,7 @@ function AttachmentField({
       </Field>
       {current && (
         <p className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-slate-500">
-          <a href={href ?? "#"} target="_blank" rel="noreferrer" className="text-teal-700 hover:underline">
+          <a href={href ?? "#"} target="_blank" rel="noreferrer" className="text-brand-700 hover:underline">
             📎 {current}
           </a>
           <label className="inline-flex items-center gap-1">

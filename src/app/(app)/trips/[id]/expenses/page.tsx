@@ -74,7 +74,7 @@ export default async function ExpensesPage({
                   </div>
                   <div className="mt-1 h-1.5 rounded-full bg-slate-100">
                     <div
-                      className="h-1.5 rounded-full bg-teal-600"
+                      className="h-1.5 rounded-full bg-brand-600"
                       style={{ width: `${(c.totalBase / maxCat) * 100}%` }}
                     />
                   </div>
@@ -132,7 +132,7 @@ export default async function ExpensesPage({
                             href={`/api/files/${trip.id}/${e.receiptDocumentId}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-teal-700 hover:underline"
+                            className="text-brand-700 hover:underline"
                           >
                             📎 recibo
                           </a>
@@ -154,7 +154,7 @@ export default async function ExpensesPage({
                   <td className="px-4 py-2 text-right">
                     {canWrite && (
                       <div className="flex items-center justify-end gap-3">
-                        <Link href={`/trips/${trip.id}/expenses/${e.id}`} className="text-xs text-teal-700 hover:underline">
+                        <Link href={`/trips/${trip.id}/expenses/${e.id}`} className="text-xs text-brand-700 hover:underline">
                           Editar
                         </Link>
                         <form action={deleteExpenseAction.bind(null, trip.id, e.id)}>

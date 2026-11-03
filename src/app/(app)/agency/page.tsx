@@ -56,7 +56,7 @@ export default async function AgencyDashboard() {
       {clients.length === 0 ? (
         <EmptyState>
           Nenhum cliente ainda.{" "}
-          <Link href="/agency/clients/new" className="font-medium text-teal-700 hover:underline">
+          <Link href="/agency/clients/new" className="font-medium text-brand-700 hover:underline">
             Cadastrar o primeiro
           </Link>
         </EmptyState>
@@ -77,7 +77,7 @@ export default async function AgencyDashboard() {
               {clients.map((c) => (
                 <tr key={c.id}>
                   <td className="px-4 py-2">
-                    <Link href={`/agency/clients/${c.id}`} className="font-medium text-teal-800 hover:underline">
+                    <Link href={`/agency/clients/${c.id}`} className="font-medium text-brand-800 hover:underline">
                       {c.name}
                     </Link>
                     <span className="block text-xs text-slate-400">{c.email}</span>
@@ -90,7 +90,7 @@ export default async function AgencyDashboard() {
                         Aguardando 1º acesso
                       </span>
                     ) : (
-                      <span className="rounded-full bg-teal-100 px-2 py-0.5 text-xs text-teal-800">Ativo</span>
+                      <span className="rounded-full bg-brand-100 px-2 py-0.5 text-xs text-brand-800">Ativo</span>
                     )}
                   </td>
                   <td className="px-4 py-2 text-right tabular-nums">{trips.get(c.id) ?? 0}</td>

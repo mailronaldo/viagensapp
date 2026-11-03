@@ -10,6 +10,7 @@ import { getAgenda } from "@/services/agenda";
 import { getDayPlan } from "@/services/itinerary";
 import { addItemAction, deleteItemAction, removeReservationAction } from "@/app/actions/items";
 import { saveDayAction } from "@/app/actions/days";
+import { DayStrip } from "@/components/DayStrip";
 import { ItemFields } from "@/components/TripFields";
 import {
   AddPanel,
@@ -20,6 +21,7 @@ import {
   btnDanger,
   btnPrimary,
   inputCls,
+  tagCls,
 } from "@/components/ui";
 
 export default async function ItineraryDayPage({
@@ -57,30 +59,32 @@ export default async function ItineraryDayPage({
         </Link>
         <div className="flex gap-4">
           {prev ? (
-            <Link href={`${base}/day/${prev}`} className="text-teal-700 hover:underline">
+            <Link href={`${base}/day/${prev}`} className="text-brand-700 hover:underline">
               ← Dia anterior
             </Link>
           ) : null}
           {next ? (
-            <Link href={`${base}/day/${next}`} className="text-teal-700 hover:underline">
+            <Link href={`${base}/day/${next}`} className="text-brand-700 hover:underline">
               Próximo dia →
             </Link>
           ) : null}
         </div>
       </div>
 
+      <DayStrip basePath={`${base}/day`} startDate={trip.startDate} endDate={trip.endDate} current={date} />
+
       <Card className="mb-6">
         <p className="text-xs font-medium uppercase text-slate-400">
           Dia {dayNumber} · {formatDate(date)}
         </p>
         <h2 className="text-xl font-semibold">
-          <span className="capitalize">{formatWeekday(date)}</span>
+          <span className="inline-block first-letter:uppercase">{formatWeekday(date)}</span>
           {plan.title ? <span className="font-normal text-slate-500"> — {plan.title}</span> : null}
         </h2>
         {plan.cities.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
             {plan.cities.map((c) => (
-              <span key={c.id} className="rounded-full bg-teal-50 px-2 py-0.5 text-xs text-teal-900">
+              <span key={c.id} className="rounded-full bg-brand-50 px-2 py-0.5 text-xs text-brand-900">
                 📍 {c.name}
               </span>
             ))}
@@ -121,47 +125,18 @@ export default async function ItineraryDayPage({
         )}
       </Card>
 
-      <Card className="mb-6">
+      <section className="mb-6">
         <h3 className="mb-3 font-medium">Agenda do dia</h3>
         {agenda.entries.length === 0 ? (
           <EmptyState>Nada planejado para este dia.</EmptyState>
         ) : (
-          <ol className="divide-y divide-slate-100">
+          <ol className="space-y-2">
             {agenda.entries.map((e) => (
-              <li key={`${e.kind}-${e.id}`} className="flex gap-4 py-3">
-                <span className="w-12 shrink-0 text-sm tabular-nums text-slate-500">{e.time ?? "—"}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium">
-                    {e.title}
-                    {e.kind === "booking" && (
-                      <Link
-                        href={`/trips/${trip.id}/transports/${e.id}`}
-                        className="ml-2 rounded bg-sky-50 px-1.5 py-0.5 text-[10px] font-normal uppercase text-sky-800 hover:bg-sky-100"
-                      >
-                        transporte
-                      </Link>
-                    )}
-                    {e.kind === "lodging" && (
-                      <Link
-                        href={`/trips/${trip.id}/lodgings/${e.id}`}
-                        className="ml-2 rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-normal uppercase text-violet-800 hover:bg-violet-100"
-                      >
-                        hospedagem
-                      </Link>
-                    )}
-                    {e.kind === "item" && e.type !== "FREE_TIME" && (
-                      <Link
-                        href={`${base}/items/${e.id}#reserva`}
-                        className={`ml-2 rounded px-1.5 py-0.5 text-[10px] font-normal uppercase ${
-                          e.reservation
-                            ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
-                            : "bg-amber-50 text-amber-700 hover:bg-amber-100"
-                        }`}
-                      >
-                        {e.reservation ? "reservado" : "sem reserva"}
-                      </Link>
-                    )}
-                  </p>
+              <li key={`${e.kind}-${e.id}`} className="flex gap-3">
+                <span className="w-12 shrink-0 pt-3 text-sm font-medium tabular-nums">{e.time ?? "—"}</span>
+                <div className="flex min-w-0 flex-1 flex-wrap justify-between gap-x-4 gap-y-2 rounded-lg border border-slate-200 bg-white p-3">
+                <div className="min-w-48 flex-1">
+                  <p className="text-sm font-medium">{e.title}</p>
                   <p className="text-xs text-slate-500">
                     {e.kind === "item"
                       ? ITEM_TYPE_LABEL[e.type as keyof typeof ITEM_TYPE_LABEL]
@@ -200,14 +175,41 @@ export default async function ItineraryDayPage({
                       href={`/api/files/${trip.id}/${e.ticketDocumentId}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="mt-1 inline-block text-xs text-teal-700 hover:underline"
+                      className="mt-1 inline-block text-xs text-brand-700 hover:underline"
                     >
                       📎 {docName.get(e.ticketDocumentId) ?? "Ingresso"}
                     </a>
                   )}
                 </div>
-                {canWrite && (
-                  <div className="flex shrink-0 items-start gap-3">
+                <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:shrink-0 sm:flex-col sm:items-end">
+                    {e.kind === "booking" && (
+                      <Link
+                        href={`/trips/${trip.id}/transports/${e.id}`}
+                        className={`${tagCls("info")} hover:bg-brand-100`}
+                      >
+                        transporte
+                      </Link>
+                    )}
+                    {e.kind === "lodging" && (
+                      <Link
+                        href={`/trips/${trip.id}/lodgings/${e.id}`}
+                        className={`${tagCls("info")} hover:bg-brand-100`}
+                      >
+                        hospedagem
+                      </Link>
+                    )}
+                    {e.kind === "item" && e.type !== "FREE_TIME" && (
+                      <Link
+                        href={`${base}/items/${e.id}#reserva`}
+                        className={`${tagCls(e.reservation ? "ok" : "warn")} ${
+                          e.reservation ? "hover:bg-emerald-200" : "hover:bg-amber-200"
+                        }`}
+                      >
+                        {e.reservation ? "reservado" : "sem reserva"}
+                      </Link>
+                    )}
+                  {canWrite && (
+                  <div className="flex items-center gap-3">
                     <Link
                       href={
                         e.kind === "item"
@@ -216,7 +218,7 @@ export default async function ItineraryDayPage({
                             ? `/trips/${trip.id}/lodgings/${e.id}`
                             : `/trips/${trip.id}/transports/${e.id}`
                       }
-                      className="text-xs text-teal-700 hover:underline"
+                      className="text-xs text-brand-700 hover:underline"
                     >
                       Editar
                     </Link>
@@ -227,11 +229,13 @@ export default async function ItineraryDayPage({
                     )}
                   </div>
                 )}
+                </div>
+                </div>
               </li>
             ))}
           </ol>
         )}
-      </Card>
+      </section>
 
       {canWrite && (
         <AddPanel title="Adicionar atividade" defaultOpen={agenda.entries.length === 0}>

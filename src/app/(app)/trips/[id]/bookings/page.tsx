@@ -102,7 +102,7 @@ export default async function BookingsPage({
                       href={`/api/files/${trip.id}/${b.documentId}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="mt-1 inline-block text-xs text-teal-700 hover:underline"
+                      className="mt-1 inline-block text-xs text-brand-700 hover:underline"
                     >
                       📎 {fileName ?? "Voucher"}
                     </a>
@@ -110,7 +110,7 @@ export default async function BookingsPage({
                 </div>
                 {canWrite && (
                   <div className="flex shrink-0 items-start gap-3">
-                    <Link href={`/trips/${trip.id}/bookings/${b.id}`} className="text-xs text-teal-700 hover:underline">
+                    <Link href={`/trips/${trip.id}/bookings/${b.id}`} className="text-xs text-brand-700 hover:underline">
                       Editar
                     </Link>
                     <form action={deleteBookingAction.bind(null, trip.id, b.id)}>

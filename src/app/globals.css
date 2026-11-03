@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f6f7f9;
+  --background: #f5f6f7;
   --foreground: #172033;
   color-scheme: light;
 }
@@ -11,6 +11,25 @@
   --color-foreground: var(--foreground);
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* Paleta azul-petróleo */
+@theme {
+  --color-brand-50: #e6f4f3;
+  --color-brand-100: #c8e7e4;
+  --color-brand-500: #149088;
+  --color-brand-600: #0e7f79;
+  --color-brand-700: #0f766e;
+  --color-brand-800: #0b5563;
+  --color-brand-900: #083f4a;
+  --color-highlight: #f5b83d;
+}
+
+/* Faixa colorida de ponta a ponta, sem criar rolagem horizontal */
+.hero-bleed {
+  background: var(--color-brand-800);
+  box-shadow: 0 0 0 100vmax var(--color-brand-800);
+  clip-path: inset(0 -100vmax);
 }
 
 body {

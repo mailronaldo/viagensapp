@@ -7,7 +7,7 @@ import { BOOKING_TYPE_LABEL, DOCUMENT_TYPE_LABEL, LODGING_TYPE_LABEL } from "@/l
 import { getAgenda } from "@/services/agenda";
 import { getItinerarySummary } from "@/services/itinerary";
 import { TravelerAgenda } from "@/components/TravelerAgenda";
-import { Card, EmptyState } from "@/components/ui";
+import { Card, EmptyState, Hero } from "@/components/ui";
 
 export const metadata = { title: "Painel da viagem" };
 
@@ -50,6 +50,20 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
 
   return (
     <>
+      <Hero>
+        {kind === "traveler" && (
+          <Link href="/traveler" className="text-xs text-brand-100 hover:underline">
+            ← Minhas viagens
+          </Link>
+        )}
+        <h1 className="mt-1 text-2xl font-semibold">{trip.title}</h1>
+        <p className="text-sm text-brand-100">
+          {trip.destination} · {formatDate(trip.startDate)} → {formatDate(trip.endDate)}
+        </p>
+        {group.length > 0 && <p className="mt-1 text-xs text-brand-100">Grupo: {group.map((g) => g.name).join(", ")}</p>}
+        {trip.notes && <p className="mt-2 whitespace-pre-line text-sm">{trip.notes}</p>}
+      </Hero>
+
       {kind === "member" && (
         <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-2 text-sm text-sky-900">
           Você está vendo o painel como o viajante o enxerga (somente leitura, sem custos).{" "}
@@ -58,30 +72,14 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
           </Link>
         </div>
       )}
-      {kind === "traveler" && (
-        <Link href="/traveler" className="text-xs text-slate-500 hover:underline">
-          ← Minhas viagens
-        </Link>
-      )}
-
-      <div className="mb-6 mt-2">
-        <h1 className="text-2xl font-semibold">{trip.title}</h1>
-        <p className="text-sm text-slate-600">
-          {trip.destination} · {formatDate(trip.startDate)} → {formatDate(trip.endDate)}
-        </p>
-        {group.length > 0 && (
-          <p className="mt-1 text-xs text-slate-500">Grupo: {group.map((g) => g.name).join(", ")}</p>
-        )}
-        {trip.notes && <p className="mt-2 whitespace-pre-line text-sm text-slate-600">{trip.notes}</p>}
-      </div>
 
       <Card className="mb-6">
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="font-medium">
             {inTrip ? "Agenda de hoje" : "Primeiro dia"}
-            <span className="ml-2 text-sm font-normal capitalize text-slate-500">{formatWeekday(agenda.date)}</span>
+            <span className="ml-2 text-sm font-normal inline-block first-letter:uppercase text-slate-500">{formatWeekday(agenda.date)}</span>
           </h2>
-          <Link href={`${base}/day/${agenda.date}`} className="text-sm text-teal-700 hover:underline">
+          <Link href={`${base}/day/${agenda.date}`} className="text-sm text-brand-700 hover:underline">
             Abrir o dia
           </Link>
         </div>
@@ -97,7 +95,7 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
         {days.map((d) => (
           <li key={d.date}>
             <Link href={`${base}/day/${d.date}`} className="block">
-              <Card className="flex gap-4 transition-colors hover:border-teal-500">
+              <Card className="flex gap-4 transition-colors hover:border-brand-500">
                 <div className="w-16 shrink-0 text-center">
                   <p className="text-xs font-medium uppercase text-slate-400">Dia {d.number}</p>
                   <p className="text-lg font-semibold tabular-nums">
@@ -107,7 +105,7 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     {d.cities.map((c) => (
-                      <span key={c.id} className="rounded-full bg-teal-50 px-2 py-0.5 text-xs text-teal-900">
+                      <span key={c.id} className="rounded-full bg-brand-50 px-2 py-0.5 text-xs text-brand-900">
                         📍 {c.name}
                       </span>
                     ))}
@@ -120,7 +118,7 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
                   <p className={`mt-1 font-medium ${d.title ? "" : "text-slate-400"}`}>{d.title ?? "Sem título"}</p>
                   {d.summary && <p className="mt-0.5 line-clamp-2 text-sm text-slate-600">{d.summary}</p>}
                 </div>
-                <p className="shrink-0 text-xs text-teal-700">Ver o dia →</p>
+                <p className="shrink-0 text-xs text-brand-700">Ver o dia →</p>
               </Card>
             </Link>
           </li>
@@ -156,7 +154,7 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
                       </p>
                     )}
                     {b.documentId && (
-                      <a href={`/api/files/${trip.id}/${b.documentId}`} target="_blank" rel="noreferrer" className="text-xs text-teal-700 hover:underline">
+                      <a href={`/api/files/${trip.id}/${b.documentId}`} target="_blank" rel="noreferrer" className="text-xs text-brand-700 hover:underline">
                         📎 {docName.get(b.documentId) ?? "Voucher"}
                       </a>
                     )}
@@ -193,7 +191,7 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
                       </p>
                     )}
                     {l.documentId && (
-                      <a href={`/api/files/${trip.id}/${l.documentId}`} target="_blank" rel="noreferrer" className="text-xs text-teal-700 hover:underline">
+                      <a href={`/api/files/${trip.id}/${l.documentId}`} target="_blank" rel="noreferrer" className="text-xs text-brand-700 hover:underline">
                         📎 {docName.get(l.documentId) ?? "Voucher"}
                       </a>
                     )}
@@ -214,7 +212,7 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
             {docs.map((d) => (
               <li key={d.id}>
                 <Card className="p-4">
-                  <a href={`/api/files/${trip.id}/${d.id}`} target="_blank" rel="noreferrer" className="block truncate text-sm font-medium text-teal-800 hover:underline">
+                  <a href={`/api/files/${trip.id}/${d.id}`} target="_blank" rel="noreferrer" className="block truncate text-sm font-medium text-brand-800 hover:underline">
                     {d.title}
                   </a>
                   <p className="text-xs text-slate-500">

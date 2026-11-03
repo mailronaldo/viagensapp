@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { logoutAction } from "@/app/actions/auth";
 import { stopImpersonationAction } from "@/app/actions/agency";
+import { MainNav } from "@/components/MainNav";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, realUser, impersonating } = await requireAuth();
@@ -30,45 +31,37 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </div>
       )}
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
-          <div className="flex items-center gap-6">
-            <Link href={isAgencyView ? "/agency" : isTraveler ? "/traveler" : "/"} className="text-base font-semibold text-teal-800">
+      <header className="bg-brand-800 text-white">
+        <div className="mx-auto max-w-5xl px-4 pt-3">
+          <div className="flex items-center justify-between gap-4">
+            <Link href={isAgencyView ? "/agency" : isTraveler ? "/traveler" : "/"} className="text-lg font-semibold">
               ✈ Minhas Viagens
-              {isAgencyView && <span className="ml-2 text-xs font-normal text-slate-500">Agência</span>}
+              {isAgencyView && <span className="ml-2 text-xs font-normal text-brand-100">Agência</span>}
             </Link>
-            <nav className="flex items-center gap-4 text-sm text-slate-600">
-              {isAgencyView ? (
-                <Link href="/agency" className="hover:text-teal-800">
-                  Clientes
-                </Link>
-              ) : isTraveler ? (
-                <Link href="/traveler" className="hover:text-teal-800">
-                  Minhas viagens
-                </Link>
-              ) : (
-                <>
-                  <Link href="/" className="hover:text-teal-800">
-                    Viagens
-                  </Link>
-                  <Link href="/travelers" className="hover:text-teal-800">
-                    Viajantes
-                  </Link>
-                </>
-              )}
-            </nav>
+            <div className="flex items-center gap-3 text-sm">
+              <span className="hidden sm:inline">{realUser.name}</span>
+              <Link href="/account/password" className="hidden hover:underline sm:inline">
+                Senha
+              </Link>
+              <form action={logoutAction}>
+                <button className="cursor-pointer rounded-lg border border-white/70 px-3 py-1 hover:bg-white/10">
+                  Sair
+                </button>
+              </form>
+            </div>
           </div>
-          <div className="flex items-center gap-3 text-sm text-slate-600">
-            <span className="hidden sm:inline">{realUser.name}</span>
-            <Link href="/account/password" className="hidden hover:text-teal-800 sm:inline">
-              Senha
-            </Link>
-            <form action={logoutAction}>
-              <button className="cursor-pointer rounded-md border border-slate-300 px-3 py-1 hover:bg-slate-50">
-                Sair
-              </button>
-            </form>
-          </div>
+          <MainNav
+            links={
+              isAgencyView
+                ? [{ href: "/agency", label: "Clientes", icon: "👥" }]
+                : isTraveler
+                  ? [{ href: "/traveler", label: "Minhas viagens", icon: "🧳" }]
+                  : [
+                      { href: "/", label: "Viagens", icon: "🧳" },
+                      { href: "/travelers", label: "Viajantes", icon: "👥" },
+                    ]
+            }
+          />
         </div>
       </header>
       <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">{children}</div>

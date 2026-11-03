@@ -9,7 +9,7 @@ export default async function LoginPage() {
   if (await getCurrentUser()) redirect("/");
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-12">
-      <h1 className="mb-1 text-2xl font-semibold">Minhas Viagens</h1>
+      <h1 className="mb-1 text-2xl font-semibold text-brand-800">✈ Minhas Viagens</h1>
       <p className="mb-6 text-sm text-slate-500">
         Entre para gerenciar roteiros, reservas, custos e documentos.
       </p>

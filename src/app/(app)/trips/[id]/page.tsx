@@ -58,13 +58,13 @@ export default async function TripOverviewPage({
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="font-medium">
             {inTrip ? "Agenda de hoje" : "Primeiro dia"}
-            <span className="ml-2 text-sm font-normal capitalize text-slate-500">
+            <span className="ml-2 text-sm font-normal inline-block first-letter:uppercase text-slate-500">
               {formatWeekday(agenda.date)}
             </span>
           </h2>
           <Link
             href={`/trips/${trip.id}/itinerary/day/${agenda.date}`}
-            className="text-sm text-teal-700 hover:underline"
+            className="text-sm text-brand-700 hover:underline"
           >
             Ver roteiro
           </Link>
@@ -108,7 +108,7 @@ export default async function TripOverviewPage({
           )}
           <Link
             href={`/trips/${trip.id}/expenses`}
-            className="mt-3 inline-block text-sm text-teal-700 hover:underline"
+            className="mt-3 inline-block text-sm text-brand-700 hover:underline"
           >
             Abrir central de custos
           </Link>
@@ -165,13 +165,13 @@ export default async function TripOverviewPage({
               <button className={btnGhost}>Incluir</button>
             </form>
           )}
-          <Link href={`/traveler/trips/${trip.id}`} className="mt-3 inline-block text-sm text-teal-700 hover:underline">
+          <Link href={`/traveler/trips/${trip.id}`} className="mt-3 inline-block text-sm text-brand-700 hover:underline">
             Ver o painel do viajante (como eles veem)
           </Link>
           {canWrite && ownerTravelers.length === 0 && (
             <p className="mt-3 text-xs text-slate-500">
               Cadastre pessoas em{" "}
-              <Link href="/travelers" className="text-teal-700 hover:underline">
+              <Link href="/travelers" className="text-brand-700 hover:underline">
                 Viajantes
               </Link>{" "}
               para incluí-las aqui.

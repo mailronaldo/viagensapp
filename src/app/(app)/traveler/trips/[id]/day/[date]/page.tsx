@@ -7,6 +7,7 @@ import { ISO_DATE } from "@/lib/form";
 import { addDays, formatDate, formatWeekday } from "@/lib/format";
 import { getAgenda } from "@/services/agenda";
 import { getDayPlan } from "@/services/itinerary";
+import { DayStrip } from "@/components/DayStrip";
 import { TravelerAgenda } from "@/components/TravelerAgenda";
 import { Card, EmptyState } from "@/components/ui";
 
@@ -34,30 +35,32 @@ export default async function TravelerDayPage({ params }: { params: Promise<{ id
         </Link>
         <div className="flex gap-4">
           {prev && (
-            <Link href={`${base}/day/${prev}`} className="text-teal-700 hover:underline">
+            <Link href={`${base}/day/${prev}`} className="text-brand-700 hover:underline">
               ← Dia anterior
             </Link>
           )}
           {next && (
-            <Link href={`${base}/day/${next}`} className="text-teal-700 hover:underline">
+            <Link href={`${base}/day/${next}`} className="text-brand-700 hover:underline">
               Próximo dia →
             </Link>
           )}
         </div>
       </div>
 
+      <DayStrip basePath={`${base}/day`} startDate={trip.startDate} endDate={trip.endDate} current={date} />
+
       <Card className="mb-6">
         <p className="text-xs font-medium uppercase text-slate-400">
           Dia {dayNumber} · {formatDate(date)}
         </p>
         <h1 className="text-xl font-semibold">
-          <span className="capitalize">{formatWeekday(date)}</span>
+          <span className="inline-block first-letter:uppercase">{formatWeekday(date)}</span>
           {plan.title ? <span className="font-normal text-slate-500"> — {plan.title}</span> : null}
         </h1>
         {plan.cities.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
             {plan.cities.map((c) => (
-              <span key={c.id} className="rounded-full bg-teal-50 px-2 py-0.5 text-xs text-teal-900">
+              <span key={c.id} className="rounded-full bg-brand-50 px-2 py-0.5 text-xs text-brand-900">
                 📍 {c.name}
               </span>
             ))}
@@ -66,14 +69,14 @@ export default async function TravelerDayPage({ params }: { params: Promise<{ id
         {plan.summary && <p className="mt-2 whitespace-pre-line text-sm text-slate-600">{plan.summary}</p>}
       </Card>
 
-      <Card>
+      <section>
         <h2 className="mb-3 font-medium">Agenda do dia</h2>
         {agenda.entries.length === 0 ? (
           <EmptyState>Nada planejado para este dia.</EmptyState>
         ) : (
           <TravelerAgenda tripId={trip.id} entries={agenda.entries} docName={docName} />
         )}
-      </Card>
+      </section>
     </>
   );
 }

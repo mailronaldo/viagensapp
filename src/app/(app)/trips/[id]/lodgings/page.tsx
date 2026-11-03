@@ -6,7 +6,7 @@ import { formatDate, formatMoney } from "@/lib/format";
 import { LODGING_TYPE_LABEL } from "@/lib/labels";
 import { addLodgingAction, deleteLodgingAction } from "@/app/actions/lodgings";
 import { LodgingFields } from "@/components/TripFields";
-import { AddPanel, Card, EmptyState, ErrorBanner, btnDanger, btnPrimary } from "@/components/ui";
+import { AddPanel, EmptyState, ErrorBanner, Tag, btnDanger, btnOutline, btnPrimary, tagCls } from "@/components/ui";
 
 const ICON: Record<string, string> = { HOTEL: "🏨", RENTAL: "🏠", HOSTEL: "🛏", RESORT: "🌴", OTHER: "📌" };
 
@@ -60,58 +60,70 @@ export default async function LodgingsPage({
           {rows.map(({ lodging: l, fileName, cityName }) => {
             const n = nights(l.checkInDate, l.checkOutDate);
             return (
-              <li key={l.id}>
-                <Card className="flex gap-4">
-                  <span className="text-2xl" aria-hidden>
-                    {ICON[l.type]}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-baseline gap-x-2">
-                      <h3 className="font-medium">{l.name}</h3>
-                      <span className="text-xs text-slate-500">{LODGING_TYPE_LABEL[l.type]}</span>
-                      {cityName && <span className="text-xs text-slate-400">· {cityName}</span>}
-                      {l.provider && <span className="text-xs text-slate-400">· {l.provider}</span>}
-                    </div>
-                    <p className="text-sm text-slate-600">
-                      {l.checkInDate ? formatDate(l.checkInDate) : "Check-in a definir"}
-                      {l.checkInTime ? ` · ${l.checkInTime}` : ""}
-                      {" → "}
-                      {l.checkOutDate ? formatDate(l.checkOutDate) : "check-out a definir"}
-                      {l.checkOutTime ? ` · ${l.checkOutTime}` : ""}
-                      {n ? ` (${n} noite${n > 1 ? "s" : ""})` : ""}
-                    </p>
-                    {l.address && <p className="text-sm text-slate-500">{l.address}</p>}
-                    <p className="mt-1 text-xs text-slate-500">
-                      {l.confirmationCode && (
-                        <span className="mr-3">
-                          Confirmação: <span className="font-mono">{l.confirmationCode}</span>
-                        </span>
-                      )}
-                      {l.totalPrice && l.currency && <span>{formatMoney(l.totalPrice, l.currency)}</span>}
-                    </p>
-                    {l.notes && <p className="mt-1 text-xs text-slate-500">{l.notes}</p>}
-                    {l.documentId && (
+              <li key={l.id} className="flex flex-wrap overflow-hidden rounded-lg border border-slate-200 bg-white">
+                <div className="flex min-h-28 w-full items-center justify-center bg-brand-50 text-2xl sm:w-32" aria-hidden>
+                  {ICON[l.type]}
+                </div>
+                <div className="min-w-56 flex-1 p-3">
+                  <h3 className="font-medium">
+                    {canWrite ? (
+                      <Link href={`/trips/${trip.id}/lodgings/${l.id}`} className="text-brand-700 hover:underline">
+                        {l.name}
+                      </Link>
+                    ) : (
+                      l.name
+                    )}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {[LODGING_TYPE_LABEL[l.type], cityName, l.provider].filter(Boolean).join(" · ")}
+                  </p>
+                  <div className="mt-1.5">
+                    {l.documentId ? (
                       <a
                         href={`/api/files/${trip.id}/${l.documentId}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="mt-1 inline-block text-xs text-teal-700 hover:underline"
+                        className={`${tagCls("ok")} hover:bg-emerald-200`}
                       >
                         📎 {fileName ?? "Voucher"}
                       </a>
+                    ) : (
+                      <Tag tone="warn">Falta o voucher</Tag>
+                    )}
+                  </div>
+                  <p className="mt-1.5 text-sm text-slate-600">
+                    {l.checkInDate ? formatDate(l.checkInDate) : "Check-in a definir"}
+                    {l.checkInTime ? ` · ${l.checkInTime}` : ""}
+                    {" → "}
+                    {l.checkOutDate ? formatDate(l.checkOutDate) : "check-out a definir"}
+                    {l.checkOutTime ? ` · ${l.checkOutTime}` : ""}
+                  </p>
+                  {l.address && <p className="text-sm text-slate-500">{l.address}</p>}
+                  {l.confirmationCode && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Confirmação: <span className="font-mono">{l.confirmationCode}</span>
+                    </p>
+                  )}
+                  {l.notes && <p className="mt-1 text-xs text-slate-500">{l.notes}</p>}
+                </div>
+                <div className="flex w-full flex-col items-end justify-between gap-2 p-3 text-right sm:w-auto sm:min-w-32">
+                  <div>
+                    {n && <p className="text-xs text-slate-500">{`${n} noite${n > 1 ? "s" : ""}`}</p>}
+                    {l.totalPrice && l.currency && (
+                      <p className="text-lg font-semibold">{formatMoney(l.totalPrice, l.currency)}</p>
                     )}
                   </div>
                   {canWrite && (
-                    <div className="flex shrink-0 items-start gap-3">
-                      <Link href={`/trips/${trip.id}/lodgings/${l.id}`} className="text-xs text-teal-700 hover:underline">
-                        Editar
-                      </Link>
+                    <div className="flex items-center gap-3">
                       <form action={deleteLodgingAction.bind(null, trip.id, l.id)}>
                         <button className={btnDanger}>Remover</button>
                       </form>
+                      <Link href={`/trips/${trip.id}/lodgings/${l.id}`} className={btnOutline}>
+                        Editar
+                      </Link>
                     </div>
                   )}
-                </Card>
+                </div>
               </li>
             );
           })}

@@ -42,12 +42,12 @@ export default async function ItineraryPage({
           {cities.map((c) => (
             <span
               key={c.id}
-              className="inline-flex items-center gap-2 rounded-full bg-teal-50 px-3 py-1 text-xs text-teal-900"
+              className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs text-brand-900"
             >
               {c.name}
               {canWrite && (
                 <form action={deleteCityAction.bind(null, trip.id, c.id)}>
-                  <button aria-label={`Remover ${c.name}`} className="cursor-pointer text-teal-700 hover:text-rose-700">
+                  <button aria-label={`Remover ${c.name}`} className="cursor-pointer text-brand-700 hover:text-rose-700">
                     ×
                   </button>
                 </form>
@@ -79,20 +79,20 @@ export default async function ItineraryPage({
           return (
             <li key={d.date}>
               <Link href={href} className="block">
-                <Card className="flex gap-4 transition-colors hover:border-teal-500">
+                <Card className="flex gap-4 transition-colors hover:border-brand-500">
                   <div className="w-16 shrink-0 text-center">
                     <p className="text-xs font-medium uppercase text-slate-400">Dia {d.number}</p>
                     <p className="text-lg font-semibold tabular-nums">
                       {formatDate(d.date, { day: "2-digit", month: "short" })}
                     </p>
-                    <p className="text-xs capitalize text-slate-500">
+                    <p className="text-xs inline-block first-letter:uppercase text-slate-500">
                       {formatWeekday(d.date).split(",")[0]}
                     </p>
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       {d.cities.map((c) => (
-                        <span key={c.id} className="rounded-full bg-teal-50 px-2 py-0.5 text-xs text-teal-900">
+                        <span key={c.id} className="rounded-full bg-brand-50 px-2 py-0.5 text-xs text-brand-900">
                           📍 {c.name}
                         </span>
                       ))}
@@ -113,7 +113,7 @@ export default async function ItineraryPage({
                         ? "Sem atividades"
                         : `${d.activityCount} atividade${d.activityCount > 1 ? "s" : ""}`}
                     </p>
-                    <p className="mt-1 text-teal-700">Ver o dia →</p>
+                    <p className="mt-1 text-brand-700">Ver o dia →</p>
                   </div>
                 </Card>
               </Link>

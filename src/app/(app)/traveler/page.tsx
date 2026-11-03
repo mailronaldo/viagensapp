@@ -1,10 +1,9 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireAuth } from "@/lib/auth";
-import { formatDate } from "@/lib/format";
-import { Card, EmptyState } from "@/components/ui";
+import { TripCard } from "@/components/TripCard";
+import { EmptyState, Hero } from "@/components/ui";
 
 export const metadata = { title: "Minhas viagens" };
 
@@ -28,23 +27,23 @@ export default async function TravelerHomePage() {
 
   return (
     <>
-      <h1 className="mb-1 text-xl font-semibold">Olá, {user.name.split(" ")[0]}!</h1>
-      <p className="mb-4 text-sm text-slate-600">Suas viagens, somente para consulta.</p>
+      <Hero>
+        <h1 className="text-2xl font-semibold">Olá, {user.name.split(" ")[0]}!</h1>
+        <p className="text-sm text-brand-100">Suas viagens, somente para consulta.</p>
+      </Hero>
       {trips.length === 0 ? (
         <EmptyState>Você ainda não foi incluído em nenhuma viagem.</EmptyState>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2">
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {trips.map((trip) => (
             <li key={trip.id}>
-              <Link href={`/traveler/trips/${trip.id}`} className="block">
-                <Card className="transition-colors hover:border-teal-500">
-                  <h2 className="font-medium">{trip.title}</h2>
-                  <p className="text-sm text-slate-600">{trip.destination}</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {formatDate(trip.startDate)} → {formatDate(trip.endDate)}
-                  </p>
-                </Card>
-              </Link>
+              <TripCard
+                href={`/traveler/trips/${trip.id}`}
+                title={trip.title}
+                destination={trip.destination}
+                startDate={trip.startDate}
+                endDate={trip.endDate}
+              />
             </li>
           ))}
         </ul>

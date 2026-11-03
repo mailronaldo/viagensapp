@@ -72,7 +72,7 @@ export default async function TravelersPage({
                       .join(" · ") || "Sem contato cadastrado"}
                   </p>
                 </div>
-                <Link href={`/travelers/${tr.id}`} className="shrink-0 text-sm text-teal-700 hover:underline">
+                <Link href={`/travelers/${tr.id}`} className="shrink-0 text-sm text-brand-700 hover:underline">
                   Editar
                 </Link>
               </Card>

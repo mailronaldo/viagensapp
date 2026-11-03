@@ -1,10 +1,13 @@
 import type { ReactNode } from "react";
 
 export const inputCls =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600/20";
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-600/20";
 
 export const btnPrimary =
-  "inline-flex cursor-pointer items-center justify-center rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600/40";
+  "inline-flex cursor-pointer items-center justify-center rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-600/40";
+
+export const btnOutline =
+  "inline-flex cursor-pointer items-center justify-center whitespace-nowrap rounded-lg border border-brand-700 bg-white px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50";
 
 export const btnGhost =
   "inline-flex cursor-pointer items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50";
@@ -40,10 +43,32 @@ export function Card({
   className?: string;
 }) {
   return (
-    <div className={`rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>
+    <div className={`rounded-lg border border-slate-200 bg-white p-5 ${className}`}>
       {children}
     </div>
   );
+}
+
+const TAG_TONE = {
+  ok: "bg-emerald-100 text-emerald-800",
+  warn: "bg-amber-100 text-amber-800",
+  info: "bg-brand-50 text-brand-900",
+  neutral: "bg-slate-100 text-slate-600",
+};
+export type TagTone = keyof typeof TAG_TONE;
+
+/** Classes da etiqueta de status; use direto quando a etiqueta for um link. */
+export function tagCls(tone: TagTone) {
+  return `inline-block whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium first-letter:uppercase ${TAG_TONE[tone]}`;
+}
+
+export function Tag({ tone, children }: { tone: TagTone; children: ReactNode }) {
+  return <span className={tagCls(tone)}>{children}</span>;
+}
+
+/** Faixa de abertura da página, emendada no cabeçalho. */
+export function Hero({ children }: { children: ReactNode }) {
+  return <div className="hero-bleed -mt-6 mb-6 pb-6 pt-3 text-white">{children}</div>;
 }
 
 export function ErrorBanner({ message }: { message?: string | null }) {
@@ -79,9 +104,9 @@ export function AddPanel({
   return (
     <details
       open={defaultOpen}
-      className="group mb-6 rounded-xl border border-slate-200 bg-white shadow-sm"
+      className="group mb-6 rounded-lg border border-slate-200 bg-white"
     >
-      <summary className="flex cursor-pointer items-center justify-between px-5 py-3 text-sm font-medium text-teal-800">
+      <summary className="flex cursor-pointer items-center justify-between px-5 py-3 text-sm font-medium text-brand-800">
         <span>+ {title}</span>
         <span className="text-xs text-slate-400 group-open:hidden">abrir</span>
         <span className="hidden text-xs text-slate-400 group-open:inline">fechar</span>
