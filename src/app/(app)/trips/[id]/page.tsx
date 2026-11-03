@@ -7,8 +7,7 @@ import { BOOKING_TYPE_LABEL, ITEM_TYPE_LABEL, LODGING_TYPE_LABEL } from "@/lib/l
 import { getAgenda } from "@/services/agenda";
 import { getExpenseSummary } from "@/services/expenses";
 import { deleteTripAction } from "@/app/actions/trips";
-import { linkTravelerAction, unlinkTravelerAction } from "@/app/actions/travelers";
-import { Card, EmptyState, btnDanger, btnGhost, inputCls } from "@/components/ui";
+import { Card, EmptyState, btnDanger } from "@/components/ui";
 
 export default async function TripOverviewPage({
   params,
@@ -22,7 +21,7 @@ export default async function TripOverviewPage({
   const inTrip = today >= trip.startDate && today <= trip.endDate;
   const agendaDay = inTrip ? today : trip.startDate;
 
-  const [agenda, summary, upcoming, linked, ownerTravelers] = await Promise.all([
+  const [agenda, summary, upcoming, linked] = await Promise.all([
     getAgenda(trip, agendaDay),
     getExpenseSummary(trip.id, trip.baseCurrency),
     db
@@ -42,16 +41,7 @@ export default async function TripOverviewPage({
       .innerJoin(t.travelers, eq(t.travelers.id, t.tripTravelers.travelerId))
       .where(eq(t.tripTravelers.tripId, trip.id))
       .orderBy(asc(t.travelers.name)),
-    // Viajantes do cliente dono da viagem (candidatos a entrar no grupo).
-    db
-      .select({ id: t.travelers.id, name: t.travelers.name })
-      .from(t.travelers)
-      .where(eq(t.travelers.clientId, trip.ownerId))
-      .orderBy(asc(t.travelers.name)),
   ]);
-  const linkedIds = new Set(linked.map((l) => l.id));
-  const available = ownerTravelers.filter((tr) => !linkedIds.has(tr.id));
-
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <Card className="lg:col-span-2">
@@ -137,46 +127,18 @@ export default async function TripOverviewPage({
           {linked.length === 0 ? (
             <p className="text-sm text-slate-500">Ninguém no grupo desta viagem ainda.</p>
           ) : (
-            <ul className="space-y-1">
+            <ul className="space-y-1 text-sm">
               {linked.map((l) => (
-                <li key={l.id} className="flex items-center justify-between text-sm">
-                  <span>{l.name}</span>
-                  {canWrite && (
-                    <form action={unlinkTravelerAction.bind(null, trip.id, l.id)}>
-                      <button className={btnDanger}>Remover</button>
-                    </form>
-                  )}
-                </li>
+                <li key={l.id}>{l.name}</li>
               ))}
             </ul>
           )}
-          {canWrite && available.length > 0 && (
-            <form action={linkTravelerAction.bind(null, trip.id)} className="mt-3 flex gap-2">
-              <select name="travelerId" required defaultValue="" className={inputCls}>
-                <option value="" disabled>
-                  Incluir viajante…
-                </option>
-                {available.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
-              <button className={btnGhost}>Incluir</button>
-            </form>
-          )}
-          <Link href={`/traveler/trips/${trip.id}`} className="mt-3 inline-block text-sm text-brand-700 hover:underline">
+          <Link href={`/trips/${trip.id}/travelers`} className="mt-3 inline-block text-sm text-brand-700 hover:underline">
+            {canWrite ? "Gerenciar viajantes" : "Ver viajantes"}
+          </Link>
+          <Link href={`/traveler/trips/${trip.id}`} className="mt-2 block text-sm text-brand-700 hover:underline">
             Ver o painel do viajante (como eles veem)
           </Link>
-          {canWrite && ownerTravelers.length === 0 && (
-            <p className="mt-3 text-xs text-slate-500">
-              Cadastre pessoas em{" "}
-              <Link href="/travelers" className="text-brand-700 hover:underline">
-                Viajantes
-              </Link>{" "}
-              para incluí-las aqui.
-            </p>
-          )}
         </Card>
 
         {trip.notes && (

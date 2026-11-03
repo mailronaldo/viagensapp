@@ -361,11 +361,23 @@ check("Carlos Souza" in alice.get(carlos_url).text, "o primeiro da lista é o Ca
 submit(alice, carlos_url, 'name="documentNumber"', {"documentNumber": "AB123456"})
 check('value="AB123456"' in alice.get(carlos_url).text, "edição de viajante persistida")
 
-# vínculo à viagem
-r = submit(alice, trip_url, 'name="travelerId"', {})  # sem escolher: select vazio é ignorado
+# vínculo à viagem (aba Viajantes)
+tvt = f"{trip_url}/travelers"
+check(alice.get(tvt).status_code == 200 and "Viajantes" in [a.get_text(strip=True) for a in soup(alice.get(trip_url)).find_all("a", href=re.compile(r"/travelers$"))], "viagem tem a aba Viajantes")
+r = submit(alice, tvt, 'name="travelerIds"', {"travelerIds": ""})  # nada marcado: ignorado
+check("Ninguém no grupo" in T(r), "sem marcar ninguém, nada é incluído")
 carlos_id = carlos_href.rsplit("/", 1)[1]
-r = submit(alice, trip_url, 'name="travelerId"', {"travelerId": carlos_id})
-check("Viajantes (1)" in soup(r).get_text() and "Carlos Souza" in r.text, "viajante incluído na viagem")
+r = submit(alice, tvt, 'name="travelerIds"', {"travelerIds": carlos_id})
+check(r.url.endswith("/travelers") and "Carlos Souza" in T(r) and "sem acesso" in T(r) and "(1)" in T(r), "viajante incluído pela aba")
+check("Carlos Souza" not in [l.get_text(strip=True) for l in soup(r).find_all("label")], "quem já está no grupo sai da lista de candidatos")
+r = submit(alice, tvt, 'name="birthDate"', {"name": "Ana Nova", "email": "ana@teste.dev"})
+check("Ana Nova" in T(r) and "(2)" in T(r), "novo viajante cadastrado e incluído de uma vez")
+check("Ana Nova" in T(alice.get(TV)), "o novo viajante aparece na lista geral")
+r = submit(alice, tvt, 'name="birthDate"', {"name": "Z", "email": "ruim"})
+check("Informe o nome" in T(r) or "inválido" in T(r), "cadastro rápido inválido é rejeitado")
+submit_in_li(alice, tvt, "Ana Nova", "Remover")
+check("Ana Nova" not in [x.get_text(" ") for x in soup(alice.get(tvt)).find_all("li") if "Remover" in x.get_text()], "viajante removido do grupo")
+check("Viajantes (1)" in T(alice.get(trip_url)) and "Gerenciar viajantes" in T(alice.get(trip_url)), "visão geral resume o grupo e leva à aba")
 
 # Bob: viajante próprio e isolamento
 submit(bob, TV, 'name="documentNumber"', {"name": "Joao do Bob"})
@@ -373,7 +385,7 @@ bob_trav_href = next(a["href"] for a in soup(bob.get(TV)).find_all("a") if a.get
 bob_trav_id = bob_trav_href.rsplit("/", 1)[1]
 check("Joao do Bob" not in alice.get(TV).text, "viajantes de um cliente não aparecem para outro")
 check(alice.get(BASE + bob_trav_href, allow_redirects=False).status_code == 404, "cliente não abre viajante de outro (404)")
-r = submit(alice, trip_url, 'name="travelerId"', {"travelerId": bob_trav_id})
+r = submit(alice, tvt, 'name="travelerIds"', {"travelerIds": bob_trav_id})
 check("Joao do Bob" not in r.text, "não dá para incluir viajante de outro cliente na própria viagem")
 
 print("Excluir reserva e links na agenda do dia")
@@ -407,7 +419,7 @@ maria_url = BASE + maria_href
 maria_id = maria_href.rsplit("/", 1)[1]
 r = alice.get(BASE + alice_hrefs[0])
 check("Cadastre o e-mail do viajante" in T(r), "viajante sem e-mail não gera acesso")
-submit(alice, trip_url, 'name="travelerId"', {"travelerId": maria_id})
+submit(alice, tvt, 'name="travelerIds"', {"travelerIds": maria_id})
 r = submit(alice, maria_url, "Gerar acesso")
 m_temp = temp_password(r)
 check(m_temp is not None, "acesso do viajante gerado com senha temporária")
@@ -476,10 +488,10 @@ check(r.status_code == 200 and "como o viajante o enxerga" in T(r) and "Passapor
 check(len(soup(alice.get(trip_url)).find_all("a", string=re.compile("painel do viajante"))) == 1, "link para o painel na viagem")
 
 # tirar do grupo corta o acesso
-submit_in_li(alice, trip_url, "Maria Silva", "Remover")
+submit_in_li(alice, tvt, "Maria Silva", "Remover")
 check(mar.get(panel, allow_redirects=False).status_code == 404, "fora do grupo, o viajante perde o painel")
 check(mar.get(BASE + ids["Seguro do grupo"], allow_redirects=False).status_code == 404, "fora do grupo, perde os arquivos")
-submit(alice, trip_url, 'name="travelerId"', {"travelerId": maria_id})
+submit(alice, tvt, 'name="travelerIds"', {"travelerIds": maria_id})
 check(mar.get(panel).status_code == 200, "de volta ao grupo, o acesso volta")
 
 # desativar / redefinir / excluir

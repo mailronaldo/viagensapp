@@ -8,6 +8,7 @@ const TABS = [
   { href: "/itinerary", label: "Roteiro" },
   { href: "/transports", label: "Transportes" },
   { href: "/lodgings", label: "Hospedagens" },
+  { href: "/travelers", label: "Viajantes" },
   { href: "/expenses", label: "Custos" },
   { href: "/documents", label: "Documentos" },
 ];

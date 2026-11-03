@@ -89,20 +89,22 @@ export async function deleteTravelerAction(travelerId: string) {
 
 // ---------- Viajantes dentro de uma viagem ----------
 
+function travelersTab(tripId: string, error?: string) {
+  return `/trips/${tripId}/travelers${error ? `?error=${encodeURIComponent(error)}` : ""}`;
+}
+
+/** Inclui um ou vários viajantes (campo `travelerIds`) no grupo da viagem. */
 export async function linkTravelerAction(tripId: string, formData: FormData) {
   const { trip } = await requireTripAccess(tripId, { write: true });
-  const travelerId = str(formData, "travelerId");
-  if (travelerId) {
+  const ids = [...new Set(formData.getAll("travelerIds").map(String).filter(Boolean))];
+  for (const travelerId of ids) {
     // O viajante precisa ser do mesmo cliente dono da viagem.
     const traveler = await ownTraveler(trip.ownerId, travelerId);
     if (traveler) {
-      await db
-        .insert(t.tripTravelers)
-        .values({ tripId, travelerId })
-        .onConflictDoNothing();
+      await db.insert(t.tripTravelers).values({ tripId, travelerId }).onConflictDoNothing();
     }
   }
-  redirect(`/trips/${tripId}`);
+  redirect(travelersTab(tripId));
 }
 
 export async function unlinkTravelerAction(tripId: string, travelerId: string) {
@@ -110,7 +112,22 @@ export async function unlinkTravelerAction(tripId: string, travelerId: string) {
   await db
     .delete(t.tripTravelers)
     .where(and(eq(t.tripTravelers.tripId, tripId), eq(t.tripTravelers.travelerId, travelerId)));
-  redirect(`/trips/${tripId}`);
+  redirect(travelersTab(tripId));
+}
+
+/** Cadastra um viajante novo (para o cliente dono da viagem) e já o inclui no grupo. */
+export async function createAndLinkTravelerAction(tripId: string, formData: FormData) {
+  const { trip } = await requireTripAccess(tripId, { write: true });
+  const r = readTraveler(formData);
+  if (r.error) redirect(travelersTab(tripId, r.error));
+  await db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(t.travelers)
+      .values({ clientId: trip.ownerId, ...r.data! })
+      .returning({ id: t.travelers.id });
+    await tx.insert(t.tripTravelers).values({ tripId, travelerId: created.id });
+  });
+  redirect(travelersTab(tripId));
 }
 
 // ---------- Acesso (login) do viajante ----------
