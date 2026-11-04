@@ -44,7 +44,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   return (
     <>
-      <div className="hero-bleed -mt-6 pb-10 pt-3 text-white">
+      <div className="hero-bleed pb-10 pt-5 text-white">
         <h1 className="text-2xl font-semibold">Para onde vamos, {user.name.split(" ")[0]}?</h1>
         <p className="text-sm text-brand-100">
           {rows.length === 0

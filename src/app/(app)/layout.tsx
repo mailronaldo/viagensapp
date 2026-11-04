@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { logoutAction } from "@/app/actions/auth";
 import { stopImpersonationAction } from "@/app/actions/agency";
-import { MainNav } from "@/components/MainNav";
+import { AppShell } from "@/components/shell/AppShell";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, realUser, impersonating } = await requireAuth();
@@ -15,10 +14,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const isTraveler = user.role === "TRAVELER";
 
   return (
-    <>
-      {impersonating && (
-        <div className="border-b border-amber-300 bg-amber-100 text-amber-900">
-          <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm">
+    <AppShell
+      homeHref={isAgencyView ? "/agency" : isTraveler ? "/traveler" : "/"}
+      role={isAgencyView ? "agency" : isTraveler ? "traveler" : "client"}
+      userName={realUser.name}
+      logoutAction={logoutAction}
+      banner={
+        impersonating && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-300 bg-amber-100 px-4 py-2 text-sm text-amber-900 lg:px-6">
             <span>
               Você está na área do cliente <strong>{user.name}</strong> ({user.email}).
               Tudo que fizer aqui altera os dados dele.
@@ -29,48 +32,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               </button>
             </form>
           </div>
-        </div>
-      )}
-      <header className="bg-brand-800 text-white shadow-md shadow-brand-950/10">
-        <div className="mx-auto max-w-5xl px-4 pt-3">
-          <div className="flex items-center justify-between gap-4">
-            <Link
-              href={isAgencyView ? "/agency" : isTraveler ? "/traveler" : "/"}
-              className="flex items-center gap-2 text-lg font-semibold tracking-tight"
-            >
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 text-base">✈️</span>
-              Minhas Viagens
-              {isAgencyView && (
-                <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs font-normal text-brand-100">Agência</span>
-              )}
-            </Link>
-            <div className="flex items-center gap-3 text-sm">
-              <span className="hidden sm:inline">{realUser.name}</span>
-              <Link href="/account/password" className="hidden hover:underline sm:inline">
-                Senha
-              </Link>
-              <form action={logoutAction}>
-                <button className="cursor-pointer rounded-xl border border-white/20 bg-white/5 px-3 py-1.5 transition hover:border-white/40 hover:bg-white/10">
-                  Sair
-                </button>
-              </form>
-            </div>
-          </div>
-          <MainNav
-            links={
-              isAgencyView
-                ? [{ href: "/agency", label: "Clientes", icon: "👥" }]
-                : isTraveler
-                  ? [{ href: "/traveler", label: "Minhas viagens", icon: "🧳" }]
-                  : [
-                      { href: "/", label: "Viagens", icon: "🧳" },
-                      { href: "/travelers", label: "Viajantes", icon: "👥" },
-                    ]
-            }
-          />
-        </div>
-      </header>
-      <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">{children}</div>
-    </>
+        )
+      }
+    >
+      {children}
+    </AppShell>
   );
 }

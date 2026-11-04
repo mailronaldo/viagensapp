@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 export const inputCls =
-  "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 transition focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/15";
+  "w-full rounded-xl border border-input bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 transition focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-ring/15";
 
 export const btnPrimary =
   "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-gradient-to-b from-brand-600 to-brand-700 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-brand-900/20 transition hover:shadow-md hover:shadow-brand-900/25 hover:brightness-110 focus:outline-none focus:ring-4 focus:ring-brand-600/30 active:brightness-95";
@@ -43,7 +43,7 @@ export function Card({
   className?: string;
 }) {
   return (
-    <div className={`rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm shadow-slate-200/50 ${className}`}>
+    <div className={`rounded-2xl border border-border/70 bg-card p-5 shadow-sm shadow-slate-200/50 ${className}`}>
       {children}
     </div>
   );
@@ -68,7 +68,7 @@ export function Tag({ tone, children }: { tone: TagTone; children: ReactNode }) 
 
 /** Faixa de abertura da página, emendada no cabeçalho. */
 export function Hero({ children }: { children: ReactNode }) {
-  return <div className="hero-bleed -mt-6 mb-6 pb-6 pt-3 text-white">{children}</div>;
+  return <div className="hero-bleed mb-6 pb-6 pt-5 text-white">{children}</div>;
 }
 
 export function ErrorBanner({ message }: { message?: string | null }) {
@@ -104,7 +104,7 @@ export function AddPanel({
   return (
     <details
       open={defaultOpen}
-      className="group mb-6 overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm shadow-slate-200/50"
+      className="group mb-6 overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm shadow-slate-200/50"
     >
       <summary className="flex cursor-pointer items-center justify-between px-5 py-3.5 text-sm font-medium text-brand-800 transition hover:bg-brand-50/60">
         <span className="flex items-center gap-2">

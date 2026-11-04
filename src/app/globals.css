@@ -1,4 +1,7 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
 
 :root {
   --background: #f7f8fa;
@@ -29,11 +32,106 @@
   --color-highlight-600: #e3a221;
 }
 
-/* Faixa colorida de ponta a ponta, sem criar rolagem horizontal.
-   Começa na MESMA cor sólida do <header> (brand-800) para não criar costura
-   na junção entre os dois; só escurece a partir daí. */
+/* Tokens semânticos (vocabulário Metronic) mapeados pra nossa paleta brand.
+   Usados pelos componentes de UI copiados do template (button, card, badge,
+   dialog, etc). Dark mode fica com a infra pronta, mas desativado por ora
+   (ThemeProvider com enableSystem=false). */
+:root {
+  --card: var(--color-white);
+  --card-foreground: var(--foreground);
+  --popover: var(--color-white);
+  --popover-foreground: var(--foreground);
+  --primary: var(--color-brand-700);
+  --primary-foreground: var(--color-white);
+  --secondary: var(--color-brand-50);
+  --secondary-foreground: var(--color-brand-900);
+  --muted: var(--color-slate-100);
+  --muted-foreground: var(--color-slate-500);
+  --accent: var(--color-highlight);
+  --accent-foreground: var(--color-brand-950);
+  --destructive: var(--color-red-600);
+  --destructive-foreground: var(--color-white);
+  --chart-1: var(--color-brand-500);
+  --chart-2: var(--color-highlight);
+  --chart-3: var(--color-brand-300);
+  --chart-4: var(--color-red-500);
+  --chart-5: var(--color-brand-900);
+  --border: var(--color-slate-200);
+  --input: var(--color-slate-200);
+  --ring: var(--color-brand-500);
+  --radius: 0.625rem;
+}
+
+.dark {
+  --background: var(--color-brand-950);
+  --foreground: var(--color-slate-50);
+  --card: var(--color-brand-900);
+  --card-foreground: var(--color-slate-50);
+  --popover: var(--color-brand-900);
+  --popover-foreground: var(--color-slate-50);
+  --primary: var(--color-brand-300);
+  --primary-foreground: var(--color-brand-950);
+  --secondary: var(--color-brand-800);
+  --secondary-foreground: var(--color-slate-50);
+  --muted: var(--color-brand-900);
+  --muted-foreground: var(--color-slate-400);
+  --accent: var(--color-brand-800);
+  --accent-foreground: var(--color-slate-50);
+  --destructive: var(--color-red-600);
+  --destructive-foreground: var(--color-white);
+  --border: var(--color-brand-800);
+  --input: var(--color-brand-800);
+  --ring: var(--color-brand-500);
+}
+
+@theme inline {
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+@layer base {
+  *:focus-visible {
+    @apply outline-ring rounded-xs shadow-none outline-2 outline-offset-3 transition-none!;
+  }
+}
+
+/* Casca do app: header fixo no topo (MENU 1 + avatar) em todas as larguras;
+   dentro de uma viagem, um MENU 2 contextual ocupa a lateral esquerda
+   (inspirado no "Layout 25" do Metronic). */
+@layer components {
+  .app-shell {
+    --header-height: 64px;
+    --header-height-mobile: 56px;
+    --sidebar-width: 260px;
+  }
+}
+
+/* O hero sangra até a borda do painel de conteúdo (não mais até a viewport):
+   cancela o padding do painel (p-4 / lg:p-6). Como o painel tem
+   overflow-hidden, o corte superior já fica arredondado igual ao painel. */
 .hero-bleed {
   position: relative;
+  margin: -1rem -1rem 0 -1rem;
+  padding-inline: 1rem;
   background: linear-gradient(
     175deg,
     var(--color-brand-800) 0%,
@@ -41,9 +139,14 @@
     var(--color-brand-900) 68%,
     var(--color-brand-950) 100%
   );
-  box-shadow: 0 0 0 100vmax var(--color-brand-800);
-  clip-path: inset(0 -100vmax);
   overflow: hidden;
+}
+
+@media (min-width: 64rem) {
+  .hero-bleed {
+    margin: -1.5rem -1.5rem 0 -1.5rem;
+    padding-inline: 1.5rem;
+  }
 }
 
 /* Brilho decorativo sutil, só estética; fica atrás do conteúdo por ordem no DOM */
