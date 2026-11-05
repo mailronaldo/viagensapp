@@ -82,27 +82,40 @@ export async function linkCityAction(tripId: string, formData: FormData) {
   redirect(citiesTab(tripId));
 }
 
-/** Remove a cidade do roteiro desta viagem (o cadastro no cliente continua existindo). */
+/** Remove a cidade do roteiro desta viagem — só se ela não estiver em uso. */
 export async function unlinkCityAction(tripId: string, cityId: string) {
   await requireTripAccess(tripId, { write: true });
-  await db.transaction(async (tx) => {
-    await tx.delete(t.tripCities).where(and(eq(t.tripCities.tripId, tripId), eq(t.tripCities.cityId, cityId)));
-    // Limpa referências à cidade dentro desta viagem (dias e itens continuam, só perdem a cidade).
-    const days = await tx.select({ id: t.tripDays.id }).from(t.tripDays).where(eq(t.tripDays.tripId, tripId));
-    if (days.length) {
-      await tx
-        .delete(t.tripDayCities)
-        .where(and(eq(t.tripDayCities.cityId, cityId), inArray(t.tripDayCities.tripDayId, days.map((d) => d.id))));
-    }
-    await tx
-      .update(t.itineraryItems)
-      .set({ cityId: null })
-      .where(and(eq(t.itineraryItems.tripId, tripId), eq(t.itineraryItems.cityId, cityId)));
-    await tx
-      .update(t.lodgings)
-      .set({ cityId: null })
-      .where(and(eq(t.lodgings.tripId, tripId), eq(t.lodgings.cityId, cityId)));
-  });
+
+  const days = await db.select({ id: t.tripDays.id }).from(t.tripDays).where(eq(t.tripDays.tripId, tripId));
+  const [dayCity, item, lodging] = await Promise.all([
+    days.length
+      ? db
+          .select({ id: t.tripDayCities.tripDayId })
+          .from(t.tripDayCities)
+          .where(and(eq(t.tripDayCities.cityId, cityId), inArray(t.tripDayCities.tripDayId, days.map((d) => d.id))))
+          .limit(1)
+      : Promise.resolve([]),
+    db
+      .select({ id: t.itineraryItems.id })
+      .from(t.itineraryItems)
+      .where(and(eq(t.itineraryItems.tripId, tripId), eq(t.itineraryItems.cityId, cityId)))
+      .limit(1),
+    db
+      .select({ id: t.lodgings.id })
+      .from(t.lodgings)
+      .where(and(eq(t.lodgings.tripId, tripId), eq(t.lodgings.cityId, cityId)))
+      .limit(1),
+  ]);
+
+  if (dayCity.length || item.length || lodging.length) {
+    const parts: string[] = [];
+    if (dayCity.length) parts.push("um resumo de dia");
+    if (item.length) parts.push("uma atividade do roteiro");
+    if (lodging.length) parts.push("uma hospedagem");
+    fail(citiesTab(tripId), `Essa cidade está sendo usada em ${parts.join(" e ")}. Remova essas referências antes de tirá-la da viagem.`);
+  }
+
+  await db.delete(t.tripCities).where(and(eq(t.tripCities.tripId, tripId), eq(t.tripCities.cityId, cityId)));
   redirect(citiesTab(tripId));
 }
 

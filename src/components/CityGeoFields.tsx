@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Field, inputCls } from "@/components/ui";
+import { Field } from "@/components/ui";
+import { SearchSelect } from "@/components/SearchSelect";
 import type { GeoOption } from "@/lib/geo";
 
-/** País → estado → cidade em cascata, pra evitar erro de digitação no cadastro de cidades. */
+/** País → estado → cidade em cascata, com busca, pra evitar erro de digitação no cadastro de cidades. */
 export function CityGeoFields({ countries }: { countries: GeoOption[] }) {
   const [countryCode, setCountryCode] = useState("");
   const [stateCode, setStateCode] = useState("");
+  const [cityName, setCityName] = useState("");
   const [states, setStates] = useState<GeoOption[]>([]);
   const [cities, setCities] = useState<string[]>([]);
   const [loadingStates, setLoadingStates] = useState(false);
@@ -51,67 +53,58 @@ export function CityGeoFields({ countries }: { countries: GeoOption[] }) {
     };
   }, [countryCode, stateCode, states.length]);
 
-  function handleCountryChange(value: string) {
-    setCountryCode(value);
+  function handleCountryChange(code: string) {
+    setCountryCode(code);
     setStateCode("");
+    setCityName("");
     setStates([]);
     setCities([]);
   }
 
-  function handleStateChange(value: string) {
-    setStateCode(value);
+  function handleStateChange(code: string) {
+    setStateCode(code);
+    setCityName("");
     setCities([]);
   }
 
   return (
     <>
       <Field label="País" className="sm:col-span-2">
-        <select
+        <SearchSelect
           name="countryCode"
           required
           value={countryCode}
-          onChange={(e) => handleCountryChange(e.target.value)}
-          className={inputCls}
-        >
-          <option value="">Selecione…</option>
-          {countries.map((c) => (
-            <option key={c.code} value={c.code}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+          onChange={handleCountryChange}
+          options={countries.map((c) => ({ value: c.code, label: c.name }))}
+          searchPlaceholder="Buscar país…"
+        />
       </Field>
       <Field
         label="Estado / província"
         className="sm:col-span-2"
         hint={states.length === 0 && countryCode && !loadingStates ? "Este país não tem essa divisão." : undefined}
       >
-        <select
+        <SearchSelect
           name="stateCode"
           value={stateCode}
-          onChange={(e) => handleStateChange(e.target.value)}
+          onChange={handleStateChange}
+          options={states.map((s) => ({ value: s.code, label: s.name }))}
+          placeholder={loadingStates ? "Carregando…" : "Selecione…"}
+          searchPlaceholder="Buscar estado…"
           disabled={!countryCode || loadingStates || states.length === 0}
-          className={inputCls}
-        >
-          <option value="">{loadingStates ? "Carregando…" : "Selecione…"}</option>
-          {states.map((s) => (
-            <option key={s.code} value={s.code}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+        />
       </Field>
       <Field label="Cidade" className="sm:col-span-2">
-        <select name="name" required disabled={!countryCode || loadingCities || cities.length === 0} className={inputCls}>
-          <option value="">
-            {!countryCode ? "Selecione o país primeiro" : loadingCities ? "Carregando…" : "Selecione…"}
-          </option>
-          {cities.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
+        <SearchSelect
+          name="name"
+          required
+          value={cityName}
+          onChange={setCityName}
+          options={cities.map((name) => ({ value: name, label: name }))}
+          placeholder={!countryCode ? "Selecione o país primeiro" : loadingCities ? "Carregando…" : "Selecione…"}
+          searchPlaceholder="Buscar cidade…"
+          disabled={!countryCode || loadingCities || cities.length === 0}
+        />
       </Field>
     </>
   );
