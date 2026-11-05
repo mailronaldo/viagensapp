@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { and, asc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
+import { getTripCities } from "@/services/cities";
 import { deleteItemAction, removeReservationAction, updateItemAction } from "@/app/actions/items";
 import { ItemFields } from "@/components/TripFields";
 import { Card, ErrorBanner, btnDanger, btnGhost, btnPrimary } from "@/components/ui";
@@ -29,7 +30,7 @@ export default async function EditItemPage({
   if (!item) notFound();
 
   const [cities, doc, resDoc] = await Promise.all([
-    db.select({ id: t.cities.id, name: t.cities.name }).from(t.cities).where(eq(t.cities.tripId, trip.id)).orderBy(asc(t.cities.position)),
+    getTripCities(trip.id),
     item.ticketDocumentId
       ? db.select({ fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.id, item.ticketDocumentId)).limit(1)
       : Promise.resolve([]),

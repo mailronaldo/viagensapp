@@ -19,13 +19,11 @@ export function AppShell({
 }) {
   return (
     <div className="app-shell flex min-h-full grow flex-col bg-background">
+      {banner}
       <Header homeHref={homeHref} role={role} userName={userName} logoutAction={logoutAction} />
-      <div className="flex grow flex-col pt-(--header-height-mobile) lg:pt-(--header-height)">
-        {banner}
-        <main role="content" className="grow px-4 py-6 lg:px-6">
-          {children}
-        </main>
-      </div>
+      <main role="content" className="grow px-4 py-6 lg:px-6">
+        {children}
+      </main>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { formatDate, formatMoney } from "@/lib/format";
 import { LODGING_TYPE_LABEL } from "@/lib/labels";
+import { getTripCities } from "@/services/cities";
 import { addLodgingAction, deleteLodgingAction } from "@/app/actions/lodgings";
 import { LodgingFields } from "@/components/TripFields";
 import { AddPanel, EmptyState, ErrorBanner, Tag, btnDanger, btnOutline, btnPrimary, tagCls } from "@/components/ui";
@@ -35,7 +36,7 @@ export default async function LodgingsPage({
       .leftJoin(t.cities, eq(t.cities.id, t.lodgings.cityId))
       .where(eq(t.lodgings.tripId, trip.id))
       .orderBy(sql`${t.lodgings.checkInDate} asc nulls last`, asc(t.lodgings.name)),
-    db.select({ id: t.cities.id, name: t.cities.name }).from(t.cities).where(eq(t.cities.tripId, trip.id)).orderBy(asc(t.cities.position)),
+    getTripCities(trip.id),
   ]);
 
   return (

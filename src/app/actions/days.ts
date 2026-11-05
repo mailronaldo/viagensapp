@@ -23,9 +23,9 @@ export async function saveDayAction(tripId: string, date: string, formData: Form
   const cityIds = wanted.length
     ? (
         await db
-          .select({ id: t.cities.id })
-          .from(t.cities)
-          .where(and(eq(t.cities.tripId, tripId), inArray(t.cities.id, wanted)))
+          .select({ id: t.tripCities.cityId })
+          .from(t.tripCities)
+          .where(and(eq(t.tripCities.tripId, tripId), inArray(t.tripCities.cityId, wanted)))
       ).map((c) => c.id)
     : [];
   if (cityIds.length !== wanted.length) fail(back, "Cidade inválida.");

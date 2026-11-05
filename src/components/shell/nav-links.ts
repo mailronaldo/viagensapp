@@ -1,4 +1,4 @@
-import { Briefcase, Users } from "lucide-react";
+import { Briefcase, MapPin, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 // Ícones do lucide-react são componentes React: não dá pra passar por props de
@@ -13,6 +13,7 @@ const AGENCY_LINKS: NavLink[] = [{ href: "/agency", label: "Clientes", icon: Use
 
 const CLIENT_LINKS: NavLink[] = [
   { href: "/", label: "Viagens", icon: Briefcase },
+  { href: "/cities", label: "Cidades", icon: MapPin },
   { href: "/travelers", label: "Viajantes", icon: Users },
 ];
 

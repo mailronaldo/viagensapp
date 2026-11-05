@@ -16,7 +16,7 @@ export function Header({
   logoutAction: () => void;
 }) {
   return (
-    <header className="app-header fixed inset-x-0 top-0 z-20 flex h-(--header-height-mobile) items-center justify-between gap-3 border-b border-border bg-background px-4 lg:h-(--header-height) lg:px-6">
+    <header className="app-header sticky top-0 z-20 flex h-(--header-height-mobile) items-center gap-3 border-b border-border bg-background px-4 lg:h-(--header-height) lg:px-6">
       <div className="flex items-center gap-3">
         <MobileNav role={role} />
         <Link href={homeHref} className="flex items-center gap-2 text-base font-semibold tracking-tight text-brand-900">
@@ -25,7 +25,9 @@ export function Header({
         </Link>
       </div>
       <HeaderMenu role={role} className="hidden lg:flex" />
-      <UserMenu userName={userName} logoutAction={logoutAction} />
+      <div className="ml-auto flex items-center">
+        <UserMenu userName={userName} logoutAction={logoutAction} />
+      </div>
     </header>
   );
 }

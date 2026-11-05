@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { asc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { ISO_DATE } from "@/lib/form";
@@ -8,6 +8,7 @@ import { addDays, formatDate, formatMoney, formatWeekday } from "@/lib/format";
 import { BOOKING_TYPE_LABEL, ITEM_TYPE_LABEL, LODGING_TYPE_LABEL } from "@/lib/labels";
 import { getAgenda } from "@/services/agenda";
 import { getDayPlan } from "@/services/itinerary";
+import { getTripCities } from "@/services/cities";
 import { addItemAction, deleteItemAction, removeReservationAction } from "@/app/actions/items";
 import { saveDayAction } from "@/app/actions/days";
 import { DayStrip } from "@/components/DayStrip";
@@ -37,7 +38,7 @@ export default async function ItineraryDayPage({
   if (!ISO_DATE.test(date) || date < trip.startDate || date > trip.endDate) notFound();
 
   const [cities, agenda, plan, docs] = await Promise.all([
-    db.select({ id: t.cities.id, name: t.cities.name }).from(t.cities).where(eq(t.cities.tripId, trip.id)).orderBy(asc(t.cities.position)),
+    getTripCities(trip.id),
     getAgenda(trip, date),
     getDayPlan(trip.id, date),
     db.select({ id: t.documents.id, fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.tripId, trip.id)),

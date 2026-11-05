@@ -1,15 +1,10 @@
 import Link from "next/link";
 import { requireTripAccess } from "@/lib/access";
 import { formatDate } from "@/lib/format";
+import { countryFlag } from "@/lib/country-flags";
+import { getTripCountries } from "@/services/cities";
 import { TripSidebar, TripMobileTabs } from "@/components/shell/TripSidebar";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { TripBreadcrumb } from "@/components/shell/TripBreadcrumb";
 import { Toolbar, ToolbarActions, ToolbarHeading, ToolbarPageTitle } from "@/components/ui/toolbar";
 import { btnOutline } from "@/components/ui";
 
@@ -23,6 +18,7 @@ export default async function TripLayout({
   const { id } = await params;
   const { trip, role } = await requireTripAccess(id);
   const basePath = `/trips/${trip.id}`;
+  const countries = await getTripCountries(trip.id);
 
   return (
     <div className="flex grow flex-col lg:flex-row">
@@ -32,20 +28,20 @@ export default async function TripLayout({
           <TripMobileTabs basePath={basePath} />
           <Toolbar>
             <ToolbarHeading>
-              <ToolbarPageTitle>{trip.title}</ToolbarPageTitle>
-              <Breadcrumb>
-                <BreadcrumbList>
-                  <BreadcrumbItem>
-                    <BreadcrumbLink href="/">Viagens</BreadcrumbLink>
-                  </BreadcrumbItem>
-                  <BreadcrumbSeparator className="text-xs text-muted-foreground">/</BreadcrumbSeparator>
-                  <BreadcrumbItem>
-                    <BreadcrumbPage>
-                      {trip.destination} · {formatDate(trip.startDate)} → {formatDate(trip.endDate)}
-                    </BreadcrumbPage>
-                  </BreadcrumbItem>
-                </BreadcrumbList>
-              </Breadcrumb>
+              <div className="flex items-center gap-2">
+                <ToolbarPageTitle>{trip.title}</ToolbarPageTitle>
+                {countries.length > 0 && (
+                  <span className="flex items-center gap-1 text-lg" title={countries.join(", ")}>
+                    {countries.map((c) => (
+                      <span key={c}>{countryFlag(c)}</span>
+                    ))}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {formatDate(trip.startDate)} → {formatDate(trip.endDate)}
+              </p>
+              <TripBreadcrumb basePath={basePath} />
             </ToolbarHeading>
             {role === "OWNER" && (
               <ToolbarActions>

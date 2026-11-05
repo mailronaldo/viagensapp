@@ -161,20 +161,36 @@ export const tripMembers = pgTable(
   ],
 );
 
+// Cidades são um cadastro do cliente (como viajantes): cadastra-se uma vez,
+// reutiliza-se em quantas viagens quiser, vinculando via trip_cities.
 export const cities = pgTable(
   "cities",
+  {
+    id: id(),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    country: text("country"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("cities_client_idx").on(t.clientId)],
+);
+
+export const tripCities = pgTable(
+  "trip_cities",
   {
     id: id(),
     tripId: text("trip_id")
       .notNull()
       .references(() => trips.id, { onDelete: "cascade" }),
-    name: text("name").notNull(),
-    country: text("country"),
-    arrival: date("arrival"),
-    departure: date("departure"),
+    cityId: text("city_id")
+      .notNull()
+      .references(() => cities.id, { onDelete: "cascade" }),
+    // Ordem de exibição das cidades dentro desta viagem (ex.: ordem do roteiro).
     position: integer("position").notNull().default(0),
   },
-  (t) => [index("cities_trip_idx").on(t.tripId)],
+  (t) => [uniqueIndex("trip_cities_unique").on(t.tripId, t.cityId)],
 );
 
 // ---------- Roteiro resumido (um registro por dia) ----------

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { and, asc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
+import { getTripCities } from "@/services/cities";
 import { deleteLodgingAction, updateLodgingAction } from "@/app/actions/lodgings";
 import { LodgingFields } from "@/components/TripFields";
 import { Card, ErrorBanner, btnDanger, btnGhost, btnPrimary } from "@/components/ui";
@@ -29,7 +30,7 @@ export default async function EditLodgingPage({
   if (!lodging) notFound();
 
   const [cities, doc] = await Promise.all([
-    db.select({ id: t.cities.id, name: t.cities.name }).from(t.cities).where(eq(t.cities.tripId, trip.id)).orderBy(asc(t.cities.position)),
+    getTripCities(trip.id),
     lodging.documentId
       ? db.select({ fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.id, lodging.documentId)).limit(1)
       : Promise.resolve([]),

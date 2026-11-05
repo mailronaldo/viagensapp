@@ -9,7 +9,7 @@ import { getExpenseSummary } from "@/services/expenses";
 import { deleteTripAction } from "@/app/actions/trips";
 import { Card, EmptyState, btnDanger } from "@/components/ui";
 
-export default async function TripOverviewPage({
+export default async function TripDashboardPage({
   params,
 }: {
   params: Promise<{ id: string }>;

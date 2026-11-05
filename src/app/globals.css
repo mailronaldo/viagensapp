@@ -16,18 +16,18 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-/* Paleta azul-petróleo, com um degrau extra para profundidade */
+/* Paleta azul, alinhada ao azul usado em app.rotaleste.com.br */
 @theme {
-  --color-brand-50: #eaf6f4;
-  --color-brand-100: #cdeae5;
-  --color-brand-200: #9fd9d1;
-  --color-brand-300: #65c1b7;
-  --color-brand-500: #149088;
-  --color-brand-600: #0e7f79;
-  --color-brand-700: #0f766e;
-  --color-brand-800: #0b5563;
-  --color-brand-900: #083f4a;
-  --color-brand-950: #062c35;
+  --color-brand-50: #e8f2fd;
+  --color-brand-100: #cfe0f3;
+  --color-brand-200: #a9c4e2;
+  --color-brand-300: #7cc0ff;
+  --color-brand-500: #1e88e5;
+  --color-brand-600: #1565c0;
+  --color-brand-700: #0b5cad;
+  --color-brand-800: #0f2a47;
+  --color-brand-900: #0a2540;
+  --color-brand-950: #06182c;
   --color-highlight: #f5b83d;
   --color-highlight-600: #e3a221;
 }

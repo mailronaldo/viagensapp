@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
-import { and, asc, count, eq, gt, isNotNull, lt, or } from "drizzle-orm";
+import { and, asc, count, eq, gt, inArray, isNotNull, lt, or } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireClient } from "@/lib/auth";
 import { requireTripAccess } from "@/lib/access";
@@ -23,6 +23,7 @@ export async function createTripAction(formData: FormData) {
   const timezone = str(formData, "timezone") ?? "America/Sao_Paulo";
   const baseCurrency = str(formData, "baseCurrency") ?? "BRL";
   const notes = str(formData, "notes");
+  const cityIds = [...new Set(formData.getAll("cityIds").map(String).filter(Boolean))];
 
   if (!title) fail(back, "Informe um nome para a viagem.");
   if (!destination) fail(back, "Informe o destino.");
@@ -31,6 +32,13 @@ export async function createTripAction(formData: FormData) {
   if (endDate < startDate) fail(back, "A volta não pode ser antes da ida.");
   if (!(TIMEZONES as readonly string[]).includes(timezone)) fail(back, "Fuso horário inválido.");
   if (!(CURRENCIES as readonly string[]).includes(baseCurrency)) fail(back, "Moeda inválida.");
+  if (cityIds.length === 0) fail(back, "Selecione ao menos uma cidade.");
+
+  const ownedCities = await db
+    .select({ id: t.cities.id })
+    .from(t.cities)
+    .where(and(eq(t.cities.clientId, user.id), inArray(t.cities.id, cityIds)));
+  if (ownedCities.length !== cityIds.length) fail(back, "Cidade inválida.");
 
   const tripId = await db.transaction(async (tx) => {
     const [trip] = await tx
@@ -49,6 +57,9 @@ export async function createTripAction(formData: FormData) {
     await tx
       .insert(t.tripMembers)
       .values({ tripId: trip.id, userId: user.id, role: "OWNER" });
+    await tx
+      .insert(t.tripCities)
+      .values(cityIds.map((cityId, position) => ({ tripId: trip.id, cityId, position })));
     return trip.id;
   });
 
@@ -158,32 +169,3 @@ export async function deleteTripAction(tripId: string) {
   redirect("/");
 }
 
-// ---------- Cidades ----------
-
-export async function addCityAction(tripId: string, formData: FormData) {
-  await requireTripAccess(tripId, { write: true });
-  const back = `/trips/${tripId}/itinerary`;
-  const name = str(formData, "name");
-  if (!name) fail(back, "Informe o nome da cidade.");
-
-  const existing = await db
-    .select({ id: t.cities.id })
-    .from(t.cities)
-    .where(eq(t.cities.tripId, tripId));
-
-  await db.insert(t.cities).values({
-    tripId,
-    name,
-    country: str(formData, "country"),
-    position: existing.length,
-  });
-  redirect(back);
-}
-
-export async function deleteCityAction(tripId: string, cityId: string) {
-  await requireTripAccess(tripId, { write: true });
-  await db
-    .delete(t.cities)
-    .where(and(eq(t.cities.id, cityId), eq(t.cities.tripId, tripId)));
-  redirect(`/trips/${tripId}/itinerary`);
-}

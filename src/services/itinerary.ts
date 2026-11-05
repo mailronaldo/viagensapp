@@ -33,17 +33,17 @@ export async function getItinerarySummary(trip: {
           tripDayId: t.tripDayCities.tripDayId,
           id: t.cities.id,
           name: t.cities.name,
-          position: t.cities.position,
         })
         .from(t.tripDayCities)
         .innerJoin(t.cities, eq(t.cities.id, t.tripDayCities.cityId))
+        .innerJoin(t.tripCities, and(eq(t.tripCities.cityId, t.cities.id), eq(t.tripCities.tripId, trip.id)))
         .where(
           inArray(
             t.tripDayCities.tripDayId,
             plans.map((p) => p.id),
           ),
         )
-        .orderBy(asc(t.cities.position), asc(t.cities.name))
+        .orderBy(asc(t.tripCities.position), asc(t.cities.name))
     : [];
 
   const planByDate = new Map(plans.map((p) => [p.date, p]));
@@ -76,7 +76,8 @@ export async function getDayPlan(tripId: string, date: string) {
     .select({ id: t.cities.id, name: t.cities.name })
     .from(t.tripDayCities)
     .innerJoin(t.cities, eq(t.cities.id, t.tripDayCities.cityId))
+    .innerJoin(t.tripCities, and(eq(t.tripCities.cityId, t.cities.id), eq(t.tripCities.tripId, tripId)))
     .where(eq(t.tripDayCities.tripDayId, plan.id))
-    .orderBy(asc(t.cities.position), asc(t.cities.name));
+    .orderBy(asc(t.tripCities.position), asc(t.cities.name));
   return { title: plan.title, summary: plan.summary, cities };
 }

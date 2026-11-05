@@ -35,9 +35,9 @@ async function parseLodging(tripId: string, formData: FormData, back: string) {
 
   if (cityId) {
     const [city] = await db
-      .select({ id: t.cities.id })
-      .from(t.cities)
-      .where(and(eq(t.cities.id, cityId), eq(t.cities.tripId, tripId)))
+      .select({ id: t.tripCities.cityId })
+      .from(t.tripCities)
+      .where(and(eq(t.tripCities.cityId, cityId), eq(t.tripCities.tripId, tripId)))
       .limit(1);
     if (!city) fail(back, "Cidade inválida.");
   }

@@ -1,4 +1,4 @@
-import { CalendarDays, MapPin, Briefcase, Hotel, Users, Wallet, FileText, FolderCog } from "lucide-react";
+import { LayoutDashboard, MapPin, Briefcase, Hotel, Users, Wallet, FileText, FolderCog } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 type TripNavLeaf = { kind: "link"; href: string; label: string; icon: LucideIcon };
@@ -15,7 +15,7 @@ export type TripNavItem = TripNavLeaf | TripNavGroup;
 // agrupa dados de apoio da viagem (hoje: cidades e o grupo de viajantes);
 // deve crescer com outros cadastros no futuro.
 export const TRIP_NAV: TripNavItem[] = [
-  { kind: "link", href: "", label: "Visão geral", icon: CalendarDays },
+  { kind: "link", href: "", label: "Dashboard", icon: LayoutDashboard },
   { kind: "link", href: "/itinerary", label: "Roteiro", icon: MapPin },
   {
     kind: "group",
