@@ -27,7 +27,7 @@ export function TripCard({
   return (
     <Link
       href={href}
-      className="group block overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm shadow-slate-200/50 transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-lg hover:shadow-brand-900/10"
+      className="group block overflow-hidden rounded-xl border border-slate-200/70 bg-white shadow-sm shadow-slate-200/50 transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-lg hover:shadow-brand-900/10"
     >
       <div
         className="relative flex h-24 items-center justify-center overflow-hidden bg-gradient-to-br from-brand-500 via-brand-700 to-brand-900 text-3xl"
@@ -40,7 +40,7 @@ export function TripCard({
           <img
             src={iconUrl}
             alt=""
-            className="relative size-14 rounded-xl object-cover shadow-sm transition-transform group-hover:scale-110"
+            className="relative size-14 rounded-lg object-cover shadow-sm transition-transform group-hover:scale-110"
           />
         ) : (
           <span className="relative drop-shadow-sm transition-transform group-hover:scale-110">🗺️</span>
