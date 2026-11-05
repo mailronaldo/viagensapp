@@ -3,9 +3,10 @@ import { and, asc, eq, or, sql } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requirePanelAccess } from "@/lib/traveler-access";
 import { formatDate, formatDateTime, formatWeekday, todayIn } from "@/lib/format";
-import { BOOKING_TYPE_LABEL, DOCUMENT_TYPE_LABEL, LODGING_TYPE_LABEL } from "@/lib/labels";
+import { BOOKING_TYPE_LABEL, LODGING_TYPE_LABEL } from "@/lib/labels";
 import { getAgenda } from "@/services/agenda";
 import { getItinerarySummary } from "@/services/itinerary";
+import { listDocumentTypes, toNameMap } from "@/services/catalogs";
 import { TravelerAgenda } from "@/components/TravelerAgenda";
 import { Card, EmptyState, Hero } from "@/components/ui";
 
@@ -31,7 +32,7 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
         )
       : eq(t.documents.tripId, trip.id);
 
-  const [days, agenda, transports, lodgings, group, docs, allDocs] = await Promise.all([
+  const [days, agenda, transports, lodgings, group, docs, allDocs, documentTypes] = await Promise.all([
     getItinerarySummary(trip),
     getAgenda(trip, agendaDay),
     db.select().from(t.bookings).where(eq(t.bookings.tripId, trip.id)).orderBy(sql`${t.bookings.startAt} asc nulls last`),
@@ -44,8 +45,10 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
       .orderBy(asc(t.travelers.name)),
     db.select().from(t.documents).where(docFilter).orderBy(asc(t.documents.title)),
     db.select({ id: t.documents.id, fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.tripId, trip.id)),
+    listDocumentTypes(),
   ]);
   const docName = new Map(allDocs.map((d) => [d.id, d.fileName]));
+  const docTypeName = toNameMap(documentTypes);
   const base = `/traveler/trips/${trip.id}`;
 
   return (
@@ -216,7 +219,7 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
                     {d.title}
                   </a>
                   <p className="text-xs text-slate-500">
-                    {DOCUMENT_TYPE_LABEL[d.type]}
+                    {docTypeName[d.type] ?? d.type}
                     {kind === "member" ? ` · ${d.visibility === "OWNER" ? "só o dono" : d.visibility === "GROUP" ? "grupo" : "um viajante"}` : ""}
                   </p>
                 </Card>

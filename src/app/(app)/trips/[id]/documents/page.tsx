@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { requireTripAccess } from "@/lib/access";
 import { formatDate } from "@/lib/format";
-import { DOCUMENT_TYPE_LABEL } from "@/lib/labels";
-import { listDocuments, type DocType } from "@/services/documents";
+import { listDocuments } from "@/services/documents";
+import { listDocumentTypes, toNameMap } from "@/services/catalogs";
 import { db, t } from "@/db";
 import { asc, eq } from "drizzle-orm";
 import { deleteDocumentAction, setDocumentVisibilityAction, uploadDocumentAction } from "@/app/actions/documents";
@@ -34,7 +34,9 @@ export default async function DocumentsPage({
   const { type, error } = await searchParams;
   const { trip, canWrite } = await requireTripAccess(id);
 
-  const filter = type && type in DOCUMENT_TYPE_LABEL ? (type as DocType) : undefined;
+  const types = await listDocumentTypes();
+  const typeNames = toNameMap(types);
+  const filter = type && types.some((dt) => dt.id === type) ? type : undefined;
   const [docs, group] = await Promise.all([
     listDocuments(trip.id, filter),
     db
@@ -80,9 +82,9 @@ export default async function DocumentsPage({
             </Field>
             <Field label="Tipo" className="sm:col-span-2">
               <select name="type" defaultValue="OTHER" className={inputCls}>
-                {Object.entries(DOCUMENT_TYPE_LABEL).map(([v, l]) => (
-                  <option key={v} value={v}>
-                    {l}
+                {types.map((dt) => (
+                  <option key={dt.id} value={dt.id}>
+                    {dt.name}
                   </option>
                 ))}
               </select>
@@ -113,13 +115,13 @@ export default async function DocumentsPage({
         >
           Todos
         </Link>
-        {Object.entries(DOCUMENT_TYPE_LABEL).map(([v, l]) => (
+        {types.map((dt) => (
           <Link
-            key={v}
-            href={`/trips/${trip.id}/documents?type=${v}`}
-            className={`rounded-full px-3 py-1 ${filter === v ? "bg-brand-700 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}
+            key={dt.id}
+            href={`/trips/${trip.id}/documents?type=${dt.id}`}
+            className={`rounded-full px-3 py-1 ${filter === dt.id ? "bg-brand-700 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}
           >
-            {l}
+            {dt.name}
           </Link>
         ))}
       </div>
@@ -141,7 +143,7 @@ export default async function DocumentsPage({
                     {d.title}
                   </a>
                   <p className="text-xs text-slate-500">
-                    {DOCUMENT_TYPE_LABEL[d.type]} · {humanSize(d.sizeBytes)} ·{" "}
+                    {typeNames[d.type] ?? d.type} · {humanSize(d.sizeBytes)} ·{" "}
                     {formatDate(d.createdAt.toISOString().slice(0, 10))}
                   </p>
                   <p className="mt-1 text-xs">

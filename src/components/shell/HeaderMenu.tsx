@@ -10,8 +10,15 @@ export function HeaderMenu({ role, className }: { role: NavRole; className?: str
   const pathname = usePathname();
   const links = getNavLinks(role);
   // "/" também é a raiz das viagens do cliente, que moram em /trips.
-  const isActive = (href: string) =>
+  const matches = (href: string) =>
     href === "/" ? pathname === "/" || pathname.startsWith("/trips") : pathname.startsWith(href);
+  // Com vários links sob o mesmo prefixo (ex.: "/agency" e "/agency/document-types"),
+  // só o mais específico (o de maior prefixo) fica marcado como ativo.
+  const bestHref = links
+    .map((l) => l.href)
+    .filter(matches)
+    .sort((a, b) => b.length - a.length)[0];
+  const isActive = (href: string) => href === bestHref;
 
   return (
     <nav className={cn("flex items-stretch gap-1.5", className)}>

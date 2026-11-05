@@ -4,7 +4,8 @@ import { db, t } from "@/db";
 
 export type NewExpense = {
   date: string;
-  category: (typeof t.expenseCategory.enumValues)[number];
+  /** Id de uma linha de `expense_categories` (cadastro da agência, não mais um enum fixo). */
+  category: string;
   description: string;
   amount: string; // decimal em string, ex.: "123.45"
   currency: string;

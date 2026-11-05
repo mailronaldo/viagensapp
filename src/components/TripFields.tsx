@@ -3,7 +3,6 @@ import {
   BOOKING_TYPE_LABEL,
   BOOKING_TYPE_OPTIONS,
   CURRENCIES,
-  EXPENSE_CATEGORY_LABEL,
   ITEM_TYPE_LABEL,
   LODGING_TYPE_LABEL,
 } from "@/lib/labels";
@@ -374,11 +373,13 @@ export function BookingFields({
 export function ExpenseFields({
   trip,
   expense,
+  categories,
   defaultDate,
   attachment,
 }: {
   trip: { baseCurrency: string };
   expense?: Expense;
+  categories: { id: string; name: string }[];
   defaultDate?: string;
   attachment?: { name: string; href: string } | null;
 }) {
@@ -388,10 +389,10 @@ export function ExpenseFields({
         <input name="description" required defaultValue={expense?.description} placeholder="Ex.: Jantar no Time Out Market" className={inputCls} />
       </Field>
       <Field label="Categoria" className="sm:col-span-2">
-        <select name="category" defaultValue={expense?.category ?? "FOOD"} className={inputCls}>
-          {Object.entries(EXPENSE_CATEGORY_LABEL).map(([v, l]) => (
-            <option key={v} value={v}>
-              {l}
+        <select name="category" defaultValue={expense?.category ?? categories[0]?.id} className={inputCls}>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
             </option>
           ))}
         </select>

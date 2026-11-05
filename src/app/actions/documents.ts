@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
-import { DOCUMENT_TYPE_LABEL } from "@/lib/labels";
 import { fail, file, str } from "@/lib/form";
 import { addDocument, removeDocument, type DocType } from "@/services/documents";
 
@@ -38,7 +37,8 @@ export async function uploadDocumentAction(tripId: string, formData: FormData) {
   if (!upload) fail(back, "Selecione um arquivo.");
 
   const type = str(formData, "type") ?? "OTHER";
-  if (!(type in DOCUMENT_TYPE_LABEL)) fail(back, "Tipo de documento inválido.");
+  const [dt] = await db.select({ id: t.documentTypes.id }).from(t.documentTypes).where(eq(t.documentTypes.id, type)).limit(1);
+  if (!dt) fail(back, "Tipo de documento inválido.");
   const vis = await parseVisibility(tripId, str(formData, "visibility"), back);
 
   try {

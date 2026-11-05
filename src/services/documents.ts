@@ -8,7 +8,8 @@ import {
   saveFile,
 } from "@/lib/storage";
 
-export type DocType = (typeof t.documentType.enumValues)[number];
+/** Id de uma linha de `document_types` (cadastro da agência, não mais um enum fixo). */
+export type DocType = string;
 
 export function validateUpload(file: File) {
   if (file.size === 0) throw new Error("Arquivo vazio.");

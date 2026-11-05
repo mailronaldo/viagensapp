@@ -64,6 +64,13 @@
       "when": 1793898593717,
       "tag": "0008_pontos_dicas_e_regiao_da_atividade",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793917820157,
+      "tag": "0009_cadastro_tipos_documento_categorias_custo",
+      "breakpoints": true
     }
   ]
 }

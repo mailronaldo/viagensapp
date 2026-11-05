@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { deleteExpenseAction, updateExpenseAction } from "@/app/actions/expenses";
+import { listExpenseCategories } from "@/services/catalogs";
 import { ExpenseFields } from "@/components/TripFields";
 import { Card, ErrorBanner, btnDanger, btnGhost, btnPrimary } from "@/components/ui";
 
@@ -32,6 +33,7 @@ export default async function EditExpensePage({
     ? await db.select({ fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.id, expense.receiptDocumentId)).limit(1)
     : [];
   const attachment = doc ? { name: doc.fileName, href: `/api/files/${trip.id}/${expense.receiptDocumentId}` } : null;
+  const categories = await listExpenseCategories();
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -39,7 +41,7 @@ export default async function EditExpensePage({
       <Card>
         <ErrorBanner message={error} />
         <form action={updateExpenseAction.bind(null, trip.id, expense.id)} className="grid gap-3 sm:grid-cols-6">
-          <ExpenseFields trip={trip} expense={expense} attachment={attachment} />
+          <ExpenseFields trip={trip} expense={expense} categories={categories} attachment={attachment} />
           <div className="flex gap-2 sm:col-span-6">
             <button className={btnPrimary}>Salvar alterações</button>
             <Link href={`/trips/${trip.id}/expenses`} className={btnGhost}>

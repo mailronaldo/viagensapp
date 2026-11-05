@@ -30,28 +30,6 @@ export const LODGING_TYPE_LABEL = {
   OTHER: "Outro",
 } as const;
 
-export const EXPENSE_CATEGORY_LABEL = {
-  FLIGHT: "Passagens",
-  LODGING: "Hospedagem",
-  FOOD: "Alimentação",
-  TRANSPORT: "Transporte",
-  ATTRACTION: "Passeios e ingressos",
-  SHOPPING: "Compras",
-  INSURANCE: "Seguro",
-  OTHER: "Outros",
-} as const;
-
-export const DOCUMENT_TYPE_LABEL = {
-  PASSPORT: "Passaporte",
-  VISA: "Visto",
-  INSURANCE: "Seguro viagem",
-  TICKET: "Ingresso",
-  VOUCHER: "Voucher",
-  RECEIPT: "Nota / recibo",
-  RESERVATION: "Reserva",
-  OTHER: "Outro",
-} as const;
-
 export const CURRENCIES = ["BRL", "USD", "EUR", "GBP", "ARS", "CLP", "JPY", "CAD", "AUD", "CHF"] as const;
 
 export const TIMEZONES = [

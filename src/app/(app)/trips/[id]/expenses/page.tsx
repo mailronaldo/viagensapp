@@ -1,7 +1,7 @@
 import { requireTripAccess } from "@/lib/access";
 import { formatDate, formatMoney, todayIn } from "@/lib/format";
-import { EXPENSE_CATEGORY_LABEL } from "@/lib/labels";
 import { getExpenseSummary, listExpenses } from "@/services/expenses";
+import { listExpenseCategories, toNameMap } from "@/services/catalogs";
 import Link from "next/link";
 import { ExpenseFields } from "@/components/TripFields";
 import { addExpenseAction, deleteExpenseAction } from "@/app/actions/expenses";
@@ -25,10 +25,12 @@ export default async function ExpensesPage({
   const { error } = await searchParams;
   const { trip, canWrite } = await requireTripAccess(id);
 
-  const [rows, summary] = await Promise.all([
+  const [rows, summary, categories] = await Promise.all([
     listExpenses(trip.id),
     getExpenseSummary(trip.id, trip.baseCurrency),
+    listExpenseCategories(),
   ]);
+  const categoryNames = toNameMap(categories);
   const maxCat = Math.max(1, ...summary.byCategory.map((c) => c.totalBase));
 
   return (
@@ -65,9 +67,7 @@ export default async function ExpensesPage({
               {summary.byCategory.map((c) => (
                 <li key={c.category}>
                   <div className="flex justify-between text-xs">
-                    <span>
-                      {EXPENSE_CATEGORY_LABEL[c.category as keyof typeof EXPENSE_CATEGORY_LABEL]}
-                    </span>
+                    <span>{categoryNames[c.category] ?? c.category}</span>
                     <span className="tabular-nums text-slate-600">
                       {formatMoney(c.totalBase, summary.baseCurrency)}
                     </span>
@@ -91,7 +91,7 @@ export default async function ExpensesPage({
             action={addExpenseAction.bind(null, trip.id)}
             className="grid gap-3 sm:grid-cols-6"
           >
-            <ExpenseFields trip={trip} defaultDate={todayIn(trip.timezone)} />
+            <ExpenseFields trip={trip} categories={categories} defaultDate={todayIn(trip.timezone)} />
             <div className="sm:col-span-6">
               <button className={btnPrimary}>Salvar lançamento</button>
             </div>
@@ -141,7 +141,7 @@ export default async function ExpensesPage({
                     </span>
                   </td>
                   <td className="px-4 py-2 text-slate-600">
-                    {EXPENSE_CATEGORY_LABEL[e.category]}
+                    {categoryNames[e.category] ?? e.category}
                   </td>
                   <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums">
                     {formatMoney(e.amount, e.currency)}

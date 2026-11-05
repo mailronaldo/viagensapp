@@ -42,26 +42,6 @@ export const lodgingType = pgEnum("lodging_type", [
   "RESORT",
   "OTHER",
 ]);
-export const expenseCategory = pgEnum("expense_category", [
-  "FLIGHT",
-  "LODGING",
-  "FOOD",
-  "TRANSPORT",
-  "ATTRACTION",
-  "SHOPPING",
-  "INSURANCE",
-  "OTHER",
-]);
-export const documentType = pgEnum("document_type", [
-  "PASSPORT",
-  "VISA",
-  "INSURANCE",
-  "TICKET",
-  "VOUCHER",
-  "RECEIPT",
-  "RESERVATION",
-  "OTHER",
-]);
 export const travelerPermission = pgEnum("traveler_permission", ["READ", "FULL"]);
 
 // ---------- Contas e acesso ----------
@@ -190,6 +170,23 @@ export const cities = pgTable(
   (t) => [index("cities_client_idx").on(t.clientId)],
 );
 
+// ---------- Cadastros da agência (tipos de documento, categorias de custo) ----------
+
+// Listas globais, mantidas pela agência (MASTER), usadas em todos os clientes/
+// viagens. Os ids das linhas semeadas na migração reaproveitam os valores dos
+// antigos enums (ex.: "PASSPORT"), pra não exigir remapear dado nenhum.
+export const documentTypes = pgTable("document_types", {
+  id: id(),
+  name: text("name").notNull().unique(),
+  createdAt: createdAt(),
+});
+
+export const expenseCategories = pgTable("expense_categories", {
+  id: id(),
+  name: text("name").notNull().unique(),
+  createdAt: createdAt(),
+});
+
 export const tripCities = pgTable(
   "trip_cities",
   {
@@ -245,7 +242,10 @@ export const documents = pgTable(
     tripId: text("trip_id")
       .notNull()
       .references(() => trips.id, { onDelete: "cascade" }),
-    type: documentType("type").notNull().default("OTHER"),
+    type: text("type")
+      .notNull()
+      .default("OTHER")
+      .references(() => documentTypes.id),
     title: text("title").notNull(),
     fileName: text("file_name").notNull(),
     mimeType: text("mime_type").notNull(),
@@ -411,7 +411,10 @@ export const expenses = pgTable(
       onDelete: "set null",
     }),
     date: date("date").notNull(),
-    category: expenseCategory("category").notNull().default("OTHER"),
+    category: text("category")
+      .notNull()
+      .default("OTHER")
+      .references(() => expenseCategories.id),
     description: text("description").notNull(),
     amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
     currency: text("currency").notNull(),
@@ -439,3 +442,5 @@ export type Lodging = typeof lodgings.$inferSelect;
 export type Booking = typeof bookings.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type Document = typeof documents.$inferSelect;
+export type DocumentTypeRow = typeof documentTypes.$inferSelect;
+export type ExpenseCategoryRow = typeof expenseCategories.$inferSelect;

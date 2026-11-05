@@ -1,4 +1,4 @@
-import { Briefcase, HandCoins, LifeBuoy, Users } from "lucide-react";
+import { Briefcase, FileText, HandCoins, LifeBuoy, Users, Wallet } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 // Ícones do lucide-react são componentes React: não dá pra passar por props de
@@ -9,7 +9,11 @@ export type NavRole = "agency" | "client" | "traveler";
 
 export type NavLink = { href: string; label: string; icon: LucideIcon };
 
-const AGENCY_LINKS: NavLink[] = [{ href: "/agency", label: "Clientes", icon: Users }];
+const AGENCY_LINKS: NavLink[] = [
+  { href: "/agency", label: "Clientes", icon: Users },
+  { href: "/agency/document-types", label: "Tipos de documento", icon: FileText },
+  { href: "/agency/expense-categories", label: "Categorias de custo", icon: Wallet },
+];
 
 // Menu global do cliente (independe de estar dentro de uma viagem ou não).
 // Financeiro e Suporte ainda não têm página própria — ficam aqui só pra
