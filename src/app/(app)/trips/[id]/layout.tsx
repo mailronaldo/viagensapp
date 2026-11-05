@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { requireTripAccess } from "@/lib/access";
 import { formatDate } from "@/lib/format";
-import { countryFlag } from "@/lib/country-flags";
-import { getTripCountries } from "@/services/cities";
+import { getTripCountryCodes } from "@/services/cities";
+import { CountryFlag } from "@/components/CountryFlag";
 import { TripSidebar, TripMobileTabs } from "@/components/shell/TripSidebar";
 import { Toolbar, ToolbarActions, ToolbarHeading, ToolbarPageTitle } from "@/components/ui/toolbar";
 import { btnOutline } from "@/components/ui";
@@ -17,7 +17,7 @@ export default async function TripLayout({
   const { id } = await params;
   const { trip, role } = await requireTripAccess(id);
   const basePath = `/trips/${trip.id}`;
-  const countries = await getTripCountries(trip.id);
+  const countryCodes = await getTripCountryCodes(trip.id);
 
   return (
     <div className="flex grow flex-col lg:flex-row">
@@ -29,10 +29,10 @@ export default async function TripLayout({
             <ToolbarHeading>
               <div className="flex items-center gap-2">
                 <ToolbarPageTitle>{trip.title}</ToolbarPageTitle>
-                {countries.length > 0 && (
-                  <span className="flex items-center gap-1 text-lg" title={countries.join(", ")}>
-                    {countries.map((c) => (
-                      <span key={c}>{countryFlag(c)}</span>
+                {countryCodes.length > 0 && (
+                  <span className="flex items-center gap-1">
+                    {countryCodes.map((code) => (
+                      <CountryFlag key={code} code={code} className="h-5 w-[1.667em] rounded-[3px] object-cover shadow-sm" />
                     ))}
                   </span>
                 )}

@@ -95,6 +95,7 @@ export const trips = pgTable(
       .notNull()
       .references(() => users.id),
     title: text("title").notNull(),
+    // Rótulo "Breve descrição" na tela; o nome da coluna ficou como estava.
     destination: text("destination").notNull(),
     startDate: date("start_date").notNull(),
     endDate: date("end_date").notNull(),
@@ -102,6 +103,9 @@ export const trips = pgTable(
     timezone: text("timezone").notNull().default("America/Sao_Paulo"),
     baseCurrency: text("base_currency").notNull().default("BRL"),
     notes: text("notes"),
+    // Ícone da viagem (mostrado no card do dashboard). Sem upload, usa o padrão.
+    iconKey: text("icon_key"),
+    iconMimeType: text("icon_mime_type"),
     createdAt: createdAt(),
   },
   (t) => [index("trips_owner_idx").on(t.ownerId)],
@@ -176,6 +180,11 @@ export const cities = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     country: text("country"),
+    // Código ISO 3166-1 alpha-2 do país (ex.: "BR"), usado pra bandeira e pra
+    // evitar duplicidade/erro de digitação — escolhido num combo em cascata.
+    countryCode: text("country_code"),
+    state: text("state"),
+    stateCode: text("state_code"),
     createdAt: createdAt(),
   },
   (t) => [index("cities_client_idx").on(t.clientId)],

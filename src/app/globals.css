@@ -47,8 +47,12 @@
   --secondary-foreground: var(--color-brand-900);
   --muted: var(--color-slate-100);
   --muted-foreground: var(--color-slate-500);
-  --accent: var(--color-highlight);
-  --accent-foreground: var(--color-brand-950);
+  /* --accent é o tom usado pelos componentes do kit (Metronic) pra hover/estado
+     "destacado" (botões ghost/outline, itens de dropdown etc.) — por isso aponta
+     pro nosso azul, não pro amarelo de destaque (--color-highlight, usado só em
+     pontos decorativos específicos, como o brilho do hero). */
+  --accent: var(--color-brand-50);
+  --accent-foreground: var(--color-brand-800);
   --destructive: var(--color-red-600);
   --destructive-foreground: var(--color-white);
   --chart-1: var(--color-brand-500);

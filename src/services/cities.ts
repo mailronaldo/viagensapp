@@ -10,22 +10,27 @@ export async function getClientCities(clientId: string) {
 /** Cidades vinculadas a uma viagem (cadastro do cliente + vínculo), na ordem do roteiro. */
 export async function getTripCities(tripId: string) {
   return db
-    .select({ id: t.cities.id, name: t.cities.name, country: t.cities.country })
+    .select({
+      id: t.cities.id,
+      name: t.cities.name,
+      country: t.cities.country,
+      countryCode: t.cities.countryCode,
+    })
     .from(t.tripCities)
     .innerJoin(t.cities, eq(t.cities.id, t.tripCities.cityId))
     .where(eq(t.tripCities.tripId, tripId))
     .orderBy(asc(t.tripCities.position), asc(t.cities.name));
 }
 
-/** Países distintos das cidades vinculadas a uma viagem, na ordem do roteiro. */
-export async function getTripCountries(tripId: string): Promise<string[]> {
+/** Códigos (ISO 3166-1 alpha-2) dos países das cidades vinculadas a uma viagem, na ordem do roteiro. */
+export async function getTripCountryCodes(tripId: string): Promise<string[]> {
   const cities = await getTripCities(tripId);
   const seen = new Set<string>();
-  const countries: string[] = [];
+  const codes: string[] = [];
   for (const c of cities) {
-    if (!c.country || seen.has(c.country)) continue;
-    seen.add(c.country);
-    countries.push(c.country);
+    if (!c.countryCode || seen.has(c.countryCode)) continue;
+    seen.add(c.countryCode);
+    codes.push(c.countryCode);
   }
-  return countries;
+  return codes;
 }

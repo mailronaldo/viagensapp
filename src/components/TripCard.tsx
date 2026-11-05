@@ -9,6 +9,7 @@ export function TripCard({
   startDate,
   endDate,
   status,
+  iconUrl,
 }: {
   href: string;
   title: string;
@@ -16,6 +17,8 @@ export function TripCard({
   startDate: string;
   endDate: string;
   status?: { label: string; tone: TagTone };
+  /** Ícone enviado pelo cliente para esta viagem; sem ele, cai no ícone padrão (mapa). */
+  iconUrl?: string | null;
 }) {
   return (
     <Link
@@ -28,7 +31,16 @@ export function TripCard({
       >
         <div className="absolute -right-6 -top-10 h-28 w-28 rounded-full bg-white/10" />
         <div className="absolute -bottom-8 -left-4 h-20 w-20 rounded-full bg-white/10" />
-        <span className="relative drop-shadow-sm transition-transform group-hover:scale-110">🗺️</span>
+        {iconUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={iconUrl}
+            alt=""
+            className="relative size-14 rounded-xl object-cover shadow-sm transition-transform group-hover:scale-110"
+          />
+        ) : (
+          <span className="relative drop-shadow-sm transition-transform group-hover:scale-110">🗺️</span>
+        )}
       </div>
       <div className="p-4">
         <h2 className="font-semibold tracking-tight">{title}</h2>

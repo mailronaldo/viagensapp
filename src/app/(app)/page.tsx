@@ -106,6 +106,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                   startDate={trip.startDate}
                   endDate={trip.endDate}
                   status={status}
+                  iconUrl={trip.iconKey ? `/api/trip-icons/${trip.id}` : null}
                 />
               </li>
             );

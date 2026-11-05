@@ -6,11 +6,23 @@ import { db, t } from "@/db";
 import { requireClient } from "@/lib/auth";
 import { requireTripAccess } from "@/lib/access";
 import { fail, str } from "@/lib/form";
+import { countryName, stateName } from "@/lib/geo";
 
 function readCity(formData: FormData) {
   const name = str(formData, "name");
-  if (!name) return { error: "Informe o nome da cidade." };
-  return { data: { name, country: str(formData, "country") } };
+  const countryCode = str(formData, "countryCode");
+  if (!countryCode) return { error: "Selecione o país." };
+  if (!name) return { error: "Selecione a cidade." };
+  const stateCode = str(formData, "stateCode");
+  return {
+    data: {
+      name,
+      countryCode,
+      country: countryName(countryCode),
+      stateCode,
+      state: stateName(countryCode, stateCode),
+    },
+  };
 }
 
 /** Só devolve a cidade se ela pertencer ao cliente atual (isolamento entre clientes). */

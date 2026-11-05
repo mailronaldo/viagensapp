@@ -7,9 +7,19 @@ import { db, t } from "@/db";
 import { requireClient } from "@/lib/auth";
 import { requireTripAccess } from "@/lib/access";
 import { CURRENCIES, TIMEZONES } from "@/lib/labels";
-import { ISO_DATE, fail, str } from "@/lib/form";
+import { ISO_DATE, fail, file, str } from "@/lib/form";
 import { formatDate } from "@/lib/format";
 import { removeDocument } from "@/services/documents";
+import { deleteStoredFile, saveFile } from "@/lib/storage";
+
+const MAX_ICON_BYTES = 2 * 1024 * 1024;
+const ICON_MIME = new Set(["image/png", "image/jpeg", "image/webp"]);
+
+function validateIcon(icon: File | null) {
+  if (!icon) return;
+  if (icon.size > MAX_ICON_BYTES) throw new Error("O ícone pode ter até 2 MB.");
+  if (!ICON_MIME.has(icon.type)) throw new Error("Formato de ícone não suportado. Use PNG, JPG ou WEBP.");
+}
 
 export async function createTripAction(formData: FormData) {
   // Só clientes têm viagens; a agência cria viagens "como" um cliente (área do cliente).
@@ -24,15 +34,21 @@ export async function createTripAction(formData: FormData) {
   const baseCurrency = str(formData, "baseCurrency") ?? "BRL";
   const notes = str(formData, "notes");
   const cityIds = [...new Set(formData.getAll("cityIds").map(String).filter(Boolean))];
+  const icon = file(formData, "icon");
 
   if (!title) fail(back, "Informe um nome para a viagem.");
-  if (!destination) fail(back, "Informe o destino.");
+  if (!destination) fail(back, "Informe a breve descrição.");
   if (!startDate || !ISO_DATE.test(startDate)) fail(back, "Data de ida inválida.");
   if (!endDate || !ISO_DATE.test(endDate)) fail(back, "Data de volta inválida.");
   if (endDate < startDate) fail(back, "A volta não pode ser antes da ida.");
   if (!(TIMEZONES as readonly string[]).includes(timezone)) fail(back, "Fuso horário inválido.");
   if (!(CURRENCIES as readonly string[]).includes(baseCurrency)) fail(back, "Moeda inválida.");
   if (cityIds.length === 0) fail(back, "Selecione ao menos uma cidade.");
+  try {
+    validateIcon(icon);
+  } catch (e) {
+    fail(back, e instanceof Error ? e.message : "Ícone inválido.");
+  }
 
   const ownedCities = await db
     .select({ id: t.cities.id })
@@ -63,6 +79,11 @@ export async function createTripAction(formData: FormData) {
     return trip.id;
   });
 
+  if (icon) {
+    const iconKey = await saveFile(tripId, icon);
+    await db.update(t.trips).set({ iconKey, iconMimeType: icon.type }).where(eq(t.trips.id, tripId));
+  }
+
   redirect(`/trips/${tripId}`);
 }
 
@@ -77,14 +98,21 @@ export async function updateTripAction(tripId: string, formData: FormData) {
   const endDate = str(formData, "endDate");
   const timezone = str(formData, "timezone") ?? trip.timezone;
   const baseCurrency = str(formData, "baseCurrency") ?? trip.baseCurrency;
+  const icon = file(formData, "icon");
+  const removeIcon = formData.get("removeIcon") === "on";
 
   if (!title) fail(back, "Informe um nome para a viagem.");
-  if (!destination) fail(back, "Informe o destino.");
+  if (!destination) fail(back, "Informe a breve descrição.");
   if (!startDate || !ISO_DATE.test(startDate)) fail(back, "Data de ida inválida.");
   if (!endDate || !ISO_DATE.test(endDate)) fail(back, "Data de volta inválida.");
   if (endDate < startDate) fail(back, "A volta não pode ser antes da ida.");
   if (!(TIMEZONES as readonly string[]).includes(timezone)) fail(back, "Fuso horário inválido.");
   if (!(CURRENCIES as readonly string[]).includes(baseCurrency)) fail(back, "Moeda inválida.");
+  try {
+    validateIcon(icon);
+  } catch (e) {
+    fail(back, e instanceof Error ? e.message : "Ícone inválido.");
+  }
 
   // Ao encurtar/mover o período, nada do roteiro pode ficar de fora das novas datas.
   if (startDate !== trip.startDate || endDate !== trip.endDate) {
@@ -153,6 +181,15 @@ export async function updateTripAction(tripId: string, formData: FormData) {
       );
   });
 
+  if (icon) {
+    const iconKey = await saveFile(tripId, icon);
+    await db.update(t.trips).set({ iconKey, iconMimeType: icon.type }).where(eq(t.trips.id, tripId));
+    if (trip.iconKey) await deleteStoredFile(trip.iconKey);
+  } else if (removeIcon && trip.iconKey) {
+    await db.update(t.trips).set({ iconKey: null, iconMimeType: null }).where(eq(t.trips.id, tripId));
+    await deleteStoredFile(trip.iconKey);
+  }
+
   redirect(`/trips/${tripId}`);
 }
 
@@ -165,6 +202,7 @@ export async function deleteTripAction(tripId: string) {
     .from(t.documents)
     .where(eq(t.documents.tripId, trip.id));
   for (const d of docs) await removeDocument(trip.id, d.id);
+  if (trip.iconKey) await deleteStoredFile(trip.iconKey);
   await db.delete(t.trips).where(eq(t.trips.id, trip.id));
   redirect("/");
 }

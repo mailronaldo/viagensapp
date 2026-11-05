@@ -2,7 +2,10 @@ import { asc, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { createAndLinkCityAction, linkCityAction, unlinkCityAction } from "@/app/actions/cities";
-import { AddPanel, EmptyState, ErrorBanner, Field, btnPrimary, inputCls } from "@/components/ui";
+import { listCountries } from "@/lib/geo";
+import { CityGeoFields } from "@/components/CityGeoFields";
+import { CountryFlag } from "@/components/CountryFlag";
+import { AddPanel, EmptyState, ErrorBanner, btnPrimary } from "@/components/ui";
 
 export const metadata = { title: "Cidades da viagem" };
 
@@ -29,6 +32,7 @@ export default async function TripCitiesPage({
   ]);
   const linkedIds = new Set(linked.map((l) => l.city.id));
   const available = ownerCities.filter((c) => !linkedIds.has(c.id));
+  const countries = listCountries();
 
   return (
     <>
@@ -48,6 +52,7 @@ export default async function TripCitiesPage({
                     <li key={c.id}>
                       <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm hover:border-brand-600">
                         <input type="checkbox" name="cityIds" value={c.id} />
+                        {c.countryCode && <CountryFlag code={c.countryCode} title={c.country ?? undefined} />}
                         <span className="min-w-0">
                           <span className="block truncate">{c.name}</span>
                           {c.country && <span className="block truncate text-xs text-slate-500">{c.country}</span>}
@@ -62,14 +67,9 @@ export default async function TripCitiesPage({
           )}
 
           <AddPanel title="Cadastrar nova cidade e vincular" defaultOpen={ownerCities.length === 0}>
-            <form action={createAndLinkCityAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-3">
-              <Field label="Cidade" className="sm:col-span-2">
-                <input name="name" required className={inputCls} />
-              </Field>
-              <Field label="País">
-                <input name="country" className={inputCls} />
-              </Field>
-              <div className="sm:col-span-3">
+            <form action={createAndLinkCityAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-6">
+              <CityGeoFields countries={countries} />
+              <div className="sm:col-span-6">
                 <button className={btnPrimary}>Salvar e vincular</button>
               </div>
             </form>
@@ -86,6 +86,7 @@ export default async function TripCitiesPage({
               key={c.id}
               className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs text-brand-900"
             >
+              {c.countryCode && <CountryFlag code={c.countryCode} title={c.country ?? undefined} />}
               {c.name}
               {c.country && <span className="text-brand-700/70">· {c.country}</span>}
               {canWrite && (

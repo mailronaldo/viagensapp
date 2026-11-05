@@ -24,8 +24,15 @@ export default async function NewTripPage({
           <Field label="Nome da viagem" className="sm:col-span-2">
             <input name="title" required placeholder="Ex.: Férias em Portugal" className={inputCls} />
           </Field>
-          <Field label="Destino" className="sm:col-span-2">
+          <Field label="Breve descrição" className="sm:col-span-2">
             <input name="destination" required placeholder="Ex.: Lisboa e Porto, Portugal" className={inputCls} />
+          </Field>
+          <Field
+            label="Ícone da viagem"
+            className="sm:col-span-2"
+            hint="Opcional. PNG, JPG ou WEBP, até 2 MB. Formato quadrado (ex.: 400×400px) fica melhor. Sem envio, usa o ícone padrão."
+          >
+            <input name="icon" type="file" accept="image/png,image/jpeg,image/webp" className={inputCls} />
           </Field>
           <Field label="Cidades da viagem" className="sm:col-span-2" hint="Selecione ao menos uma.">
             {cities.length === 0 ? (

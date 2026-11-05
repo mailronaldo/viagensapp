@@ -28,8 +28,30 @@ export default async function EditTripPage({
           <Field label="Nome da viagem" className="sm:col-span-2">
             <input name="title" required defaultValue={trip.title} className={inputCls} />
           </Field>
-          <Field label="Destino" className="sm:col-span-2">
+          <Field label="Breve descrição" className="sm:col-span-2">
             <input name="destination" required defaultValue={trip.destination} className={inputCls} />
+          </Field>
+          <Field
+            label={trip.iconKey ? "Trocar ícone da viagem" : "Ícone da viagem"}
+            className="sm:col-span-2"
+            hint="Opcional. PNG, JPG ou WEBP, até 2 MB. Formato quadrado (ex.: 400×400px) fica melhor. Sem envio, usa o ícone padrão."
+          >
+            <div className="flex items-center gap-3">
+              {trip.iconKey && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`/api/trip-icons/${trip.id}`}
+                  alt=""
+                  className="size-12 shrink-0 rounded-lg object-cover"
+                />
+              )}
+              <input name="icon" type="file" accept="image/png,image/jpeg,image/webp" className={inputCls} />
+            </div>
+            {trip.iconKey && (
+              <label className="mt-2 inline-flex items-center gap-1.5 text-xs text-slate-500">
+                <input type="checkbox" name="removeIcon" /> remover ícone (volta ao padrão)
+              </label>
+            )}
           </Field>
           <Field label="Ida">
             <input name="startDate" type="date" required defaultValue={trip.startDate} className={inputCls} />

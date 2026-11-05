@@ -5,11 +5,11 @@ import Link from "next/link";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { getNavLinksFlat, type NavRole } from "./nav-links";
+import { getNavLinks, type NavRole } from "./nav-links";
 
 export function MobileNav({ role }: { role: NavRole }) {
   const [open, setOpen] = useState(false);
-  const links = getNavLinksFlat(role);
+  const links = getNavLinks(role);
 
   return (
     <>

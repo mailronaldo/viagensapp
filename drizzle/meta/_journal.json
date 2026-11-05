@@ -50,6 +50,13 @@
       "when": 1793886577961,
       "tag": "0006_permissao_viajante",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793890741269,
+      "tag": "0007_icone_viagem_e_pais_cidade",
+      "breakpoints": true
     }
   ]
 }

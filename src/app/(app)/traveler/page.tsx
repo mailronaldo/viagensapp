@@ -18,6 +18,7 @@ export default async function TravelerHomePage() {
       destination: t.trips.destination,
       startDate: t.trips.startDate,
       endDate: t.trips.endDate,
+      iconKey: t.trips.iconKey,
       permission: t.tripTravelers.permission,
     })
     .from(t.travelers)
@@ -44,6 +45,7 @@ export default async function TravelerHomePage() {
                 destination={trip.destination}
                 startDate={trip.startDate}
                 endDate={trip.endDate}
+                iconUrl={trip.iconKey ? `/api/trip-icons/${trip.id}` : null}
               />
             </li>
           ))}
