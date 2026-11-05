@@ -54,7 +54,7 @@ export default async function CitiesPage({
                     )}
                   </div>
                 </div>
-                <form action={deleteCityAction.bind(null, c.id)}>
+                <form action={deleteCityAction.bind(null, "/cities", c.id)}>
                   <button className={btnDanger}>Remover</button>
                 </form>
               </Card>

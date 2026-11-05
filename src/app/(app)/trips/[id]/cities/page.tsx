@@ -1,7 +1,7 @@
 import { asc, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
-import { createAndLinkCityAction, linkCityAction, unlinkCityAction } from "@/app/actions/cities";
+import { createAndLinkCityAction, deleteCityAction, linkCityAction, unlinkCityAction } from "@/app/actions/cities";
 import { listCountries } from "@/lib/geo";
 import { CityGeoFields } from "@/components/CityGeoFields";
 import { CountryFlag } from "@/components/CountryFlag";
@@ -49,8 +49,11 @@ export default async function TripCitiesPage({
               <form action={linkCityAction.bind(null, trip.id)} className="space-y-3">
                 <ul className="grid gap-2 sm:grid-cols-2">
                   {available.map((c) => (
-                    <li key={c.id}>
-                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm hover:border-brand-600">
+                    <li
+                      key={c.id}
+                      className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm hover:border-brand-600"
+                    >
+                      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
                         <input type="checkbox" name="cityIds" value={c.id} />
                         {c.countryCode && <CountryFlag code={c.countryCode} title={c.country ?? undefined} />}
                         <span className="min-w-0">
@@ -58,6 +61,15 @@ export default async function TripCitiesPage({
                           {c.country && <span className="block truncate text-xs text-slate-500">{c.country}</span>}
                         </span>
                       </label>
+                      <button
+                        type="submit"
+                        formAction={deleteCityAction.bind(null, `/trips/${trip.id}/cities`, c.id)}
+                        aria-label={`Excluir ${c.name} do catálogo`}
+                        title="Excluir do catálogo"
+                        className="shrink-0 cursor-pointer text-slate-400 hover:text-rose-700"
+                      >
+                        ×
+                      </button>
                     </li>
                   ))}
                 </ul>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { formatDate } from "@/lib/format";
 import { Tag, type TagTone } from "@/components/ui";
+import { CountryFlag } from "@/components/CountryFlag";
 
 export function TripCard({
   href,
@@ -10,6 +11,7 @@ export function TripCard({
   endDate,
   status,
   iconUrl,
+  countryCodes,
 }: {
   href: string;
   title: string;
@@ -19,6 +21,8 @@ export function TripCard({
   status?: { label: string; tone: TagTone };
   /** Ícone enviado pelo cliente para esta viagem; sem ele, cai no ícone padrão (mapa). */
   iconUrl?: string | null;
+  /** Países do roteiro, pra mostrar a bandeira alinhada à direita na linha do status. */
+  countryCodes?: string[];
 }) {
   return (
     <Link
@@ -48,9 +52,16 @@ export function TripCard({
         <p className="mt-1 text-xs text-slate-500">
           {formatDate(startDate)} → {formatDate(endDate)}
         </p>
-        {status && (
-          <div className="mt-2.5">
-            <Tag tone={status.tone}>{status.label}</Tag>
+        {(status || (countryCodes && countryCodes.length > 0)) && (
+          <div className="mt-2.5 flex items-center justify-between gap-2">
+            {status ? <Tag tone={status.tone}>{status.label}</Tag> : <span />}
+            {countryCodes && countryCodes.length > 0 && (
+              <span className="flex items-center gap-1">
+                {countryCodes.map((code) => (
+                  <CountryFlag key={code} code={code} className="h-3.5 w-[1.167em] rounded-[2px] object-cover" />
+                ))}
+              </span>
+            )}
           </div>
         )}
       </div>

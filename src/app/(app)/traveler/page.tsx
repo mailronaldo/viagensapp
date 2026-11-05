@@ -3,6 +3,7 @@ import { asc, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireAuth } from "@/lib/auth";
 import { TripCard } from "@/components/TripCard";
+import { getCountryCodesByTrip } from "@/services/cities";
 import { EmptyState, Hero } from "@/components/ui";
 
 export const metadata = { title: "Minhas viagens" };
@@ -26,6 +27,7 @@ export default async function TravelerHomePage() {
     .innerJoin(t.trips, eq(t.trips.id, t.tripTravelers.tripId))
     .where(eq(t.travelers.userId, user.id))
     .orderBy(asc(t.trips.startDate));
+  const countryCodesByTrip = await getCountryCodesByTrip(trips.map((trip) => trip.id));
 
   return (
     <>
@@ -46,6 +48,7 @@ export default async function TravelerHomePage() {
                 startDate={trip.startDate}
                 endDate={trip.endDate}
                 iconUrl={trip.iconKey ? `/api/trip-icons/${trip.id}` : null}
+                countryCodes={countryCodesByTrip.get(trip.id)}
               />
             </li>
           ))}

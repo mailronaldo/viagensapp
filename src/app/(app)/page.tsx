@@ -4,6 +4,7 @@ import { db, t } from "@/db";
 import { requireClient } from "@/lib/auth";
 import { todayIn } from "@/lib/format";
 import { TripCard } from "@/components/TripCard";
+import { getCountryCodesByTrip } from "@/services/cities";
 import { EmptyState, btnOutline, btnPrimary, type TagTone } from "@/components/ui";
 
 export const metadata = { title: "Minhas viagens" };
@@ -41,6 +42,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   const needle = normalize(query);
   const visible = rows.filter(({ trip }) => normalize(`${trip.title} ${trip.destination}`).includes(needle));
+  const countryCodesByTrip = await getCountryCodesByTrip(visible.map(({ trip }) => trip.id));
 
   return (
     <>
@@ -107,6 +109,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                   endDate={trip.endDate}
                   status={status}
                   iconUrl={trip.iconKey ? `/api/trip-icons/${trip.id}` : null}
+                  countryCodes={countryCodesByTrip.get(trip.id)}
                 />
               </li>
             );

@@ -45,11 +45,21 @@ export async function addCityAction(formData: FormData) {
   redirect("/cities");
 }
 
-export async function deleteCityAction(cityId: string) {
+/** Exclui a cidade do catálogo do cliente — só se ela não estiver vinculada a nenhuma viagem. */
+export async function deleteCityAction(back: string, cityId: string) {
   const user = await requireClient();
   const city = await ownCity(user.id, cityId);
-  if (city) await db.delete(t.cities).where(eq(t.cities.id, cityId));
-  redirect("/cities");
+  if (city) {
+    const links = await db.select({ id: t.tripCities.id }).from(t.tripCities).where(eq(t.tripCities.cityId, cityId));
+    if (links.length > 0) {
+      fail(
+        back,
+        `Essa cidade está vinculada a ${links.length} viagem${links.length > 1 ? "ns" : ""}. Remova o vínculo nas viagens antes de excluir do catálogo.`,
+      );
+    }
+    await db.delete(t.cities).where(eq(t.cities.id, cityId));
+  }
+  redirect(back);
 }
 
 // ---------- Cidades dentro de uma viagem ----------
