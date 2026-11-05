@@ -1,40 +1,78 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { TRIP_LINKS } from "./trip-nav";
+import { TRIP_NAV, TRIP_LINKS_FLAT } from "./trip-nav";
 
 function isActive(pathname: string, basePath: string, href: string) {
   const full = `${basePath}${href}`;
   return href === "" ? pathname === basePath : pathname.startsWith(full);
 }
 
-// MENU 2 (desktop): sub-navegação de uma viagem, fixa à esquerda.
+const leafCls =
+  "flex h-8.5 items-center gap-2.5 rounded-lg px-2.5 text-sm font-normal text-foreground hover:text-primary data-[active=true]:bg-muted data-[active=true]:font-medium";
+
+// MENU 2 (desktop): sub-navegação de uma viagem, fixa à esquerda. "Cadastros"
+// é um grupo expansível que abre sozinho quando a rota atual é um de seus filhos.
 export function TripSidebar({ basePath }: { basePath: string }) {
   const pathname = usePathname();
+  const groupHasActiveChild = (children: { href: string }[]) =>
+    children.some((c) => isActive(pathname, basePath, c.href));
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(
+      TRIP_NAV.filter((item) => item.kind === "group").map((item) => [item.label, groupHasActiveChild(item.children)]),
+    ),
+  );
 
   return (
     <aside className="hidden lg:sticky lg:top-(--header-height) lg:flex lg:h-[calc(100vh-var(--header-height))] lg:w-(--sidebar-width) lg:shrink-0 lg:flex-col lg:self-start lg:border-e lg:border-border">
       <ScrollArea className="h-full grow">
         <nav className="space-y-0.5 px-2.5 py-4">
-          {TRIP_LINKS.map((item) => {
+          {TRIP_NAV.map((item) => {
+            if (item.kind === "link") {
+              const Icon = item.icon;
+              const active = isActive(pathname, basePath, item.href);
+              return (
+                <Link key={item.href} href={`${basePath}${item.href}`} data-active={active || undefined} className={leafCls}>
+                  <Icon className="size-4 opacity-60" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            }
+
             const Icon = item.icon;
-            const active = isActive(pathname, basePath, item.href);
+            const open = openGroups[item.label] ?? groupHasActiveChild(item.children);
             return (
-              <Link
-                key={item.href}
-                href={`${basePath}${item.href}`}
-                data-active={active || undefined}
-                className={cn(
-                  "flex h-8.5 items-center gap-2.5 rounded-lg px-2.5 text-sm font-normal text-foreground hover:text-primary",
-                  "data-[active=true]:bg-muted data-[active=true]:font-medium",
+              <div key={item.label}>
+                <button
+                  type="button"
+                  onClick={() => setOpenGroups((prev) => ({ ...prev, [item.label]: !open }))}
+                  className="flex h-8.5 w-full items-center gap-2.5 rounded-lg px-2.5 text-sm font-normal text-foreground hover:text-primary"
+                  aria-expanded={open}
+                >
+                  <Icon className="size-4 opacity-60" />
+                  <span>{item.label}</span>
+                  <ChevronDown className={cn("ms-auto size-3.5 text-muted-foreground transition-transform", open && "-rotate-180")} />
+                </button>
+                {open && (
+                  <div className="ms-5 space-y-0.5 border-s border-border ps-2.5">
+                    {item.children.map((child) => {
+                      const ChildIcon = child.icon;
+                      const active = isActive(pathname, basePath, child.href);
+                      return (
+                        <Link key={child.href} href={`${basePath}${child.href}`} data-active={active || undefined} className={leafCls}>
+                          <ChildIcon className="size-4 opacity-60" />
+                          <span>{child.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
                 )}
-              >
-                <Icon className="size-4 opacity-60" />
-                <span>{item.label}</span>
-              </Link>
+              </div>
             );
           })}
         </nav>
@@ -43,14 +81,14 @@ export function TripSidebar({ basePath }: { basePath: string }) {
   );
 }
 
-// Mesma sub-navegação, em faixa horizontal rolável — usada no lugar do MENU 2
-// fixo quando a tela é pequena demais para uma sidebar.
+// Mesma sub-navegação, achatada e em faixa horizontal rolável — usada no
+// lugar do MENU 2 fixo quando a tela é pequena demais para uma sidebar.
 export function TripMobileTabs({ basePath }: { basePath: string }) {
   const pathname = usePathname();
 
   return (
     <nav className="thin-scroll -mx-4 mb-4 flex gap-1 overflow-x-auto border-b border-border px-4 lg:hidden">
-      {TRIP_LINKS.map((item) => {
+      {TRIP_LINKS_FLAT.map((item) => {
         const Icon = item.icon;
         const active = isActive(pathname, basePath, item.href);
         return (

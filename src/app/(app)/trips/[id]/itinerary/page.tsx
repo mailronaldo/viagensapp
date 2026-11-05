@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { asc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { ISO_DATE } from "@/lib/form";
 import { formatDate, formatWeekday, todayIn } from "@/lib/format";
 import { getItinerarySummary } from "@/services/itinerary";
-import { addCityAction, deleteCityAction } from "@/app/actions/trips";
-import { AddPanel, Card, ErrorBanner, Field, btnPrimary, inputCls } from "@/components/ui";
+import { Card, ErrorBanner } from "@/components/ui";
 
 export default async function ItineraryPage({
   params,
@@ -27,7 +26,7 @@ export default async function ItineraryPage({
 
   const today = todayIn(trip.timezone);
   const [cities, days] = await Promise.all([
-    db.select().from(t.cities).where(eq(t.cities.tripId, trip.id)).orderBy(asc(t.cities.position)),
+    db.select({ id: t.cities.id }).from(t.cities).where(eq(t.cities.tripId, trip.id)),
     getItinerarySummary(trip),
   ]);
 
@@ -35,42 +34,15 @@ export default async function ItineraryPage({
     <>
       <ErrorBanner message={error} />
 
-      <section className="mb-6">
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <h2 className="text-sm font-medium text-slate-700">Cidades</h2>
-          {cities.length === 0 && <span className="text-xs text-slate-400">Nenhuma cadastrada.</span>}
-          {cities.map((c) => (
-            <span
-              key={c.id}
-              className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs text-brand-900"
-            >
-              {c.name}
-              {canWrite && (
-                <form action={deleteCityAction.bind(null, trip.id, c.id)}>
-                  <button aria-label={`Remover ${c.name}`} className="cursor-pointer text-brand-700 hover:text-rose-700">
-                    ×
-                  </button>
-                </form>
-              )}
-            </span>
-          ))}
-        </div>
-        {canWrite && (
-          <AddPanel title="Adicionar cidade" defaultOpen={cities.length === 0}>
-            <form action={addCityAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-3">
-              <Field label="Cidade">
-                <input name="name" required className={inputCls} />
-              </Field>
-              <Field label="País">
-                <input name="country" className={inputCls} />
-              </Field>
-              <div className="sm:col-span-3">
-                <button className={btnPrimary}>Salvar cidade</button>
-              </div>
-            </form>
-          </AddPanel>
-        )}
-      </section>
+      {cities.length === 0 && (
+        <p className="mb-6 text-sm text-slate-500">
+          Nenhuma cidade cadastrada ainda.{" "}
+          <Link href={`/trips/${trip.id}/cities`} className="text-brand-700 hover:underline">
+            Cadastre as cidades da viagem
+          </Link>{" "}
+          antes de montar os dias.
+        </p>
+      )}
 
       <h2 className="mb-3 text-sm font-medium text-slate-700">Roteiro resumido</h2>
       <ol className="space-y-3">
