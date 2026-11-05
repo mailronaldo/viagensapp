@@ -20,7 +20,6 @@ export const TRIP_NAV: TripNavItem[] = [
   { kind: "link", href: "/transports", label: "Transportes", icon: Briefcase },
   { kind: "link", href: "/lodgings", label: "Hospedagens", icon: Hotel },
   { kind: "link", href: "/expenses", label: "Custos", icon: Wallet },
-  { kind: "link", href: "/documents", label: "Documentos", icon: FileText },
   {
     kind: "group",
     label: "Gestores",
@@ -28,6 +27,7 @@ export const TRIP_NAV: TripNavItem[] = [
     children: [
       { href: "/cities", label: "Cidades", icon: MapPin },
       { href: "/travelers", label: "Viajantes", icon: Users },
+      { href: "/documents", label: "Documentos", icon: FileText },
     ],
   },
 ];

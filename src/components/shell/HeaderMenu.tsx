@@ -21,6 +21,7 @@ export function HeaderMenu({ role, className }: { role: NavRole; className?: str
     href === "/" ? pathname === "/" || pathname.startsWith("/trips") : pathname.startsWith(href);
   const activeCls = "bg-brand-50 text-brand-800";
   const inactiveCls = "text-secondary-foreground hover:bg-brand-50 hover:text-brand-800";
+  const itemCls = "focus:bg-brand-50 focus:text-brand-800 data-[state=open]:bg-brand-50 data-[state=open]:text-brand-800";
 
   return (
     <nav className={cn("flex items-stretch gap-1.5", className)}>
@@ -62,7 +63,7 @@ export function HeaderMenu({ role, className }: { role: NavRole; className?: str
                 const ChildIcon = child.icon;
                 const childActive = isActive(child.href);
                 return (
-                  <DropdownMenuItem key={child.href} asChild className={childActive ? activeCls : undefined}>
+                  <DropdownMenuItem key={child.href} asChild className={cn(itemCls, childActive && activeCls)}>
                     <Link href={child.href}>
                       <ChildIcon className="size-4" />
                       {child.label}
