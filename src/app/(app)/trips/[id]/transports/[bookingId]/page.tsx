@@ -6,7 +6,8 @@ import { requireTripAccess } from "@/lib/access";
 import { deleteBookingAction, updateBookingAction } from "@/app/actions/bookings";
 import { BookingFields } from "@/components/TripFields";
 import { SavedModal } from "@/components/SavedModal";
-import { Card, ErrorBanner, btnDanger, btnGhost, btnPrimary } from "@/components/ui";
+import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
+import { Card, ErrorBanner, btnGhost, btnPrimary } from "@/components/ui";
 
 export const metadata = { title: "Editar transporte" };
 
@@ -45,8 +46,16 @@ export default async function EditBookingPage({
           cleanUrl={`/trips/${trip.id}/transports/${booking.id}`}
         />
       )}
-      <h2 className="mb-3 text-lg font-medium">Editar transporte</h2>
       <Card>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-medium">Editar transporte</h2>
+          <ConfirmDeleteButton
+            label="Excluir transporte"
+            confirmTitle="Excluir este transporte?"
+            confirmDescription="Isso remove o transporte e o voucher anexado a ele. Não dá pra desfazer."
+            deleteAction={deleteBookingAction.bind(null, trip.id, booking.id)}
+          />
+        </div>
         <ErrorBanner message={error} />
         <form action={updateBookingAction.bind(null, trip.id, booking.id)} className="grid gap-3 sm:grid-cols-6">
           <BookingFields trip={trip} booking={booking} attachment={attachment} />
@@ -58,9 +67,6 @@ export default async function EditBookingPage({
           </div>
         </form>
       </Card>
-      <form action={deleteBookingAction.bind(null, trip.id, booking.id)} className="mt-4">
-        <button className={btnDanger}>Excluir este transporte</button>
-      </form>
     </div>
   );
 }

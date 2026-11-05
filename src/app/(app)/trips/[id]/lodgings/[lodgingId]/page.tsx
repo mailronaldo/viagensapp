@@ -7,7 +7,8 @@ import { getTripCities } from "@/services/cities";
 import { deleteLodgingAction, updateLodgingAction } from "@/app/actions/lodgings";
 import { LodgingFields } from "@/components/TripFields";
 import { SavedModal } from "@/components/SavedModal";
-import { Card, ErrorBanner, btnDanger, btnGhost, btnPrimary } from "@/components/ui";
+import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
+import { Card, ErrorBanner, btnGhost, btnPrimary } from "@/components/ui";
 
 export const metadata = { title: "Editar hospedagem" };
 
@@ -49,8 +50,16 @@ export default async function EditLodgingPage({
           cleanUrl={`/trips/${trip.id}/lodgings/${lodging.id}`}
         />
       )}
-      <h2 className="mb-3 text-lg font-medium">Editar hospedagem</h2>
       <Card>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-medium">Editar hospedagem</h2>
+          <ConfirmDeleteButton
+            label="Excluir hospedagem"
+            confirmTitle="Excluir esta hospedagem?"
+            confirmDescription="Isso remove a hospedagem e o voucher anexado a ela. Não dá pra desfazer."
+            deleteAction={deleteLodgingAction.bind(null, trip.id, lodging.id)}
+          />
+        </div>
         <ErrorBanner message={error} />
         <form action={updateLodgingAction.bind(null, trip.id, lodging.id)} className="grid gap-3 sm:grid-cols-6">
           <LodgingFields trip={trip} cities={cities} lodging={lodging} attachment={attachment} />
@@ -62,9 +71,6 @@ export default async function EditLodgingPage({
           </div>
         </form>
       </Card>
-      <form action={deleteLodgingAction.bind(null, trip.id, lodging.id)} className="mt-4">
-        <button className={btnDanger}>Excluir esta hospedagem</button>
-      </form>
     </div>
   );
 }
