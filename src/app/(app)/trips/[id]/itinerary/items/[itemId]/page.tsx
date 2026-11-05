@@ -16,7 +16,7 @@ import { ItemMainFields, ReservationFields } from "@/components/TripFields";
 import { ActivityPointCard } from "@/components/ActivityPointCard";
 import { ActivityRegionCard } from "@/components/ActivityRegionCard";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
-import { SavedReservationModal } from "@/components/SavedReservationModal";
+import { SavedModal } from "@/components/SavedModal";
 import { AddPanel, Card, ErrorBanner, btnGhost, btnPrimary } from "@/components/ui";
 
 export const metadata = { title: "Editar atividade" };
@@ -71,11 +71,14 @@ export default async function EditItemPage({
 
   return (
     <div className="mx-auto max-w-5xl">
-      <SavedReservationModal
-        key={saved ?? "none"}
-        show={saved === "reserva"}
-        cleanUrl={`/trips/${trip.id}/itinerary/items/${itemId}`}
-      />
+      {(saved === "activity" || saved === "reserva") && (
+        <SavedModal
+          key={saved}
+          show
+          kind={saved}
+          cleanUrl={`/trips/${trip.id}/itinerary/items/${itemId}`}
+        />
+      )}
       <ErrorBanner message={error} />
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -95,7 +98,7 @@ export default async function EditItemPage({
             </form>
           </Card>
           <div className="mt-4 flex gap-2">
-            <button form={FORM_ID} className={btnPrimary}>
+            <button form={FORM_ID} name="stayOnPage" value="activity" className={btnPrimary}>
               Salvar alterações
             </button>
             <Link href={back} className={btnGhost}>
@@ -121,7 +124,7 @@ export default async function EditItemPage({
             >
               <ReservationFields trip={trip} item={item} reservationAttachment={reservationAttachment} formId={FORM_ID} />
               <div className="mt-3">
-                <button form={FORM_ID} name="stayOnPage" value="1" className={btnPrimary}>
+                <button form={FORM_ID} name="stayOnPage" value="reserva" className={btnPrimary}>
                   Salvar reserva
                 </button>
               </div>
