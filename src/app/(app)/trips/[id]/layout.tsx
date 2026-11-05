@@ -4,7 +4,6 @@ import { formatDate } from "@/lib/format";
 import { countryFlag } from "@/lib/country-flags";
 import { getTripCountries } from "@/services/cities";
 import { TripSidebar, TripMobileTabs } from "@/components/shell/TripSidebar";
-import { TripBreadcrumb } from "@/components/shell/TripBreadcrumb";
 import { Toolbar, ToolbarActions, ToolbarHeading, ToolbarPageTitle } from "@/components/ui/toolbar";
 import { btnOutline } from "@/components/ui";
 
@@ -41,7 +40,6 @@ export default async function TripLayout({
               <p className="text-sm text-muted-foreground">
                 {formatDate(trip.startDate)} → {formatDate(trip.endDate)}
               </p>
-              <TripBreadcrumb basePath={basePath} />
             </ToolbarHeading>
             {role === "OWNER" && (
               <ToolbarActions>

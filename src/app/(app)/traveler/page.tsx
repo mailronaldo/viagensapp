@@ -18,6 +18,7 @@ export default async function TravelerHomePage() {
       destination: t.trips.destination,
       startDate: t.trips.startDate,
       endDate: t.trips.endDate,
+      permission: t.tripTravelers.permission,
     })
     .from(t.travelers)
     .innerJoin(t.tripTravelers, eq(t.tripTravelers.travelerId, t.travelers.id))
@@ -29,7 +30,7 @@ export default async function TravelerHomePage() {
     <>
       <Hero>
         <h1 className="text-2xl font-semibold">Olá, {user.name.split(" ")[0]}!</h1>
-        <p className="text-sm text-brand-100">Suas viagens, somente para consulta.</p>
+        <p className="text-sm text-brand-100">Suas viagens.</p>
       </Hero>
       {trips.length === 0 ? (
         <EmptyState>Você ainda não foi incluído em nenhuma viagem.</EmptyState>
@@ -38,7 +39,7 @@ export default async function TravelerHomePage() {
           {trips.map((trip) => (
             <li key={trip.id}>
               <TripCard
-                href={`/traveler/trips/${trip.id}`}
+                href={trip.permission === "FULL" ? `/trips/${trip.id}` : `/traveler/trips/${trip.id}`}
                 title={trip.title}
                 destination={trip.destination}
                 startDate={trip.startDate}

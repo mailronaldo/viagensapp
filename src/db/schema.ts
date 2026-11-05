@@ -62,6 +62,7 @@ export const documentType = pgEnum("document_type", [
   "RESERVATION",
   "OTHER",
 ]);
+export const travelerPermission = pgEnum("traveler_permission", ["READ", "FULL"]);
 
 // ---------- Contas e acesso ----------
 
@@ -139,6 +140,9 @@ export const tripTravelers = pgTable(
     travelerId: text("traveler_id")
       .notNull()
       .references(() => travelers.id, { onDelete: "cascade" }),
+    // FULL: o viajante (quando tem login) vira editor da viagem, igual ao cliente.
+    // READ: só enxerga o painel do viajante, somente leitura (padrão).
+    permission: travelerPermission("permission").notNull().default("READ"),
   },
   (t) => [uniqueIndex("trip_travelers_unique").on(t.tripId, t.travelerId)],
 );

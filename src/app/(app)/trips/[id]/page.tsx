@@ -2,12 +2,12 @@ import Link from "next/link";
 import { and, asc, eq, gte } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
-import { formatDateTime, formatMoney, formatWeekday, todayIn } from "@/lib/format";
-import { BOOKING_TYPE_LABEL, ITEM_TYPE_LABEL, LODGING_TYPE_LABEL } from "@/lib/labels";
-import { getAgenda } from "@/services/agenda";
+import { formatDate, formatDateTime, formatMoney, formatWeekday, todayIn } from "@/lib/format";
+import { BOOKING_TYPE_LABEL } from "@/lib/labels";
+import { getItinerarySummary } from "@/services/itinerary";
 import { getExpenseSummary } from "@/services/expenses";
 import { deleteTripAction } from "@/app/actions/trips";
-import { Card, EmptyState, btnDanger } from "@/components/ui";
+import { Card, btnDanger } from "@/components/ui";
 
 export default async function TripDashboardPage({
   params,
@@ -18,11 +18,9 @@ export default async function TripDashboardPage({
   const { trip, role, canWrite } = await requireTripAccess(id);
 
   const today = todayIn(trip.timezone);
-  const inTrip = today >= trip.startDate && today <= trip.endDate;
-  const agendaDay = inTrip ? today : trip.startDate;
 
-  const [agenda, summary, upcoming, linked] = await Promise.all([
-    getAgenda(trip, agendaDay),
+  const [days, summary, upcoming, linked] = await Promise.all([
+    getItinerarySummary(trip),
     getExpenseSummary(trip.id, trip.baseCurrency),
     db
       .select()
@@ -44,46 +42,57 @@ export default async function TripDashboardPage({
   ]);
   return (
     <div className="grid gap-6 lg:grid-cols-3">
-      <Card className="lg:col-span-2">
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="font-medium">
-            {inTrip ? "Agenda de hoje" : "Primeiro dia"}
-            <span className="ml-2 text-sm font-normal inline-block first-letter:uppercase text-slate-500">
-              {formatWeekday(agenda.date)}
-            </span>
-          </h2>
-          <Link
-            href={`/trips/${trip.id}/itinerary/day/${agenda.date}`}
-            className="text-sm text-brand-700 hover:underline"
-          >
-            Ver roteiro
-          </Link>
-        </div>
-        {agenda.entries.length === 0 ? (
-          <EmptyState>Nada planejado para este dia ainda.</EmptyState>
-        ) : (
-          <ol className="divide-y divide-slate-100">
-            {agenda.entries.map((e) => (
-              <li key={`${e.kind}-${e.id}`} className="flex gap-4 py-3">
-                <span className="w-12 shrink-0 text-sm tabular-nums text-slate-500">
-                  {e.time ?? "—"}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{e.title}</p>
-                  <p className="text-xs text-slate-500">
-                    {e.kind === "booking"
-                      ? BOOKING_TYPE_LABEL[e.type as keyof typeof BOOKING_TYPE_LABEL]
-                      : e.kind === "lodging"
-                        ? LODGING_TYPE_LABEL[e.type as keyof typeof LODGING_TYPE_LABEL]
-                        : ITEM_TYPE_LABEL[e.type as keyof typeof ITEM_TYPE_LABEL]}
-                    {e.location ? ` · ${e.location}` : ""}
-                  </p>
-                </div>
+      <div className="lg:col-span-2">
+        <h2 className="mb-3 text-sm font-medium text-slate-700">Roteiro resumido</h2>
+        <ol className="space-y-3">
+          {days.map((d) => {
+            const href = `/trips/${trip.id}/itinerary/day/${d.date}`;
+            return (
+              <li key={d.date}>
+                <Link href={href} className="block">
+                  <Card className="flex gap-4 transition-colors hover:border-brand-500">
+                    <div className="w-16 shrink-0 text-center">
+                      <p className="text-xs font-medium uppercase text-slate-400">Dia {d.number}</p>
+                      <p className="text-lg font-semibold tabular-nums">
+                        {formatDate(d.date, { day: "2-digit", month: "short" })}
+                      </p>
+                      <p className="text-xs inline-block first-letter:uppercase text-slate-500">
+                        {formatWeekday(d.date).split(",")[0]}
+                      </p>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {d.cities.map((c) => (
+                          <span key={c.id} className="rounded-full bg-brand-50 px-2 py-0.5 text-xs text-brand-900">
+                            📍 {c.name}
+                          </span>
+                        ))}
+                        {d.date === today && (
+                          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase text-amber-800">
+                            hoje
+                          </span>
+                        )}
+                      </div>
+                      <p className={`mt-1 font-medium ${d.title ? "" : "text-slate-400"}`}>
+                        {d.title ?? "Sem título"}
+                      </p>
+                      {d.summary && <p className="mt-0.5 line-clamp-2 text-sm text-slate-600">{d.summary}</p>}
+                    </div>
+                    <div className="shrink-0 text-right text-xs text-slate-500">
+                      <p>
+                        {d.activityCount === 0
+                          ? "Sem atividades"
+                          : `${d.activityCount} atividade${d.activityCount > 1 ? "s" : ""}`}
+                      </p>
+                      <p className="mt-1 text-brand-700">Ver o dia →</p>
+                    </div>
+                  </Card>
+                </Link>
               </li>
-            ))}
-          </ol>
-        )}
-      </Card>
+            );
+          })}
+        </ol>
+      </div>
 
       <div className="space-y-6">
         <Card>

@@ -11,25 +11,25 @@ type TripNavGroup = {
 export type TripNavItem = TripNavLeaf | TripNavGroup;
 
 // Sub-navegação de uma viagem (MENU 2): fica no layout de /trips/[id] e é
-// contextual — só aparece quando se está dentro de uma viagem. "Cadastros"
+// contextual — só aparece quando se está dentro de uma viagem. "Gestores"
 // agrupa dados de apoio da viagem (hoje: cidades e o grupo de viajantes);
-// deve crescer com outros cadastros no futuro.
+// deve crescer com outros cadastros no futuro. Fica por último na lista.
 export const TRIP_NAV: TripNavItem[] = [
   { kind: "link", href: "", label: "Dashboard", icon: LayoutDashboard },
   { kind: "link", href: "/itinerary", label: "Roteiro", icon: MapPin },
+  { kind: "link", href: "/transports", label: "Transportes", icon: Briefcase },
+  { kind: "link", href: "/lodgings", label: "Hospedagens", icon: Hotel },
+  { kind: "link", href: "/expenses", label: "Custos", icon: Wallet },
+  { kind: "link", href: "/documents", label: "Documentos", icon: FileText },
   {
     kind: "group",
-    label: "Cadastros",
+    label: "Gestores",
     icon: FolderCog,
     children: [
       { href: "/cities", label: "Cidades", icon: MapPin },
       { href: "/travelers", label: "Viajantes", icon: Users },
     ],
   },
-  { kind: "link", href: "/transports", label: "Transportes", icon: Briefcase },
-  { kind: "link", href: "/lodgings", label: "Hospedagens", icon: Hotel },
-  { kind: "link", href: "/expenses", label: "Custos", icon: Wallet },
-  { kind: "link", href: "/documents", label: "Documentos", icon: FileText },
 ];
 
 // Versão simples (sem agrupamento) usada na faixa de tabs do mobile.

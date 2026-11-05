@@ -14,7 +14,7 @@ function isActive(pathname: string, basePath: string, href: string) {
 }
 
 const leafCls =
-  "flex h-8.5 items-center gap-2.5 rounded-lg px-2.5 text-sm font-normal text-foreground hover:text-primary data-[active=true]:bg-muted data-[active=true]:font-medium";
+  "flex h-8.5 items-center gap-2.5 rounded-lg px-2.5 text-sm font-normal text-foreground hover:bg-brand-50 hover:text-brand-800 data-[active=true]:bg-brand-50 data-[active=true]:font-medium data-[active=true]:text-brand-800";
 
 // MENU 2 (desktop): sub-navegação de uma viagem, fixa à esquerda. "Cadastros"
 // é um grupo expansível que abre sozinho quando a rota atual é um de seus filhos.
@@ -46,12 +46,16 @@ export function TripSidebar({ basePath }: { basePath: string }) {
 
             const Icon = item.icon;
             const open = openGroups[item.label] ?? groupHasActiveChild(item.children);
+            const groupActive = groupHasActiveChild(item.children);
             return (
               <div key={item.label}>
                 <button
                   type="button"
                   onClick={() => setOpenGroups((prev) => ({ ...prev, [item.label]: !open }))}
-                  className="flex h-8.5 w-full items-center gap-2.5 rounded-lg px-2.5 text-sm font-normal text-foreground hover:text-primary"
+                  className={cn(
+                    "flex h-8.5 w-full items-center gap-2.5 rounded-lg px-2.5 text-sm font-normal text-foreground hover:bg-brand-50 hover:text-brand-800",
+                    groupActive && "font-medium text-brand-800",
+                  )}
                   aria-expanded={open}
                 >
                   <Icon className="size-4 opacity-60" />

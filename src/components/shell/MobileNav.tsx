@@ -5,11 +5,11 @@ import Link from "next/link";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { getNavLinks, type NavRole } from "./nav-links";
+import { getNavLinksFlat, type NavRole } from "./nav-links";
 
 export function MobileNav({ role }: { role: NavRole }) {
   const [open, setOpen] = useState(false);
-  const links = getNavLinks(role);
+  const links = getNavLinksFlat(role);
 
   return (
     <>
@@ -27,7 +27,7 @@ export function MobileNav({ role }: { role: NavRole }) {
                   key={link.href}
                   href={link.href}
                   onClick={() => setOpen(false)}
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-brand-50 hover:text-brand-800"
                 >
                   <Icon className="size-4" />
                   {link.label}

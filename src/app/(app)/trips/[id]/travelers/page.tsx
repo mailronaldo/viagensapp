@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/format";
 import {
   createAndLinkTravelerAction,
   linkTravelerAction,
+  setTravelerPermissionAction,
   unlinkTravelerAction,
 } from "@/app/actions/travelers";
 import {
@@ -22,6 +23,20 @@ import {
 
 export const metadata = { title: "Viajantes da viagem" };
 
+const permissionSelectCls =
+  "rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-ring/15";
+
+function PermissionField() {
+  return (
+    <Field label="Permissão" hint="Total = vira administrador da viagem, como o cliente.">
+      <select name="permission" defaultValue="READ" className={inputCls}>
+        <option value="READ">Apenas leitura</option>
+        <option value="FULL">Permissão total</option>
+      </select>
+    </Field>
+  );
+}
+
 export default async function TripTravelersPage({
   params,
   searchParams,
@@ -35,7 +50,7 @@ export default async function TripTravelersPage({
 
   const [linked, ownerTravelers] = await Promise.all([
     db
-      .select({ traveler: t.travelers })
+      .select({ traveler: t.travelers, permission: t.tripTravelers.permission })
       .from(t.tripTravelers)
       .innerJoin(t.travelers, eq(t.travelers.id, t.tripTravelers.travelerId))
       .where(eq(t.tripTravelers.tripId, trip.id))
@@ -52,7 +67,8 @@ export default async function TripTravelersPage({
 
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-sm text-slate-600">
-          O grupo desta viagem ({linked.length}). Quem tem acesso vê o painel do viajante, somente para leitura.
+          O grupo desta viagem ({linked.length}). Com permissão total, o viajante vira administrador da viagem;
+          com apenas leitura, só vê o painel dele.
         </p>
         <Link href={`/traveler/trips/${trip.id}`} className="text-sm text-brand-700 hover:underline">
           Ver o painel do viajante
@@ -77,7 +93,10 @@ export default async function TripTravelersPage({
                     </li>
                   ))}
                 </ul>
-                <button className={btnPrimary}>Incluir selecionados</button>
+                <div className="flex flex-wrap items-end gap-3">
+                  <PermissionField />
+                  <button className={btnPrimary}>Incluir selecionados</button>
+                </div>
               </form>
             </AddPanel>
           )}
@@ -99,6 +118,9 @@ export default async function TripTravelersPage({
               <Field label="Documento (passaporte, RG ou CPF)" className="sm:col-span-6">
                 <input name="documentNumber" className={inputCls} />
               </Field>
+              <div className="sm:col-span-3">
+                <PermissionField />
+              </div>
               <div className="sm:col-span-6">
                 <button className={btnPrimary}>Salvar e incluir na viagem</button>
               </div>
@@ -111,13 +133,18 @@ export default async function TripTravelersPage({
         <EmptyState>Ninguém no grupo desta viagem ainda.</EmptyState>
       ) : (
         <ul className="space-y-2">
-          {linked.map(({ traveler: tr }) => (
+          {linked.map(({ traveler: tr, permission }) => (
             <li key={tr.id}>
               <Card className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 !p-3">
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">
                     {tr.name}{" "}
-                    {tr.userId ? <Tag tone="ok">com acesso</Tag> : <Tag tone="neutral">sem acesso</Tag>}
+                    {tr.userId ? <Tag tone="ok">com acesso</Tag> : <Tag tone="neutral">sem acesso</Tag>}{" "}
+                    {permission === "FULL" ? (
+                      <Tag tone="ok">permissão total</Tag>
+                    ) : (
+                      <Tag tone="neutral">apenas leitura</Tag>
+                    )}
                   </p>
                   <p className="text-xs text-slate-500">
                     {[tr.email, tr.phone, tr.birthDate ? `nasc. ${formatDate(tr.birthDate)}` : null]
@@ -126,6 +153,18 @@ export default async function TripTravelersPage({
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
+                  {canWrite && (
+                    <form
+                      action={setTravelerPermissionAction.bind(null, trip.id, tr.id)}
+                      className="flex items-center gap-2"
+                    >
+                      <select name="permission" defaultValue={permission} className={permissionSelectCls}>
+                        <option value="READ">Apenas leitura</option>
+                        <option value="FULL">Permissão total</option>
+                      </select>
+                      <button className="text-sm text-brand-700 hover:underline">Salvar</button>
+                    </form>
+                  )}
                   {role === "OWNER" && (
                     <Link href={`/travelers/${tr.id}`} className="text-sm text-brand-700 hover:underline">
                       Cadastro e acesso

@@ -27,7 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               Tudo que fizer aqui altera os dados dele.
             </span>
             <form action={stopImpersonationAction}>
-              <button className="cursor-pointer rounded-lg border border-amber-400 bg-white px-3 py-1 font-medium shadow-sm transition hover:bg-amber-50">
+              <button className="cursor-pointer rounded-lg border border-amber-400 bg-white px-3 py-1 font-medium shadow-sm transition hover:bg-brand-50">
                 ← Voltar à agência
               </button>
             </form>

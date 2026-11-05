@@ -11,6 +11,44 @@ import { ISO_DATE, str } from "@/lib/form";
 import { generateTempPassword } from "@/lib/password";
 import type { CredentialsState } from "@/app/actions/agency";
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+type Permission = "READ" | "FULL";
+function readPermission(formData: FormData): Permission {
+  return formData.get("permission") === "FULL" ? "FULL" : "READ";
+}
+
+/**
+ * Mantém `trip_members` coerente com a permissão do viajante naquela viagem:
+ * FULL + login existente vira editor da viagem; qualquer outro caso, sem acesso de edição.
+ */
+async function syncTravelerMembership(tx: Tx, tripId: string, travelerId: string) {
+  const [row] = await tx
+    .select({ permission: t.tripTravelers.permission, userId: t.travelers.userId })
+    .from(t.tripTravelers)
+    .innerJoin(t.travelers, eq(t.travelers.id, t.tripTravelers.travelerId))
+    .where(and(eq(t.tripTravelers.tripId, tripId), eq(t.tripTravelers.travelerId, travelerId)))
+    .limit(1);
+
+  if (row?.permission === "FULL" && row.userId) {
+    await tx
+      .insert(t.tripMembers)
+      .values({ tripId, userId: row.userId, role: "EDITOR" })
+      .onConflictDoUpdate({ target: [t.tripMembers.tripId, t.tripMembers.userId], set: { role: "EDITOR" } });
+  } else if (row?.userId) {
+    await tx.delete(t.tripMembers).where(and(eq(t.tripMembers.tripId, tripId), eq(t.tripMembers.userId, row.userId)));
+  }
+}
+
+/** Reaplica a sincronização em todas as viagens em que o viajante está — usado quando o login dele muda. */
+async function syncAllTripMembershipsForTraveler(tx: Tx, travelerId: string) {
+  const links = await tx
+    .select({ tripId: t.tripTravelers.tripId })
+    .from(t.tripTravelers)
+    .where(eq(t.tripTravelers.travelerId, travelerId));
+  for (const { tripId } of links) await syncTravelerMembership(tx, tripId, travelerId);
+}
+
 const travelerSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome do viajante."),
   email: z
@@ -93,39 +131,66 @@ function travelersTab(tripId: string, error?: string) {
   return `/trips/${tripId}/travelers${error ? `?error=${encodeURIComponent(error)}` : ""}`;
 }
 
-/** Inclui um ou vários viajantes (campo `travelerIds`) no grupo da viagem. */
+/** Inclui um ou vários viajantes (campo `travelerIds`) no grupo da viagem, com a permissão escolhida. */
 export async function linkTravelerAction(tripId: string, formData: FormData) {
   const { trip } = await requireTripAccess(tripId, { write: true });
   const ids = [...new Set(formData.getAll("travelerIds").map(String).filter(Boolean))];
-  for (const travelerId of ids) {
-    // O viajante precisa ser do mesmo cliente dono da viagem.
-    const traveler = await ownTraveler(trip.ownerId, travelerId);
-    if (traveler) {
-      await db.insert(t.tripTravelers).values({ tripId, travelerId }).onConflictDoNothing();
+  const permission = readPermission(formData);
+  await db.transaction(async (tx) => {
+    for (const travelerId of ids) {
+      // O viajante precisa ser do mesmo cliente dono da viagem.
+      const traveler = await ownTraveler(trip.ownerId, travelerId);
+      if (!traveler) continue;
+      await tx.insert(t.tripTravelers).values({ tripId, travelerId, permission }).onConflictDoNothing();
+      await syncTravelerMembership(tx, tripId, travelerId);
     }
-  }
+  });
   redirect(travelersTab(tripId));
 }
 
 export async function unlinkTravelerAction(tripId: string, travelerId: string) {
   await requireTripAccess(tripId, { write: true });
-  await db
-    .delete(t.tripTravelers)
-    .where(and(eq(t.tripTravelers.tripId, tripId), eq(t.tripTravelers.travelerId, travelerId)));
+  await db.transaction(async (tx) => {
+    const [tr] = await tx.select({ userId: t.travelers.userId }).from(t.travelers).where(eq(t.travelers.id, travelerId)).limit(1);
+    await tx
+      .delete(t.tripTravelers)
+      .where(and(eq(t.tripTravelers.tripId, tripId), eq(t.tripTravelers.travelerId, travelerId)));
+    if (tr?.userId) {
+      await tx.delete(t.tripMembers).where(and(eq(t.tripMembers.tripId, tripId), eq(t.tripMembers.userId, tr.userId)));
+    }
+  });
   redirect(travelersTab(tripId));
 }
 
-/** Cadastra um viajante novo (para o cliente dono da viagem) e já o inclui no grupo. */
+/** Cadastra um viajante novo (para o cliente dono da viagem) e já o inclui no grupo, com a permissão escolhida. */
 export async function createAndLinkTravelerAction(tripId: string, formData: FormData) {
   const { trip } = await requireTripAccess(tripId, { write: true });
   const r = readTraveler(formData);
   if (r.error) redirect(travelersTab(tripId, r.error));
+  const permission = readPermission(formData);
   await db.transaction(async (tx) => {
     const [created] = await tx
       .insert(t.travelers)
       .values({ clientId: trip.ownerId, ...r.data! })
       .returning({ id: t.travelers.id });
-    await tx.insert(t.tripTravelers).values({ tripId, travelerId: created.id });
+    await tx.insert(t.tripTravelers).values({ tripId, travelerId: created.id, permission });
+    // Viajante recém-criado ainda não tem login, então o sync aqui não tem efeito
+    // prático ainda — mas mantém o comportamento único quando o acesso for gerado depois.
+    await syncTravelerMembership(tx, tripId, created.id);
+  });
+  redirect(travelersTab(tripId));
+}
+
+/** Troca a permissão do viajante numa viagem específica (leitura ou total). */
+export async function setTravelerPermissionAction(tripId: string, travelerId: string, formData: FormData) {
+  await requireTripAccess(tripId, { write: true });
+  const permission = readPermission(formData);
+  await db.transaction(async (tx) => {
+    await tx
+      .update(t.tripTravelers)
+      .set({ permission })
+      .where(and(eq(t.tripTravelers.tripId, tripId), eq(t.tripTravelers.travelerId, travelerId)));
+    await syncTravelerMembership(tx, tripId, travelerId);
   });
   redirect(travelersTab(tripId));
 }
@@ -153,6 +218,7 @@ export async function travelerAccessAction(
       .update(t.users)
       .set({ passwordHash, mustChangePassword: true, active: true })
       .where(and(eq(t.users.id, tr.userId), eq(t.users.role, "TRAVELER")));
+    await db.transaction((tx) => syncAllTripMembershipsForTraveler(tx, tr.id));
   } else {
     const [taken] = await db
       .select({ id: t.users.id })
@@ -172,6 +238,7 @@ export async function travelerAccessAction(
         })
         .returning({ id: t.users.id });
       await tx.update(t.travelers).set({ userId: u.id }).where(eq(t.travelers.id, tr.id));
+      await syncAllTripMembershipsForTraveler(tx, tr.id);
     });
   }
   return { credentials: { name: tr.name, email: tr.email, tempPassword } };

@@ -43,6 +43,13 @@
       "when": 1793878944988,
       "tag": "0005_cadastro_cidades_cliente",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793886577961,
+      "tag": "0006_permissao_viajante",
+      "breakpoints": true
     }
   ]
 }
