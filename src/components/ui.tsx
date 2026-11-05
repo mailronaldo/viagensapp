@@ -96,29 +96,36 @@ export function AddPanel({
   title,
   children,
   defaultOpen = false,
+  headerExtra,
 }: {
   title: string;
   children: ReactNode;
   defaultOpen?: boolean;
+  /** Ex.: um botão de excluir — fica entre o título e "abrir/fechar", sem acionar o toggle do painel. */
+  headerExtra?: ReactNode;
 }) {
   return (
     <details
       open={defaultOpen}
-      className="group mb-6 overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm shadow-slate-200/50"
+      className="group relative mb-6 overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm shadow-slate-200/50"
     >
-      <summary className="flex cursor-pointer items-center justify-between px-5 py-3.5 text-sm font-medium text-brand-800 transition hover:bg-brand-50/60">
-        <span className="flex items-center gap-2">
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-5 py-3.5 text-sm font-medium text-brand-800 transition hover:bg-brand-50/60">
+        <span className="flex min-w-0 items-center gap-2">
           <span
             aria-hidden
-            className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-100 text-brand-700 transition-transform group-open:rotate-45"
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700 transition-transform group-open:rotate-45"
           >
             +
           </span>
           {title}
         </span>
-        <span className="text-xs text-slate-400 group-open:hidden">abrir</span>
-        <span className="hidden text-xs text-slate-400 group-open:inline">fechar</span>
+        <span className={`flex shrink-0 items-center gap-3 ${headerExtra ? "pe-9" : ""}`}>
+          <span className="text-xs text-slate-400 group-open:hidden">abrir</span>
+          <span className="hidden text-xs text-slate-400 group-open:inline">fechar</span>
+        </span>
       </summary>
+      {/* Fora do <summary> de propósito: clicar aqui não pode abrir/fechar o painel. */}
+      {headerExtra && <div className="absolute right-4 top-2.5">{headerExtra}</div>}
       <div className="border-t border-slate-100 p-5">{children}</div>
     </details>
   );

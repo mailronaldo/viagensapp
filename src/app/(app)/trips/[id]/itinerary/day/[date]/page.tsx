@@ -148,7 +148,7 @@ export default async function ItineraryDayPage({
                     {e.location ? ` · ${e.location}` : ""}
                   </p>
                   {e.reservation && (
-                    <p className="text-xs text-emerald-800">
+                    <div className="text-xs text-emerald-800">
                       Reserva:{" "}
                       {[
                         e.reservation.provider,
@@ -167,7 +167,7 @@ export default async function ItineraryDayPage({
                           <button className={btnDanger}>excluir reserva</button>
                         </form>
                       )}
-                    </p>
+                    </div>
                   )}
                   {e.address && <p className="text-xs text-slate-400">{e.address}</p>}
                   {e.notes && <p className="mt-1 text-xs text-slate-500">{e.notes}</p>}

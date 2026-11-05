@@ -15,8 +15,8 @@ import {
 import { ItemMainFields, ReservationFields } from "@/components/TripFields";
 import { ActivityPointCard } from "@/components/ActivityPointCard";
 import { ActivityRegionCard } from "@/components/ActivityRegionCard";
-import { DeleteActivityButton } from "@/components/DeleteActivityButton";
-import { AddPanel, Card, ErrorBanner, btnDanger, btnGhost, btnPrimary } from "@/components/ui";
+import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
+import { AddPanel, Card, ErrorBanner, btnGhost, btnPrimary } from "@/components/ui";
 
 export const metadata = { title: "Editar atividade" };
 
@@ -77,7 +77,12 @@ export default async function EditItemPage({
           <Card>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-lg font-medium">Editar atividade</h2>
-              <DeleteActivityButton deleteAction={deleteItemAction.bind(null, trip.id, item.id, item.date)} />
+              <ConfirmDeleteButton
+                label="Excluir atividade"
+                confirmTitle="Excluir esta atividade?"
+                confirmDescription="Isso remove a atividade, a reserva, os pontos de interesse, as tips e a região cadastrados nela. Não dá pra desfazer."
+                deleteAction={deleteItemAction.bind(null, trip.id, item.id, item.date)}
+              />
             </div>
             <form id={FORM_ID} action={updateItemAction.bind(null, trip.id, item.id)} className="grid gap-3 sm:grid-cols-6">
               <ItemMainFields trip={trip} cities={cities} item={item} attachment={attachment} />
@@ -93,17 +98,26 @@ export default async function EditItemPage({
           </div>
 
           <div id="reserva" className="mt-6">
-            <AddPanel title="Reserva desta atividade" defaultOpen={hasReservation}>
+            <AddPanel
+              title="Reserva desta atividade"
+              defaultOpen={hasReservation}
+              headerExtra={
+                hasReservation ? (
+                  <ConfirmDeleteButton
+                    label="Excluir reserva"
+                    confirmTitle="Excluir a reserva desta atividade?"
+                    confirmDescription="A atividade e o arquivo do voucher (se tiver) continuam — só os dados da reserva somem."
+                    deleteAction={removeReservationAction.bind(null, trip.id, item.id, "edit")}
+                    size="sm"
+                  />
+                ) : undefined
+              }
+            >
               <ReservationFields trip={trip} item={item} reservationAttachment={reservationAttachment} formId={FORM_ID} />
-              <div className="mt-3 flex items-center gap-2">
+              <div className="mt-3">
                 <button form={FORM_ID} className={btnPrimary}>
                   Salvar reserva
                 </button>
-                {hasReservation && (
-                  <form action={removeReservationAction.bind(null, trip.id, item.id, "edit")}>
-                    <button className={btnDanger}>Excluir só a reserva</button>
-                  </form>
-                )}
               </div>
             </AddPanel>
           </div>
