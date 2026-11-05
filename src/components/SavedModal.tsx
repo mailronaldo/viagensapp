@@ -5,17 +5,22 @@ import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { btnPrimary } from "@/components/ui";
 
-const TEXT = {
-  activity: { title: "Atividade salva ✓", body: "As alterações da atividade foram salvas." },
-  reserva: { title: "Reserva salva ✓", body: "Os dados da reserva foram salvos." },
-} as const;
-
 /**
  * Confirma visualmente que algo foi salvo, sem tirar o cliente da tela de edição.
- * `show`/`kind` só são lidos no primeiro render: o componente é remontado (via `key`
- * no pai) a cada navegação pra cá, então não precisa de efeito pra sincronizar.
+ * `show` só é lido no primeiro render: o componente precisa ser remontado (via
+ * `key` no pai, trocando a cada navegação) sempre que `show` for true de novo.
  */
-export function SavedModal({ show, kind, cleanUrl }: { show: boolean; kind: keyof typeof TEXT; cleanUrl: string }) {
+export function SavedModal({
+  show,
+  title,
+  body,
+  cleanUrl,
+}: {
+  show: boolean;
+  title: string;
+  body: string;
+  cleanUrl: string;
+}) {
   const [open, setOpen] = useState(show);
   const router = useRouter();
 
@@ -24,15 +29,13 @@ export function SavedModal({ show, kind, cleanUrl }: { show: boolean; kind: keyo
     router.replace(cleanUrl);
   }
 
-  const text = TEXT[kind];
-
   return (
     <Dialog open={open} onOpenChange={(v) => !v && close()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{text.title}</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <p className="text-sm text-slate-600">{text.body}</p>
+        <p className="text-sm text-slate-600">{body}</p>
         <DialogFooter>
           <button onClick={close} className={btnPrimary}>
             OK

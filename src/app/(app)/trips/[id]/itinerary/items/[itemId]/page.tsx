@@ -75,7 +75,8 @@ export default async function EditItemPage({
         <SavedModal
           key={saved}
           show
-          kind={saved}
+          title={saved === "activity" ? "Atividade salva ✓" : "Reserva salva ✓"}
+          body={saved === "activity" ? "As alterações da atividade foram salvas." : "Os dados da reserva foram salvos."}
           cleanUrl={`/trips/${trip.id}/itinerary/items/${itemId}`}
         />
       )}

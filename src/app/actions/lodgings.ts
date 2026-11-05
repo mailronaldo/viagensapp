@@ -99,7 +99,7 @@ export async function updateLodgingAction(tripId: string, lodgingId: string, for
     .update(t.lodgings)
     .set({ ...v, documentId })
     .where(and(eq(t.lodgings.id, lodgingId), eq(t.lodgings.tripId, tripId)));
-  redirect(`/trips/${tripId}/lodgings`);
+  redirect(`${back}?saved=1`);
 }
 
 export async function deleteLodgingAction(tripId: string, lodgingId: string) {

@@ -6,6 +6,7 @@ import { requireTripAccess } from "@/lib/access";
 import { getTripCities } from "@/services/cities";
 import { deleteLodgingAction, updateLodgingAction } from "@/app/actions/lodgings";
 import { LodgingFields } from "@/components/TripFields";
+import { SavedModal } from "@/components/SavedModal";
 import { Card, ErrorBanner, btnDanger, btnGhost, btnPrimary } from "@/components/ui";
 
 export const metadata = { title: "Editar hospedagem" };
@@ -15,10 +16,10 @@ export default async function EditLodgingPage({
   searchParams,
 }: {
   params: Promise<{ id: string; lodgingId: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string }>;
 }) {
   const { id, lodgingId } = await params;
-  const { error } = await searchParams;
+  const { error, saved } = await searchParams;
   const { trip, canWrite } = await requireTripAccess(id);
   if (!canWrite) redirect(`/trips/${id}/lodgings`);
 
@@ -39,6 +40,15 @@ export default async function EditLodgingPage({
 
   return (
     <div className="mx-auto max-w-3xl">
+      {saved === "1" && (
+        <SavedModal
+          key={saved}
+          show
+          title="Hospedagem salva ✓"
+          body="As alterações da hospedagem foram salvas."
+          cleanUrl={`/trips/${trip.id}/lodgings/${lodging.id}`}
+        />
+      )}
       <h2 className="mb-3 text-lg font-medium">Editar hospedagem</h2>
       <Card>
         <ErrorBanner message={error} />

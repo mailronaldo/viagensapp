@@ -5,6 +5,7 @@ import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { deleteBookingAction, updateBookingAction } from "@/app/actions/bookings";
 import { BookingFields } from "@/components/TripFields";
+import { SavedModal } from "@/components/SavedModal";
 import { Card, ErrorBanner, btnDanger, btnGhost, btnPrimary } from "@/components/ui";
 
 export const metadata = { title: "Editar transporte" };
@@ -14,10 +15,10 @@ export default async function EditBookingPage({
   searchParams,
 }: {
   params: Promise<{ id: string; bookingId: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string }>;
 }) {
   const { id, bookingId } = await params;
-  const { error } = await searchParams;
+  const { error, saved } = await searchParams;
   const { trip, canWrite } = await requireTripAccess(id);
   if (!canWrite) redirect(`/trips/${id}/transports`);
 
@@ -35,6 +36,15 @@ export default async function EditBookingPage({
 
   return (
     <div className="mx-auto max-w-3xl">
+      {saved === "1" && (
+        <SavedModal
+          key={saved}
+          show
+          title="Transporte salvo ✓"
+          body="As alterações do transporte foram salvas."
+          cleanUrl={`/trips/${trip.id}/transports/${booking.id}`}
+        />
+      )}
       <h2 className="mb-3 text-lg font-medium">Editar transporte</h2>
       <Card>
         <ErrorBanner message={error} />

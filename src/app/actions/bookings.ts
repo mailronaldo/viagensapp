@@ -90,7 +90,7 @@ export async function updateBookingAction(tripId: string, bookingId: string, for
     .update(t.bookings)
     .set({ ...v, documentId })
     .where(and(eq(t.bookings.id, bookingId), eq(t.bookings.tripId, tripId)));
-  redirect(`/trips/${tripId}/transports`);
+  redirect(`${back}?saved=1`);
 }
 
 export async function deleteBookingAction(tripId: string, bookingId: string) {
