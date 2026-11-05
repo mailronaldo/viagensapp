@@ -140,6 +140,12 @@ export async function updateItemAction(tripId: string, itemId: string, formData:
     .update(t.itineraryItems)
     .set({ ...v, ticketDocumentId, reservationDocumentId })
     .where(and(eq(t.itineraryItems.id, itemId), eq(t.itineraryItems.tripId, tripId)));
+
+  // O botão "Salvar reserva" manda ficar na tela de edição (com um aviso),
+  // em vez de voltar pro roteiro como o "Salvar alterações" principal.
+  if (formData.get("stayOnPage") === "1") {
+    redirect(`${back}?saved=reserva`);
+  }
   redirect(`/trips/${tripId}/itinerary/day/${v.date}`);
 }
 
