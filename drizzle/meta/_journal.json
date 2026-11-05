@@ -57,6 +57,13 @@
       "when": 1793890741269,
       "tag": "0007_icone_viagem_e_pais_cidade",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793898593717,
+      "tag": "0008_pontos_dicas_e_regiao_da_atividade",
+      "breakpoints": true
     }
   ]
 }

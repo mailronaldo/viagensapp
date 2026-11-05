@@ -362,6 +362,42 @@ export const itineraryItems = pgTable(
   (t) => [index("items_trip_date_idx").on(t.tripId, t.date)],
 );
 
+// Pontos de apoio de uma atividade: POI (lugares pra visitar na atividade ou
+// nas redondezas) e Tips (opções alternativas, pra quando não há reserva/
+// certeza do que fazer). Mesmo formato pros dois — só muda o rótulo na tela.
+export const activityPointKind = pgEnum("activity_point_kind", ["POI", "TIP"]);
+
+export const itineraryItemPoints = pgTable(
+  "itinerary_item_points",
+  {
+    id: id(),
+    itemId: text("item_id")
+      .notNull()
+      .references(() => itineraryItems.id, { onDelete: "cascade" }),
+    kind: activityPointKind("kind").notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    url: text("url"),
+    position: integer("position").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [index("itinerary_item_points_item_idx").on(t.itemId)],
+);
+
+/** Região/bairro/zona associado à atividade — nuvem de tags, só o nome por enquanto. */
+export const itineraryItemRegions = pgTable(
+  "itinerary_item_regions",
+  {
+    id: id(),
+    itemId: text("item_id")
+      .notNull()
+      .references(() => itineraryItems.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    position: integer("position").notNull().default(0),
+  },
+  (t) => [index("itinerary_item_regions_item_idx").on(t.itemId)],
+);
+
 // ---------- Central de custos ----------
 
 export const expenses = pgTable(
