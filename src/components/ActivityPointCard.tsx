@@ -10,6 +10,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card, Field, btnGhost, btnPrimary, inputCls } from "@/components/ui";
 
 type Point = { id: string; name: string; description: string | null; url: string | null };
@@ -74,12 +75,9 @@ export function ActivityPointCard({
         <p className="text-xs text-slate-400">Nada cadastrado ainda.</p>
       ) : (
         <ul className="flex flex-wrap gap-1.5">
-          {items.map((p) => (
-            <li key={p.id}>
-              <span
-                className="inline-flex max-w-full items-center gap-1 rounded-full bg-brand-50 py-1 ps-3 pe-1.5 text-xs text-brand-900"
-                title={p.description ?? undefined}
-              >
+          {items.map((p) => {
+            const chip = (
+              <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-brand-50 py-1 ps-3 pe-1.5 text-xs text-brand-900">
                 {p.url ? (
                   <a href={p.url} target="_blank" rel="noreferrer" className="truncate hover:underline">
                     {p.name}
@@ -93,8 +91,20 @@ export function ActivityPointCard({
                   </button>
                 </form>
               </span>
-            </li>
-          ))}
+            );
+            return (
+              <li key={p.id}>
+                {p.description ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>{chip}</TooltipTrigger>
+                    <TooltipContent className="max-w-56">{p.description}</TooltipContent>
+                  </Tooltip>
+                ) : (
+                  chip
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </Card>

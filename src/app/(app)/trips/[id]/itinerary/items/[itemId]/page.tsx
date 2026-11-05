@@ -15,7 +15,8 @@ import {
 import { ItemMainFields, ReservationFields } from "@/components/TripFields";
 import { ActivityPointCard } from "@/components/ActivityPointCard";
 import { ActivityRegionCard } from "@/components/ActivityRegionCard";
-import { Card, ErrorBanner, btnDanger, btnGhost, btnPrimary } from "@/components/ui";
+import { DeleteActivityButton } from "@/components/DeleteActivityButton";
+import { AddPanel, Card, ErrorBanner, btnDanger, btnGhost, btnPrimary } from "@/components/ui";
 
 export const metadata = { title: "Editar atividade" };
 
@@ -59,15 +60,25 @@ export default async function EditItemPage({
     ? { name: resDoc[0].fileName, href: `/api/files/${trip.id}/${item.reservationDocumentId}` }
     : null;
   const back = `/trips/${trip.id}/itinerary/day/${item.date}`;
+  const hasReservation = !!(
+    item.reservationProvider ||
+    item.reservationCode ||
+    item.reservationPrice ||
+    item.reservationDetails ||
+    item.reservationDocumentId
+  );
 
   return (
     <div className="mx-auto max-w-5xl">
-      <h2 className="mb-3 text-lg font-medium">Editar atividade</h2>
       <ErrorBanner message={error} />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <Card>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-medium">Editar atividade</h2>
+              <DeleteActivityButton deleteAction={deleteItemAction.bind(null, trip.id, item.id, item.date)} />
+            </div>
             <form id={FORM_ID} action={updateItemAction.bind(null, trip.id, item.id)} className="grid gap-3 sm:grid-cols-6">
               <ItemMainFields trip={trip} cities={cities} item={item} attachment={attachment} />
             </form>
@@ -81,30 +92,24 @@ export default async function EditItemPage({
             </Link>
           </div>
 
-          {(item.reservationProvider ||
-            item.reservationCode ||
-            item.reservationPrice ||
-            item.reservationDetails ||
-            item.reservationDocumentId) && (
-            <form action={removeReservationAction.bind(null, trip.id, item.id, "edit")} className="mt-4">
-              <button className={btnDanger}>Excluir só a reserva desta atividade</button>
-              <span className="ml-2 text-xs text-slate-400">(a atividade e o arquivo do voucher ficam)</span>
-            </form>
-          )}
-          <form action={deleteItemAction.bind(null, trip.id, item.id, item.date)} className="mt-4">
-            <button className={btnDanger}>Excluir esta atividade</button>
-          </form>
+          <div id="reserva" className="mt-6">
+            <AddPanel title="Reserva desta atividade" defaultOpen={hasReservation}>
+              <ReservationFields trip={trip} item={item} reservationAttachment={reservationAttachment} formId={FORM_ID} />
+              <div className="mt-3 flex items-center gap-2">
+                <button form={FORM_ID} className={btnPrimary}>
+                  Salvar reserva
+                </button>
+                {hasReservation && (
+                  <form action={removeReservationAction.bind(null, trip.id, item.id, "edit")}>
+                    <button className={btnDanger}>Excluir só a reserva</button>
+                  </form>
+                )}
+              </div>
+            </AddPanel>
+          </div>
         </div>
 
         <div className="space-y-4">
-          <div id="reserva">
-            <Card>
-              <h3 className="mb-2 font-medium">Reserva</h3>
-              <p className="mb-2 text-xs text-slate-500">Preencha se já reservou esta atividade.</p>
-              <ReservationFields trip={trip} item={item} reservationAttachment={reservationAttachment} formId={FORM_ID} />
-            </Card>
-          </div>
-
           <ActivityPointCard
             title="Pontos de interesse"
             hint="Lugares pra visitar nesta atividade ou nas proximidades."
