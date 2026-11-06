@@ -20,13 +20,6 @@ const createdAt = () => timestamp("created_at").notNull().defaultNow();
 // ---------- Enums ----------
 
 export const memberRole = pgEnum("member_role", ["OWNER", "EDITOR", "VIEWER"]);
-export const lodgingType = pgEnum("lodging_type", [
-  "HOTEL",
-  "RENTAL",
-  "HOSTEL",
-  "RESORT",
-  "OTHER",
-]);
 export const travelerPermission = pgEnum("traveler_permission", ["READ", "FULL"]);
 export const chipType = pgEnum("chip_type", ["CHIP", "ESIM"]);
 
@@ -190,6 +183,21 @@ export const bookingTypes = pgTable("booking_types", {
   createdAt: createdAt(),
 });
 
+export const lodgingTypes = pgTable("lodging_types", {
+  id: id(),
+  name: text("name").notNull().unique(),
+  createdAt: createdAt(),
+});
+
+// Método como a hospedagem foi reservada (Booking.com, Airbnb, direto com o
+// hotel…). Começa semeado com algumas opções comuns, mas o MASTER pode criar
+// outras — inclusive as que já existiam como texto livre antes deste cadastro.
+export const reservationMethods = pgTable("reservation_methods", {
+  id: id(),
+  name: text("name").notNull().unique(),
+  createdAt: createdAt(),
+});
+
 export const tripCities = pgTable(
   "trip_cities",
   {
@@ -338,9 +346,9 @@ export const lodgings = pgTable(
       .notNull()
       .references(() => trips.id, { onDelete: "cascade" }),
     cityId: text("city_id").references(() => cities.id, { onDelete: "set null" }),
-    type: lodgingType("type").notNull().default("HOTEL"),
+    type: text("type").notNull().default("HOTEL").references(() => lodgingTypes.id),
     name: text("name").notNull(),
-    provider: text("provider"), // Booking, Airbnb, direto com o hotel…
+    provider: text("provider").references(() => reservationMethods.id), // Booking, Airbnb, direto com o hotel…
     address: text("address"),
     checkInDate: date("check_in_date"),
     checkInTime: text("check_in_time"), // "HH:MM"
@@ -489,3 +497,5 @@ export type DocumentTypeRow = typeof documentTypes.$inferSelect;
 export type ExpenseCategoryRow = typeof expenseCategories.$inferSelect;
 export type ActivityTypeRow = typeof activityTypes.$inferSelect;
 export type BookingTypeRow = typeof bookingTypes.$inferSelect;
+export type LodgingTypeRow = typeof lodgingTypes.$inferSelect;
+export type ReservationMethodRow = typeof reservationMethods.$inferSelect;

@@ -1,13 +1,5 @@
 // Rótulos em português para os enums do banco.
 
-export const LODGING_TYPE_LABEL = {
-  HOTEL: "Hotel",
-  RENTAL: "Aluguel / Airbnb",
-  HOSTEL: "Hostel / pousada",
-  RESORT: "Resort",
-  OTHER: "Outro",
-} as const;
-
 export const CURRENCIES = ["BRL", "USD", "EUR", "GBP", "ARS", "CLP", "JPY", "CAD", "AUD", "CHF"] as const;
 
 export const TIMEZONES = [

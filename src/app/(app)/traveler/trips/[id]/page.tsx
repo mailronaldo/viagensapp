@@ -4,10 +4,9 @@ import { alias } from "drizzle-orm/pg-core";
 import { db, t } from "@/db";
 import { requirePanelAccess } from "@/lib/traveler-access";
 import { formatDate, formatDateTime, formatWeekday, todayIn } from "@/lib/format";
-import { LODGING_TYPE_LABEL } from "@/lib/labels";
 import { getAgenda } from "@/services/agenda";
 import { getItinerarySummary } from "@/services/itinerary";
-import { listActivityTypes, listBookingTypes, listDocumentTypes, toNameMap } from "@/services/catalogs";
+import { listActivityTypes, listBookingTypes, listDocumentTypes, listLodgingTypes, toNameMap } from "@/services/catalogs";
 
 const originCity = alias(t.cities, "origin_city");
 const destinationCity = alias(t.cities, "destination_city");
@@ -36,7 +35,7 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
         )
       : eq(t.documents.tripId, trip.id);
 
-  const [days, agenda, transports, lodgings, group, docs, allDocs, documentTypes, bookingTypes, activityTypes] = await Promise.all([
+  const [days, agenda, transports, lodgings, group, docs, allDocs, documentTypes, bookingTypes, activityTypes, lodgingTypes] = await Promise.all([
     getItinerarySummary(trip),
     getAgenda(trip, agendaDay),
     db
@@ -62,11 +61,13 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
     listDocumentTypes(),
     listBookingTypes(),
     listActivityTypes(),
+    listLodgingTypes(),
   ]);
   const docName = new Map(allDocs.map((d) => [d.id, d.fileName]));
   const docTypeName = toNameMap(documentTypes);
   const bookingTypeName = toNameMap(bookingTypes);
   const activityTypeName = toNameMap(activityTypes);
+  const lodgingTypeName = toNameMap(lodgingTypes);
   const base = `/traveler/trips/${trip.id}`;
 
   return (
@@ -113,6 +114,7 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
             docName={docName}
             activityTypeName={activityTypeName}
             bookingTypeName={bookingTypeName}
+            lodgingTypeName={lodgingTypeName}
           />
         )}
       </Card>
@@ -205,7 +207,7 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
                   <Card className="p-4">
                     <p className="text-sm font-medium">
                       {l.name}{" "}
-                      <span className="text-xs font-normal text-slate-500">{LODGING_TYPE_LABEL[l.type]}</span>
+                      <span className="text-xs font-normal text-slate-500">{lodgingTypeName[l.type]}</span>
                     </p>
                     <p className="text-xs text-slate-600">
                       {l.checkInDate ? formatDate(l.checkInDate) : "—"}

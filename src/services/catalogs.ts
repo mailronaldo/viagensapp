@@ -37,6 +37,14 @@ export async function listBookingTypes() {
   return db.select().from(t.bookingTypes).orderBy(asc(t.bookingTypes.name));
 }
 
+export async function listLodgingTypes() {
+  return db.select().from(t.lodgingTypes).orderBy(asc(t.lodgingTypes.name));
+}
+
+export async function listReservationMethods() {
+  return db.select().from(t.reservationMethods).orderBy(asc(t.reservationMethods.name));
+}
+
 /** Monta um mapa id → nome, pra exibir o rótulo salvo sem repetir a busca. */
 export function toNameMap(rows: { id: string; name: string }[]) {
   return Object.fromEntries(rows.map((r) => [r.id, r.name]));

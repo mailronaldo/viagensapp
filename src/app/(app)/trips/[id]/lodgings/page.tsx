@@ -3,13 +3,14 @@ import { asc, eq, sql } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { formatDate, formatMoney } from "@/lib/format";
-import { LODGING_TYPE_LABEL } from "@/lib/labels";
 import { getTripCities } from "@/services/cities";
+import { listLodgingTypes, listReservationMethods, toNameMap } from "@/services/catalogs";
 import { addLodgingAction, deleteLodgingAction } from "@/app/actions/lodgings";
 import { LodgingFields } from "@/components/TripFields";
 import { AddPanel, EmptyState, ErrorBanner, Tag, btnDanger, btnOutline, btnPrimary, tagCls } from "@/components/ui";
 
 const ICON: Record<string, string> = { HOTEL: "🏨", RENTAL: "🏠", HOSTEL: "🛏", RESORT: "🌴", OTHER: "📌" };
+const DEFAULT_ICON = "📌";
 
 function nights(a: string | null, b: string | null) {
   if (!a || !b) return null;
@@ -28,7 +29,7 @@ export default async function LodgingsPage({
   const { error } = await searchParams;
   const { trip, canWrite } = await requireTripAccess(id);
 
-  const [rows, cities] = await Promise.all([
+  const [rows, cities, types, methods] = await Promise.all([
     db
       .select({ lodging: t.lodgings, fileName: t.documents.fileName, cityName: t.cities.name })
       .from(t.lodgings)
@@ -37,7 +38,11 @@ export default async function LodgingsPage({
       .where(eq(t.lodgings.tripId, trip.id))
       .orderBy(sql`${t.lodgings.checkInDate} asc nulls last`, asc(t.lodgings.name)),
     getTripCities(trip.id),
+    listLodgingTypes(),
+    listReservationMethods(),
   ]);
+  const typeName = toNameMap(types);
+  const methodName = toNameMap(methods);
 
   return (
     <>
@@ -46,7 +51,7 @@ export default async function LodgingsPage({
       {canWrite && (
         <AddPanel title="Nova hospedagem" defaultOpen={rows.length === 0}>
           <form action={addLodgingAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-6">
-            <LodgingFields trip={trip} cities={cities} />
+            <LodgingFields trip={trip} cities={cities} types={types} methods={methods} />
             <div className="sm:col-span-6">
               <button className={btnPrimary}>Salvar hospedagem</button>
             </div>
@@ -63,7 +68,7 @@ export default async function LodgingsPage({
             return (
               <li key={l.id} className="flex flex-wrap overflow-hidden rounded-lg border border-slate-200 bg-white">
                 <div className="flex min-h-28 w-full items-center justify-center bg-brand-50 text-2xl sm:w-32" aria-hidden>
-                  {ICON[l.type]}
+                  {ICON[l.type] ?? DEFAULT_ICON}
                 </div>
                 <div className="min-w-56 flex-1 p-3">
                   <h3 className="font-medium">
@@ -76,7 +81,7 @@ export default async function LodgingsPage({
                     )}
                   </h3>
                   <p className="text-xs text-slate-500">
-                    {[LODGING_TYPE_LABEL[l.type], cityName, l.provider].filter(Boolean).join(" · ")}
+                    {[typeName[l.type], cityName, l.provider ? methodName[l.provider] : null].filter(Boolean).join(" · ")}
                   </p>
                   <div className="mt-1.5">
                     {l.documentId ? (

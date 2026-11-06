@@ -1,5 +1,5 @@
 import type { Booking, Chip, Expense, ItineraryItem, Lodging } from "@/db/schema";
-import { CURRENCIES, LODGING_TYPE_LABEL } from "@/lib/labels";
+import { CURRENCIES } from "@/lib/labels";
 import { Field, inputCls } from "@/components/ui";
 
 /** "1234.50" → "1234,50" (formato do campo, aceito por parseDecimal). */
@@ -221,11 +221,15 @@ export function ItemFields({
 export function LodgingFields({
   trip,
   cities,
+  types,
+  methods,
   lodging,
   attachment,
 }: {
   trip: { baseCurrency: string };
   cities: { id: string; name: string }[];
+  types: { id: string; name: string }[];
+  methods: { id: string; name: string }[];
   lodging?: Lodging;
   attachment?: { name: string; href: string } | null;
 }) {
@@ -236,9 +240,9 @@ export function LodgingFields({
       </Field>
       <Field label="Tipo" className="sm:col-span-2">
         <select name="type" defaultValue={lodging?.type ?? "HOTEL"} className={inputCls}>
-          {Object.entries(LODGING_TYPE_LABEL).map(([v, l]) => (
-            <option key={v} value={v}>
-              {l}
+          {types.map((ty) => (
+            <option key={ty.id} value={ty.id}>
+              {ty.name}
             </option>
           ))}
         </select>
@@ -253,8 +257,15 @@ export function LodgingFields({
           ))}
         </select>
       </Field>
-      <Field label="Site / plataforma" className="sm:col-span-2">
-        <input name="provider" defaultValue={lodging?.provider ?? ""} placeholder="Booking, Airbnb…" className={inputCls} />
+      <Field label="Método de reserva" className="sm:col-span-2">
+        <select name="provider" defaultValue={lodging?.provider ?? ""} className={inputCls}>
+          <option value="">—</option>
+          {methods.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}
+            </option>
+          ))}
+        </select>
       </Field>
       <Field label="Código de confirmação" className="sm:col-span-2">
         <input name="confirmationCode" defaultValue={lodging?.confirmationCode ?? ""} className={inputCls} />

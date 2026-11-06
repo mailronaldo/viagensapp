@@ -92,6 +92,13 @@
       "when": 1793974110393,
       "tag": "0012_owner_is_traveler_e_chip_do_cliente",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793979590216,
+      "tag": "0013_cadastro_tipo_hospedagem_e_metodo_reserva",
+      "breakpoints": true
     }
   ]
 }

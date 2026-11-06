@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { db, t } from "@/db";
 import { eachDay } from "@/lib/format";
 
@@ -18,14 +18,33 @@ export async function getItinerarySummary(trip: {
   startDate: string;
   endDate: string;
 }): Promise<DaySummary[]> {
-  const [plans, counts] = await Promise.all([
+  // "Atividades" do resumo conta tudo que aparece na agenda do dia: roteiro,
+  // transportes que partem no dia e hospedagens com check-in/check-out no dia
+  // — senão um dia só com hospedagem ou transporte aparecia "sem atividades".
+  const [plans, itemCounts, bookingCounts, checkInCounts, checkOutCounts] = await Promise.all([
     db.select().from(t.tripDays).where(eq(t.tripDays.tripId, trip.id)),
     db
       .select({ date: t.itineraryItems.date, n: sql<number>`count(*)::int` })
       .from(t.itineraryItems)
       .where(eq(t.itineraryItems.tripId, trip.id))
       .groupBy(t.itineraryItems.date),
+    db
+      .select({ date: sql<string>`to_char(${t.bookings.originAt}, 'YYYY-MM-DD')`, n: sql<number>`count(*)::int` })
+      .from(t.bookings)
+      .where(and(eq(t.bookings.tripId, trip.id), isNotNull(t.bookings.originAt)))
+      .groupBy(sql`to_char(${t.bookings.originAt}, 'YYYY-MM-DD')`),
+    db
+      .select({ date: t.lodgings.checkInDate, n: sql<number>`count(*)::int` })
+      .from(t.lodgings)
+      .where(and(eq(t.lodgings.tripId, trip.id), isNotNull(t.lodgings.checkInDate)))
+      .groupBy(t.lodgings.checkInDate),
+    db
+      .select({ date: t.lodgings.checkOutDate, n: sql<number>`count(*)::int` })
+      .from(t.lodgings)
+      .where(and(eq(t.lodgings.tripId, trip.id), isNotNull(t.lodgings.checkOutDate)))
+      .groupBy(t.lodgings.checkOutDate),
   ]);
+  const counts = [...itemCounts, ...bookingCounts, ...checkInCounts, ...checkOutCounts] as { date: string; n: number }[];
 
   const links = plans.length
     ? await db
@@ -47,7 +66,8 @@ export async function getItinerarySummary(trip: {
     : [];
 
   const planByDate = new Map(plans.map((p) => [p.date, p]));
-  const countByDate = new Map(counts.map((c) => [c.date, c.n]));
+  const countByDate = new Map<string, number>();
+  for (const c of counts) countByDate.set(c.date, (countByDate.get(c.date) ?? 0) + c.n);
 
   return eachDay(trip.startDate, trip.endDate).map((date, i) => {
     const plan = planByDate.get(date);

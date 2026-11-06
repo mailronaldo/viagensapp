@@ -104,3 +104,49 @@ export async function deleteBookingTypeAction(id: string) {
   await db.delete(t.bookingTypes).where(eq(t.bookingTypes.id, id));
   redirect(back);
 }
+
+export async function addLodgingTypeAction(formData: FormData) {
+  await requireMaster();
+  const back = "/agency/system/lodging-types";
+  const name = str(formData, "name");
+  if (!name) fail(back, "Informe o nome do tipo de hospedagem.");
+  await db.insert(t.lodgingTypes).values({ name });
+  redirect(back);
+}
+
+export async function deleteLodgingTypeAction(id: string) {
+  await requireMaster();
+  const back = "/agency/system/lodging-types";
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(t.lodgings)
+    .where(eq(t.lodgings.type, id));
+  if (count > 0) {
+    fail(back, `Esse tipo está em uso em ${count === 1 ? "1 hospedagem" : `${count} hospedagens`}. Não dá pra excluir.`);
+  }
+  await db.delete(t.lodgingTypes).where(eq(t.lodgingTypes.id, id));
+  redirect(back);
+}
+
+export async function addReservationMethodAction(formData: FormData) {
+  await requireMaster();
+  const back = "/agency/system/reservation-methods";
+  const name = str(formData, "name");
+  if (!name) fail(back, "Informe o nome do método de reserva.");
+  await db.insert(t.reservationMethods).values({ name });
+  redirect(back);
+}
+
+export async function deleteReservationMethodAction(id: string) {
+  await requireMaster();
+  const back = "/agency/system/reservation-methods";
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(t.lodgings)
+    .where(eq(t.lodgings.provider, id));
+  if (count > 0) {
+    fail(back, `Esse método está em uso em ${count === 1 ? "1 hospedagem" : `${count} hospedagens`}. Não dá pra excluir.`);
+  }
+  await db.delete(t.reservationMethods).where(eq(t.reservationMethods.id, id));
+  redirect(back);
+}

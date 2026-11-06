@@ -5,12 +5,13 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { CURRENCIES, LODGING_TYPE_LABEL } from "@/lib/labels";
+import { CURRENCIES } from "@/lib/labels";
 import { HH_MM, ISO_DATE, fail, parseDecimal, str } from "@/lib/form";
 
 async function parseLodging(tripId: string, formData: FormData, back: string) {
   const name = str(formData, "name");
   const type = str(formData, "type") ?? "HOTEL";
+  const provider = str(formData, "provider");
   const cityId = str(formData, "cityId");
   const checkInDate = str(formData, "checkInDate");
   const checkOutDate = str(formData, "checkOutDate");
@@ -19,7 +20,16 @@ async function parseLodging(tripId: string, formData: FormData, back: string) {
   const currency = str(formData, "currency");
 
   if (!name) fail(back, "Informe o nome da hospedagem.");
-  if (!(type in LODGING_TYPE_LABEL)) fail(back, "Tipo de hospedagem inválido.");
+  const [lodgingType] = await db.select({ id: t.lodgingTypes.id }).from(t.lodgingTypes).where(eq(t.lodgingTypes.id, type)).limit(1);
+  if (!lodgingType) fail(back, "Tipo de hospedagem inválido.");
+  if (provider) {
+    const [method] = await db
+      .select({ id: t.reservationMethods.id })
+      .from(t.reservationMethods)
+      .where(eq(t.reservationMethods.id, provider))
+      .limit(1);
+    if (!method) fail(back, "Método de reserva inválido.");
+  }
   if (checkInDate && !ISO_DATE.test(checkInDate)) fail(back, "Data de check-in inválida.");
   if (checkOutDate && !ISO_DATE.test(checkOutDate)) fail(back, "Data de check-out inválida.");
   if (checkInTime && !HH_MM.test(checkInTime)) fail(back, "Hora de check-in inválida.");
@@ -44,9 +54,9 @@ async function parseLodging(tripId: string, formData: FormData, back: string) {
 
   return {
     name,
-    type: type as keyof typeof LODGING_TYPE_LABEL,
+    type,
     cityId,
-    provider: str(formData, "provider"),
+    provider,
     address: str(formData, "address"),
     checkInDate,
     checkInTime,

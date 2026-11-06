@@ -7,7 +7,7 @@ import { ISO_DATE } from "@/lib/form";
 import { addDays, formatDate, formatWeekday } from "@/lib/format";
 import { getAgenda } from "@/services/agenda";
 import { getDayPlan } from "@/services/itinerary";
-import { listActivityTypes, listBookingTypes, toNameMap } from "@/services/catalogs";
+import { listActivityTypes, listBookingTypes, listLodgingTypes, toNameMap } from "@/services/catalogs";
 import { DayStrip } from "@/components/DayStrip";
 import { TravelerAgenda } from "@/components/TravelerAgenda";
 import { Card, EmptyState } from "@/components/ui";
@@ -17,16 +17,18 @@ export default async function TravelerDayPage({ params }: { params: Promise<{ id
   const { trip } = await requirePanelAccess(id);
   if (!ISO_DATE.test(date) || date < trip.startDate || date > trip.endDate) notFound();
 
-  const [agenda, plan, docs, activityTypes, bookingTypes] = await Promise.all([
+  const [agenda, plan, docs, activityTypes, bookingTypes, lodgingTypes] = await Promise.all([
     getAgenda(trip, date),
     getDayPlan(trip.id, date),
     db.select({ id: t.documents.id, fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.tripId, trip.id)),
     listActivityTypes(),
     listBookingTypes(),
+    listLodgingTypes(),
   ]);
   const docName = new Map(docs.map((d) => [d.id, d.fileName]));
   const activityTypeName = toNameMap(activityTypes);
   const bookingTypeName = toNameMap(bookingTypes);
+  const lodgingTypeName = toNameMap(lodgingTypes);
   const base = `/traveler/trips/${trip.id}`;
   const dayNumber = Math.round((Date.parse(date) - Date.parse(trip.startDate)) / 86_400_000) + 1;
   const prev = date > trip.startDate ? addDays(date, -1) : null;
@@ -85,6 +87,7 @@ export default async function TravelerDayPage({ params }: { params: Promise<{ id
             docName={docName}
             activityTypeName={activityTypeName}
             bookingTypeName={bookingTypeName}
+            lodgingTypeName={lodgingTypeName}
           />
         )}
       </section>

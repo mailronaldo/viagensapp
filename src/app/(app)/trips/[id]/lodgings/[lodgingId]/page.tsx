@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { getTripCities } from "@/services/cities";
+import { listLodgingTypes, listReservationMethods } from "@/services/catalogs";
 import { deleteLodgingAction, updateLodgingAction } from "@/app/actions/lodgings";
 import { LodgingFields } from "@/components/TripFields";
 import { SavedModal } from "@/components/SavedModal";
@@ -31,8 +32,10 @@ export default async function EditLodgingPage({
     .limit(1);
   if (!lodging) notFound();
 
-  const [cities, doc] = await Promise.all([
+  const [cities, types, methods, doc] = await Promise.all([
     getTripCities(trip.id),
+    listLodgingTypes(),
+    listReservationMethods(),
     lodging.documentId
       ? db.select({ fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.id, lodging.documentId)).limit(1)
       : Promise.resolve([]),
@@ -62,7 +65,7 @@ export default async function EditLodgingPage({
         </div>
         <ErrorBanner message={error} />
         <form action={updateLodgingAction.bind(null, trip.id, lodging.id)} className="grid gap-3 sm:grid-cols-6">
-          <LodgingFields trip={trip} cities={cities} lodging={lodging} attachment={attachment} />
+          <LodgingFields trip={trip} cities={cities} types={types} methods={methods} lodging={lodging} attachment={attachment} />
           <div className="flex gap-2 sm:col-span-6">
             <button className={btnPrimary}>Salvar alterações</button>
             <Link href={`/trips/${trip.id}/lodgings`} className={btnGhost}>

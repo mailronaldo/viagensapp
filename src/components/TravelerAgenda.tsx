@@ -1,4 +1,3 @@
-import { LODGING_TYPE_LABEL } from "@/lib/labels";
 import { Tag } from "@/components/ui";
 import type { AgendaEntry } from "@/services/agenda";
 
@@ -9,12 +8,14 @@ export function TravelerAgenda({
   docName,
   activityTypeName,
   bookingTypeName,
+  lodgingTypeName,
 }: {
   tripId: string;
   entries: AgendaEntry[];
   docName: Map<string, string>;
   activityTypeName: Record<string, string>;
   bookingTypeName: Record<string, string>;
+  lodgingTypeName: Record<string, string>;
 }) {
   const link = (docId: string | null, fallback: string, icon = "📎") =>
     docId ? (
@@ -44,7 +45,7 @@ export function TravelerAgenda({
               {e.kind === "item"
                 ? activityTypeName[e.type]
                 : e.kind === "lodging"
-                  ? LODGING_TYPE_LABEL[e.type as keyof typeof LODGING_TYPE_LABEL]
+                  ? lodgingTypeName[e.type]
                   : bookingTypeName[e.type]}
               {e.cityName ? ` · ${e.cityName}` : ""}
               {e.location ? ` · ${e.location}` : ""}
