@@ -3,9 +3,9 @@ import { and, asc, eq, gte } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { formatDate, formatDateTime, formatMoney, formatWeekday, todayIn } from "@/lib/format";
-import { BOOKING_TYPE_LABEL } from "@/lib/labels";
 import { getItinerarySummary } from "@/services/itinerary";
 import { getExpenseSummary } from "@/services/expenses";
+import { listBookingTypes, toNameMap } from "@/services/catalogs";
 import { deleteTripAction } from "@/app/actions/trips";
 import { Card, btnDanger } from "@/components/ui";
 
@@ -19,19 +19,20 @@ export default async function TripDashboardPage({
 
   const today = todayIn(trip.timezone);
 
-  const [days, summary, upcoming, linked] = await Promise.all([
+  const [days, summary, bookingTypes, upcoming, linked] = await Promise.all([
     getItinerarySummary(trip),
     getExpenseSummary(trip.id, trip.baseCurrency),
+    listBookingTypes(),
     db
       .select()
       .from(t.bookings)
       .where(
         and(
           eq(t.bookings.tripId, trip.id),
-          gte(t.bookings.startAt, `${today} 00:00:00`),
+          gte(t.bookings.originAt, `${today} 00:00:00`),
         ),
       )
-      .orderBy(asc(t.bookings.startAt))
+      .orderBy(asc(t.bookings.originAt))
       .limit(4),
     db
       .select({ id: t.travelers.id, name: t.travelers.name })
@@ -40,6 +41,7 @@ export default async function TripDashboardPage({
       .where(eq(t.tripTravelers.tripId, trip.id))
       .orderBy(asc(t.travelers.name)),
   ]);
+  const bookingTypeName = toNameMap(bookingTypes);
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="lg:col-span-2">
@@ -123,7 +125,7 @@ export default async function TripDashboardPage({
                 <li key={b.id} className="text-sm">
                   <p className="font-medium">{b.title}</p>
                   <p className="text-xs text-slate-500">
-                    {BOOKING_TYPE_LABEL[b.type]} · {formatDateTime(b.startAt)}
+                    {bookingTypeName[b.type]}{b.originAt ? ` · ${formatDateTime(b.originAt)}` : ""}
                   </p>
                 </li>
               ))}

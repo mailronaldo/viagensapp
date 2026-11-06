@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { and, asc, eq, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db, t } from "@/db";
 import { requirePanelAccess } from "@/lib/traveler-access";
 import { formatDate, formatDateTime, formatWeekday, todayIn } from "@/lib/format";
-import { BOOKING_TYPE_LABEL, LODGING_TYPE_LABEL } from "@/lib/labels";
+import { LODGING_TYPE_LABEL } from "@/lib/labels";
 import { getAgenda } from "@/services/agenda";
 import { getItinerarySummary } from "@/services/itinerary";
-import { listDocumentTypes, toNameMap } from "@/services/catalogs";
+import { listActivityTypes, listBookingTypes, listDocumentTypes, toNameMap } from "@/services/catalogs";
+
+const originCity = alias(t.cities, "origin_city");
+const destinationCity = alias(t.cities, "destination_city");
 import { TravelerAgenda } from "@/components/TravelerAgenda";
 import { Card, EmptyState, Hero } from "@/components/ui";
 
@@ -32,10 +36,20 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
         )
       : eq(t.documents.tripId, trip.id);
 
-  const [days, agenda, transports, lodgings, group, docs, allDocs, documentTypes] = await Promise.all([
+  const [days, agenda, transports, lodgings, group, docs, allDocs, documentTypes, bookingTypes, activityTypes] = await Promise.all([
     getItinerarySummary(trip),
     getAgenda(trip, agendaDay),
-    db.select().from(t.bookings).where(eq(t.bookings.tripId, trip.id)).orderBy(sql`${t.bookings.startAt} asc nulls last`),
+    db
+      .select({
+        booking: t.bookings,
+        originCityName: originCity.name,
+        destinationCityName: destinationCity.name,
+      })
+      .from(t.bookings)
+      .leftJoin(originCity, eq(originCity.id, t.bookings.originCityId))
+      .leftJoin(destinationCity, eq(destinationCity.id, t.bookings.destinationCityId))
+      .where(eq(t.bookings.tripId, trip.id))
+      .orderBy(sql`${t.bookings.originAt} asc nulls last`),
     db.select().from(t.lodgings).where(eq(t.lodgings.tripId, trip.id)).orderBy(sql`${t.lodgings.checkInDate} asc nulls last`),
     db
       .select({ name: t.travelers.name })
@@ -46,9 +60,13 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
     db.select().from(t.documents).where(docFilter).orderBy(asc(t.documents.title)),
     db.select({ id: t.documents.id, fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.tripId, trip.id)),
     listDocumentTypes(),
+    listBookingTypes(),
+    listActivityTypes(),
   ]);
   const docName = new Map(allDocs.map((d) => [d.id, d.fileName]));
   const docTypeName = toNameMap(documentTypes);
+  const bookingTypeName = toNameMap(bookingTypes);
+  const activityTypeName = toNameMap(activityTypes);
   const base = `/traveler/trips/${trip.id}`;
 
   return (
@@ -89,7 +107,13 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
         {agenda.entries.length === 0 ? (
           <EmptyState>Nada planejado para este dia.</EmptyState>
         ) : (
-          <TravelerAgenda tripId={trip.id} entries={agenda.entries} docName={docName} />
+          <TravelerAgenda
+            tripId={trip.id}
+            entries={agenda.entries}
+            docName={docName}
+            activityTypeName={activityTypeName}
+            bookingTypeName={bookingTypeName}
+          />
         )}
       </Card>
 
@@ -135,20 +159,22 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
             <p className="text-sm text-slate-500">Nenhum transporte cadastrado.</p>
           ) : (
             <ul className="space-y-2">
-              {transports.map((b) => (
+              {transports.map(({ booking: b, originCityName, destinationCityName }) => (
                 <li key={b.id}>
                   <Card className="p-4">
                     <p className="text-sm font-medium">
                       {b.title}{" "}
-                      <span className="text-xs font-normal text-slate-500">{BOOKING_TYPE_LABEL[b.type]}</span>
+                      <span className="text-xs font-normal text-slate-500">{bookingTypeName[b.type]}</span>
                     </p>
                     <p className="text-xs text-slate-600">
-                      {b.startAt ? formatDateTime(b.startAt) : "Sem data"}
-                      {b.endAt ? ` → ${formatDateTime(b.endAt)}` : ""}
+                      {b.originAt ? formatDateTime(b.originAt) : "Sem data"}
+                      {b.destinationAt ? ` → ${formatDateTime(b.destinationAt)}` : ""}
                     </p>
-                    {(b.origin || b.destination) && (
+                    {(b.originLocation || originCityName || b.destinationLocation || destinationCityName) && (
                       <p className="text-xs text-slate-600">
-                        {b.origin} → {b.destination}
+                        {[b.originLocation, originCityName].filter(Boolean).join(" · ")}
+                        {" → "}
+                        {[b.destinationLocation, destinationCityName].filter(Boolean).join(" · ")}
                       </p>
                     )}
                     {b.confirmationCode && (

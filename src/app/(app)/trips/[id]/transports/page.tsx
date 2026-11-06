@@ -1,8 +1,9 @@
-import { asc, eq, sql } from "drizzle-orm";
+import { asc, eq, inArray, sql } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { formatDateTime, formatMoney } from "@/lib/format";
-import { BOOKING_TYPE_LABEL } from "@/lib/labels";
+import { getTripCities } from "@/services/cities";
+import { LEGACY_BOOKING_TYPE_IDS, listBookingTypes, toNameMap } from "@/services/catalogs";
 import Link from "next/link";
 import { BookingFields } from "@/components/TripFields";
 import { addBookingAction, deleteBookingAction } from "@/app/actions/bookings";
@@ -35,12 +36,28 @@ export default async function BookingsPage({
   const { error } = await searchParams;
   const { trip, canWrite } = await requireTripAccess(id);
 
-  const rows = await db
-    .select({ booking: t.bookings, fileName: t.documents.fileName })
-    .from(t.bookings)
-    .leftJoin(t.documents, eq(t.documents.id, t.bookings.documentId))
-    .where(eq(t.bookings.tripId, trip.id))
-    .orderBy(sql`${t.bookings.startAt} asc nulls last`, asc(t.bookings.title));
+  const [cities, bookingTypes, rows] = await Promise.all([
+    getTripCities(trip.id),
+    listBookingTypes(),
+    db
+      .select({
+        booking: t.bookings,
+        fileName: t.documents.fileName,
+        originCityName: t.cities.name,
+      })
+      .from(t.bookings)
+      .leftJoin(t.documents, eq(t.documents.id, t.bookings.documentId))
+      .leftJoin(t.cities, eq(t.cities.id, t.bookings.originCityId))
+      .where(eq(t.bookings.tripId, trip.id))
+      .orderBy(sql`${t.bookings.originAt} asc nulls last`, asc(t.bookings.title)),
+  ]);
+  // Segunda cidade (destino) resolvida num mapa aparte, já que um left join
+  // só dá pra encadear uma vez sem repetir a tabela.
+  const destCityIds = rows.map((r) => r.booking.destinationCityId).filter((v): v is string => !!v);
+  const destCities = destCityIds.length ? await db.select().from(t.cities).where(inArray(t.cities.id, destCityIds)) : [];
+  const destCityName = toNameMap(destCities);
+  const typeName = toNameMap(bookingTypes);
+  const creatableTypes = bookingTypes.filter((ty) => !LEGACY_BOOKING_TYPE_IDS.includes(ty.id));
 
   return (
     <>
@@ -52,7 +69,7 @@ export default async function BookingsPage({
             action={addBookingAction.bind(null, trip.id)}
             className="grid gap-3 sm:grid-cols-6"
           >
-            <BookingFields trip={trip} />
+            <BookingFields trip={trip} cities={cities} types={creatableTypes} />
             <div className="sm:col-span-6">
               <button className={btnPrimary}>Salvar transporte</button>
             </div>
@@ -64,28 +81,27 @@ export default async function BookingsPage({
         <EmptyState>Nenhum transporte cadastrado ainda.</EmptyState>
       ) : (
         <ul className="space-y-3">
-          {rows.map(({ booking: b, fileName }) => (
+          {rows.map(({ booking: b, fileName, originCityName }) => (
             <li key={b.id}>
               <Card className="flex gap-4">
                 <span className="text-2xl" aria-hidden>
-                  {ICON[b.type]}
+                  {ICON[b.type] ?? "📌"}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-x-2">
                     <h3 className="font-medium">{b.title}</h3>
-                    <span className="text-xs text-slate-500">{BOOKING_TYPE_LABEL[b.type]}</span>
+                    <span className="text-xs text-slate-500">{typeName[b.type]}</span>
                     {b.provider && <span className="text-xs text-slate-400">· {b.provider}</span>}
                   </div>
-                  <p className="text-sm text-slate-600">
-                    {b.startAt ? formatDateTime(b.startAt) : "Sem data"}
-                    {b.endAt ? ` → ${formatDateTime(b.endAt)}` : ""}
-                  </p>
-                  {(b.origin || b.destination) && (
+                  {(b.originLocation || originCityName || b.destinationLocation || destCityName[b.destinationCityId ?? ""]) && (
                     <p className="text-sm text-slate-600">
-                      {b.origin} → {b.destination}
+                      {[b.originLocation, originCityName].filter(Boolean).join(" · ")}
+                      {b.originAt ? ` (${formatDateTime(b.originAt)})` : ""}
+                      {" → "}
+                      {[b.destinationLocation, destCityName[b.destinationCityId ?? ""]].filter(Boolean).join(" · ")}
+                      {b.destinationAt ? ` (${formatDateTime(b.destinationAt)})` : ""}
                     </p>
                   )}
-                  {b.address && <p className="text-sm text-slate-500">{b.address}</p>}
                   <p className="mt-1 text-xs text-slate-500">
                     {b.confirmationCode && (
                       <span className="mr-3">

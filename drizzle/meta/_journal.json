@@ -71,6 +71,13 @@
       "when": 1793917820157,
       "tag": "0009_cadastro_tipos_documento_categorias_custo",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793924952383,
+      "tag": "0010_cadastro_tipos_atividade_transporte",
+      "breakpoints": true
     }
   ]
 }

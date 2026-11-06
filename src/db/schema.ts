@@ -19,22 +19,6 @@ const createdAt = () => timestamp("created_at").notNull().defaultNow();
 // ---------- Enums ----------
 
 export const memberRole = pgEnum("member_role", ["OWNER", "EDITOR", "VIEWER"]);
-export const itemType = pgEnum("item_type", [
-  "ATTRACTION",
-  "TOUR",
-  "MEAL",
-  "TRANSPORT",
-  "FREE_TIME",
-  "OTHER",
-]);
-export const bookingType = pgEnum("booking_type", [
-  "FLIGHT",
-  "HOTEL",
-  "CAR_RENTAL",
-  "TRANSFER",
-  "TRAIN",
-  "OTHER",
-]);
 export const lodgingType = pgEnum("lodging_type", [
   "HOTEL",
   "RENTAL",
@@ -187,6 +171,20 @@ export const expenseCategories = pgTable("expense_categories", {
   createdAt: createdAt(),
 });
 
+// "TRANSPORT" (atividade) e "HOTEL" (transporte) ficam semeados como legado —
+// não aparecem pra criar de novo, só preservam o rótulo de registros antigos.
+export const activityTypes = pgTable("activity_types", {
+  id: id(),
+  name: text("name").notNull().unique(),
+  createdAt: createdAt(),
+});
+
+export const bookingTypes = pgTable("booking_types", {
+  id: id(),
+  name: text("name").notNull().unique(),
+  createdAt: createdAt(),
+});
+
 export const tripCities = pgTable(
   "trip_cities",
   {
@@ -269,15 +267,19 @@ export const bookings = pgTable(
     tripId: text("trip_id")
       .notNull()
       .references(() => trips.id, { onDelete: "cascade" }),
-    type: bookingType("type").notNull(),
+    type: text("type")
+      .notNull()
+      .default("OTHER")
+      .references(() => bookingTypes.id),
     title: text("title").notNull(),
     provider: text("provider"),
     confirmationCode: text("confirmation_code"),
-    startAt: timestamp("start_at", { mode: "string" }),
-    endAt: timestamp("end_at", { mode: "string" }),
-    origin: text("origin"),
-    destination: text("destination"),
-    address: text("address"),
+    originAt: timestamp("origin_at", { mode: "string" }),
+    destinationAt: timestamp("destination_at", { mode: "string" }),
+    originLocation: text("origin_location"),
+    destinationLocation: text("destination_location"),
+    originCityId: text("origin_city_id").references(() => cities.id, { onDelete: "set null" }),
+    destinationCityId: text("destination_city_id").references(() => cities.id, { onDelete: "set null" }),
     details: text("details"),
     totalPrice: numeric("total_price", { precision: 12, scale: 2 }),
     currency: text("currency"),
@@ -285,7 +287,7 @@ export const bookings = pgTable(
       onDelete: "set null",
     }),
   },
-  (t) => [index("bookings_trip_start_idx").on(t.tripId, t.startAt)],
+  (t) => [index("bookings_trip_start_idx").on(t.tripId, t.originAt)],
 );
 
 // ---------- Hospedagens (hotéis, aluguéis, Airbnb…) ----------
@@ -333,7 +335,10 @@ export const itineraryItems = pgTable(
     // "HH:MM" no fuso do destino; null = sem horário definido
     startTime: text("start_time"),
     endTime: text("end_time"),
-    type: itemType("type").notNull().default("ATTRACTION"),
+    type: text("type")
+      .notNull()
+      .default("ATTRACTION")
+      .references(() => activityTypes.id),
     title: text("title").notNull(),
     location: text("location"),
     address: text("address"),
@@ -444,3 +449,5 @@ export type Expense = typeof expenses.$inferSelect;
 export type Document = typeof documents.$inferSelect;
 export type DocumentTypeRow = typeof documentTypes.$inferSelect;
 export type ExpenseCategoryRow = typeof expenseCategories.$inferSelect;
+export type ActivityTypeRow = typeof activityTypes.$inferSelect;
+export type BookingTypeRow = typeof bookingTypes.$inferSelect;

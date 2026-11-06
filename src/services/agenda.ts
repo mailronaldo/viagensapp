@@ -1,7 +1,11 @@
 import "server-only";
 import { and, asc, eq, gte, lte, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db, t } from "@/db";
 import { todayIn } from "@/lib/format";
+
+const originCity = alias(t.cities, "origin_city");
+const destinationCity = alias(t.cities, "destination_city");
 
 /**
  * Camada de serviços: funções puras de negócio, sem Next.js/HTTP.
@@ -73,13 +77,19 @@ export async function getAgenda(
   const dayStart = `${day} 00:00:00`;
   const dayEnd = `${day} 23:59:59`;
   const bookings = await db
-    .select()
+    .select({
+      booking: t.bookings,
+      originCityName: originCity.name,
+      destinationCityName: destinationCity.name,
+    })
     .from(t.bookings)
+    .leftJoin(originCity, eq(originCity.id, t.bookings.originCityId))
+    .leftJoin(destinationCity, eq(destinationCity.id, t.bookings.destinationCityId))
     .where(
       and(
         eq(t.bookings.tripId, trip.id),
-        gte(t.bookings.startAt, dayStart),
-        lte(t.bookings.startAt, dayEnd),
+        gte(t.bookings.originAt, dayStart),
+        lte(t.bookings.originAt, dayEnd),
       ),
     );
 
@@ -144,20 +154,24 @@ export async function getAgenda(
             }
           : null,
     })),
-    ...bookings.map((b) => ({
-      id: b.id,
-      kind: "booking" as const,
-      time: b.startAt ? b.startAt.slice(11, 16) : null,
-      title: b.title,
-      type: b.type,
-      location: b.origin && b.destination ? `${b.origin} → ${b.destination}` : b.address,
-      address: b.address,
-      notes: b.confirmationCode ? `Código: ${b.confirmationCode}` : b.details,
-      cityName: null,
-      hasTicket: !!b.documentId,
-      ticketDocumentId: b.documentId,
-      reservation: null,
-    })),
+    ...bookings.map(({ booking: b, originCityName, destinationCityName }) => {
+      const origin = [b.originLocation, originCityName].filter(Boolean).join(" · ");
+      const destination = [b.destinationLocation, destinationCityName].filter(Boolean).join(" · ");
+      return {
+        id: b.id,
+        kind: "booking" as const,
+        time: b.originAt ? b.originAt.slice(11, 16) : null,
+        title: b.title,
+        type: b.type,
+        location: origin || destination ? `${origin} → ${destination}` : null,
+        address: null,
+        notes: b.confirmationCode ? `Código: ${b.confirmationCode}` : b.details,
+        cityName: null,
+        hasTicket: !!b.documentId,
+        ticketDocumentId: b.documentId,
+        reservation: null,
+      };
+    }),
     ...lodgingEntries,
   ];
 

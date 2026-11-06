@@ -1,11 +1,5 @@
 import type { Booking, Expense, ItineraryItem, Lodging } from "@/db/schema";
-import {
-  BOOKING_TYPE_LABEL,
-  BOOKING_TYPE_OPTIONS,
-  CURRENCIES,
-  ITEM_TYPE_LABEL,
-  LODGING_TYPE_LABEL,
-} from "@/lib/labels";
+import { CURRENCIES, LODGING_TYPE_LABEL } from "@/lib/labels";
 import { Field, inputCls } from "@/components/ui";
 
 /** "1234.50" → "1234,50" (formato do campo, aceito por parseDecimal). */
@@ -51,12 +45,14 @@ function AttachmentField({
 export function ItemMainFields({
   trip,
   cities,
+  types,
   item,
   defaultDate,
   attachment,
 }: {
   trip: { startDate: string; endDate: string };
   cities: { id: string; name: string }[];
+  types: { id: string; name: string }[];
   item?: ItineraryItem;
   defaultDate?: string;
   attachment?: { name: string; href: string } | null;
@@ -68,9 +64,9 @@ export function ItemMainFields({
       </Field>
       <Field label="Tipo" className="sm:col-span-2">
         <select name="type" defaultValue={item?.type ?? "ATTRACTION"} className={inputCls}>
-          {Object.entries(ITEM_TYPE_LABEL).map(([v, l]) => (
-            <option key={v} value={v}>
-              {l}
+          {types.map((ty) => (
+            <option key={ty.id} value={ty.id}>
+              {ty.name}
             </option>
           ))}
         </select>
@@ -193,6 +189,7 @@ export function ReservationFields({
 export function ItemFields({
   trip,
   cities,
+  types,
   item,
   defaultDate,
   attachment,
@@ -200,6 +197,7 @@ export function ItemFields({
 }: {
   trip: { id: string; startDate: string; endDate: string; baseCurrency: string };
   cities: { id: string; name: string }[];
+  types: { id: string; name: string }[];
   item?: ItineraryItem;
   defaultDate?: string;
   attachment?: { name: string; href: string } | null;
@@ -207,7 +205,7 @@ export function ItemFields({
 }) {
   return (
     <>
-      <ItemMainFields trip={trip} cities={cities} item={item} defaultDate={defaultDate} attachment={attachment} />
+      <ItemMainFields trip={trip} cities={cities} types={types} item={item} defaultDate={defaultDate} attachment={attachment} />
       <fieldset id="reserva" className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:col-span-6 sm:grid-cols-6">
         <legend className="px-1 text-xs font-medium text-slate-600">
           Reserva desta atividade (opcional — preencha se já reservou)
@@ -301,12 +299,54 @@ export function LodgingFields({
   );
 }
 
+/** Um dos dois lados (origem/destino) do trecho de transporte. */
+function BookingLegFields({
+  legLabel,
+  prefix,
+  cities,
+  booking,
+}: {
+  legLabel: string;
+  prefix: "origin" | "destination";
+  cities: { id: string; name: string }[];
+  booking?: Booking;
+}) {
+  const at = prefix === "origin" ? booking?.originAt : booking?.destinationAt;
+  const loc = prefix === "origin" ? booking?.originLocation : booking?.destinationLocation;
+  const cityId = prefix === "origin" ? booking?.originCityId : booking?.destinationCityId;
+  return (
+    <fieldset className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:col-span-6 sm:grid-cols-6">
+      <legend className="px-1 text-xs font-medium text-slate-600">{legLabel}</legend>
+      <Field label="Data/hora" className="sm:col-span-2">
+        <input name={`${prefix}At`} type="datetime-local" defaultValue={local(at)} className={inputCls} />
+      </Field>
+      <Field label="Local" className="sm:col-span-2">
+        <input name={`${prefix}Location`} defaultValue={loc ?? ""} className={inputCls} />
+      </Field>
+      <Field label="Cidade" className="sm:col-span-2">
+        <select name={`${prefix}CityId`} defaultValue={cityId ?? ""} className={inputCls}>
+          <option value="">—</option>
+          {cities.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+    </fieldset>
+  );
+}
+
 export function BookingFields({
   trip,
+  cities,
+  types,
   booking,
   attachment,
 }: {
   trip: { baseCurrency: string };
+  cities: { id: string; name: string }[];
+  types: { id: string; name: string }[];
   booking?: Booking;
   attachment?: { name: string; href: string } | null;
 }) {
@@ -314,9 +354,9 @@ export function BookingFields({
     <>
       <Field label="Tipo" className="sm:col-span-2">
         <select name="type" className={inputCls} defaultValue={booking?.type ?? "FLIGHT"}>
-          {BOOKING_TYPE_OPTIONS.map((v) => (
-            <option key={v} value={v}>
-              {BOOKING_TYPE_LABEL[v]}
+          {types.map((ty) => (
+            <option key={ty.id} value={ty.id}>
+              {ty.name}
             </option>
           ))}
         </select>
@@ -324,48 +364,43 @@ export function BookingFields({
       <Field label="Título" className="sm:col-span-4">
         <input name="title" required defaultValue={booking?.title} placeholder="Ex.: Voo GRU → LIS" className={inputCls} />
       </Field>
-      <Field label="Companhia / fornecedor" className="sm:col-span-3">
+      <Field label="Companhia / fornecedor" className="sm:col-span-6">
         <input name="provider" defaultValue={booking?.provider ?? ""} className={inputCls} />
       </Field>
-      <Field label="Código de confirmação" className="sm:col-span-3">
-        <input name="confirmationCode" defaultValue={booking?.confirmationCode ?? ""} className={inputCls} />
-      </Field>
-      <Field label="Início (horário local do local)" className="sm:col-span-3">
-        <input name="startAt" type="datetime-local" defaultValue={local(booking?.startAt)} className={inputCls} />
-      </Field>
-      <Field label="Término (horário local do local)" className="sm:col-span-3">
-        <input name="endAt" type="datetime-local" defaultValue={local(booking?.endAt)} className={inputCls} />
-      </Field>
-      <Field label="Origem (voos/trens)" className="sm:col-span-3">
-        <input name="origin" defaultValue={booking?.origin ?? ""} className={inputCls} />
-      </Field>
-      <Field label="Destino (voos/trens)" className="sm:col-span-3">
-        <input name="destination" defaultValue={booking?.destination ?? ""} className={inputCls} />
-      </Field>
-      <Field label="Endereço (hotéis/locais)" className="sm:col-span-6">
-        <input name="address" defaultValue={booking?.address ?? ""} className={inputCls} />
-      </Field>
-      <Field label="Valor total" className="sm:col-span-2">
-        <input name="totalPrice" inputMode="decimal" defaultValue={dec(booking?.totalPrice)} placeholder="0,00" className={inputCls} />
-      </Field>
-      <Field label="Moeda" className="sm:col-span-1">
-        <select name="currency" defaultValue={booking?.currency ?? trip.baseCurrency} className={inputCls}>
-          {CURRENCIES.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
-      </Field>
-      <AttachmentField
-        label="Voucher / e-ticket (PDF ou imagem)"
-        name="voucher"
-        removeName="removeVoucher"
-        current={attachment?.name}
-        href={attachment?.href}
-        className="sm:col-span-3"
-      />
-      <Field label="Detalhes" className="sm:col-span-6">
-        <textarea name="details" rows={2} defaultValue={booking?.details ?? ""} className={inputCls} />
-      </Field>
+      <BookingLegFields legLabel="Origem" prefix="origin" cities={cities} booking={booking} />
+      <BookingLegFields legLabel="Destino" prefix="destination" cities={cities} booking={booking} />
+      <fieldset
+        id="reserva"
+        className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:col-span-6 sm:grid-cols-6"
+      >
+        <legend className="px-1 text-xs font-medium text-slate-600">
+          Reserva deste transporte (opcional — preencha se já reservou)
+        </legend>
+        <Field label="Valor total" className="sm:col-span-2">
+          <input name="totalPrice" inputMode="decimal" defaultValue={dec(booking?.totalPrice)} placeholder="0,00" className={inputCls} />
+        </Field>
+        <Field label="Moeda" className="sm:col-span-1">
+          <select name="currency" defaultValue={booking?.currency ?? trip.baseCurrency} className={inputCls}>
+            {CURRENCIES.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Código de confirmação" className="sm:col-span-3">
+          <input name="confirmationCode" defaultValue={booking?.confirmationCode ?? ""} className={inputCls} />
+        </Field>
+        <AttachmentField
+          label="Voucher / e-ticket (PDF ou imagem)"
+          name="voucher"
+          removeName="removeVoucher"
+          current={attachment?.name}
+          href={attachment?.href}
+          className="sm:col-span-6"
+        />
+        <Field label="Detalhes" className="sm:col-span-6">
+          <textarea name="details" rows={2} defaultValue={booking?.details ?? ""} className={inputCls} />
+        </Field>
+      </fieldset>
     </>
   );
 }

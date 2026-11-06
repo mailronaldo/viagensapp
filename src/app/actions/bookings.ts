@@ -5,23 +5,44 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { BOOKING_TYPE_LABEL, BOOKING_TYPE_OPTIONS, CURRENCIES } from "@/lib/labels";
+import { CURRENCIES } from "@/lib/labels";
 import { LOCAL_DATETIME, fail, parseDecimal, str, toWallClock } from "@/lib/form";
 
-function parseBooking(formData: FormData, back: string) {
+async function parseLeg(formData: FormData, tripId: string, prefix: "origin" | "destination", back: string) {
+  const at = str(formData, `${prefix}At`);
+  const cityId = str(formData, `${prefix}CityId`);
+  if (at && !LOCAL_DATETIME.test(at)) fail(back, "Data/hora inválida.");
+  if (cityId) {
+    const [city] = await db
+      .select({ id: t.tripCities.cityId })
+      .from(t.tripCities)
+      .where(and(eq(t.tripCities.cityId, cityId), eq(t.tripCities.tripId, tripId)))
+      .limit(1);
+    if (!city) fail(back, "Cidade inválida.");
+  }
+  return {
+    at: toWallClock(at),
+    location: str(formData, `${prefix}Location`),
+    cityId,
+  };
+}
+
+async function parseBooking(tripId: string, formData: FormData, back: string) {
   const type = str(formData, "type") ?? "OTHER";
   const title = str(formData, "title");
-  const startAt = str(formData, "startAt");
-  const endAt = str(formData, "endAt");
   const currency = str(formData, "currency");
 
   if (!title) fail(back, "Informe um título para o transporte.");
-  if (!(BOOKING_TYPE_OPTIONS as readonly string[]).includes(type)) fail(back, "Tipo de transporte inválido.");
-  if (startAt && !LOCAL_DATETIME.test(startAt)) fail(back, "Data/hora de início inválida.");
-  if (endAt && !LOCAL_DATETIME.test(endAt)) fail(back, "Data/hora de término inválida.");
-  if (startAt && endAt && endAt < startAt) fail(back, "O término não pode ser antes do início.");
+  const [bookingType] = await db.select({ id: t.bookingTypes.id }).from(t.bookingTypes).where(eq(t.bookingTypes.id, type)).limit(1);
+  if (!bookingType) fail(back, "Tipo de transporte inválido.");
   if (currency && !(CURRENCIES as readonly string[]).includes(currency)) {
     fail(back, "Moeda inválida.");
+  }
+
+  const origin = await parseLeg(formData, tripId, "origin", back);
+  const destination = await parseLeg(formData, tripId, "destination", back);
+  if (origin.at && destination.at && destination.at < origin.at) {
+    fail(back, "O destino não pode ser antes da origem.");
   }
 
   const priceRaw = str(formData, "totalPrice");
@@ -30,15 +51,16 @@ function parseBooking(formData: FormData, back: string) {
   if (totalPrice && !currency) fail(back, "Informe a moeda do valor.");
 
   return {
-    type: type as keyof typeof BOOKING_TYPE_LABEL,
+    type,
     title,
     provider: str(formData, "provider"),
     confirmationCode: str(formData, "confirmationCode"),
-    startAt: toWallClock(startAt),
-    endAt: toWallClock(endAt),
-    origin: str(formData, "origin"),
-    destination: str(formData, "destination"),
-    address: str(formData, "address"),
+    originAt: origin.at,
+    originLocation: origin.location,
+    originCityId: origin.cityId,
+    destinationAt: destination.at,
+    destinationLocation: destination.location,
+    destinationCityId: destination.cityId,
     details: str(formData, "details"),
     totalPrice,
     // Sem valor, a moeda não faz sentido guardar.
@@ -49,7 +71,7 @@ function parseBooking(formData: FormData, back: string) {
 export async function addBookingAction(tripId: string, formData: FormData) {
   await requireTripAccess(tripId, { write: true });
   const back = `/trips/${tripId}/transports`;
-  const v = parseBooking(formData, back);
+  const v = await parseBooking(tripId, formData, back);
 
   const documentId = await attachmentFromForm({
     tripId,
@@ -75,7 +97,7 @@ export async function updateBookingAction(tripId: string, bookingId: string, for
     .limit(1);
   if (!current) redirect(`/trips/${tripId}/transports`);
 
-  const v = parseBooking(formData, back);
+  const v = await parseBooking(tripId, formData, back);
   const documentId = await attachmentFromForm({
     tripId,
     formData,

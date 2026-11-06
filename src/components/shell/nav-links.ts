@@ -1,4 +1,4 @@
-import { Briefcase, FileText, HandCoins, LifeBuoy, Users, Wallet } from "lucide-react";
+import { Briefcase, Bus, FileText, HandCoins, LifeBuoy, ListChecks, Users, Wallet } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 // Ícones do lucide-react são componentes React: não dá pra passar por props de
@@ -13,6 +13,8 @@ const AGENCY_LINKS: NavLink[] = [
   { href: "/agency", label: "Clientes", icon: Users },
   { href: "/agency/document-types", label: "Tipos de documento", icon: FileText },
   { href: "/agency/expense-categories", label: "Categorias de custo", icon: Wallet },
+  { href: "/agency/activity-types", label: "Tipos de atividade", icon: ListChecks },
+  { href: "/agency/booking-types", label: "Tipos de transporte", icon: Bus },
 ];
 
 // Menu global do cliente (independe de estar dentro de uma viagem ou não).

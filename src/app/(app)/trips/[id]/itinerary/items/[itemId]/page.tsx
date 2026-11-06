@@ -5,6 +5,7 @@ import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { getTripCities } from "@/services/cities";
 import { getActivityPoints, getActivityRegions } from "@/services/activity-points";
+import { listActivityTypes } from "@/services/catalogs";
 import { deleteItemAction, removeReservationAction, updateItemAction } from "@/app/actions/items";
 import {
   addActivityPointAction,
@@ -42,8 +43,9 @@ export default async function EditItemPage({
     .limit(1);
   if (!item) notFound();
 
-  const [cities, doc, resDoc, pois, tips, regions] = await Promise.all([
+  const [cities, activityTypes, doc, resDoc, pois, tips, regions] = await Promise.all([
     getTripCities(trip.id),
+    listActivityTypes(),
     item.ticketDocumentId
       ? db.select({ fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.id, item.ticketDocumentId)).limit(1)
       : Promise.resolve([]),
@@ -95,7 +97,7 @@ export default async function EditItemPage({
               />
             </div>
             <form id={FORM_ID} action={updateItemAction.bind(null, trip.id, item.id)} className="grid gap-3 sm:grid-cols-6">
-              <ItemMainFields trip={trip} cities={cities} item={item} attachment={attachment} />
+              <ItemMainFields trip={trip} cities={cities} types={activityTypes} item={item} attachment={attachment} />
             </form>
           </Card>
           <div className="mt-4 flex gap-2">

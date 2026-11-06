@@ -55,7 +55,7 @@ async function main() {
       tripId: trip.id,
       type: "FLIGHT",
       title: "Voo GRU→LIS",
-      startAt: "2026-11-10 07:15:00",
+      originAt: "2026-11-10 07:15:00",
       confirmationCode: "ABC123",
     });
     const agenda = await getAgenda(trip, "2026-11-10");

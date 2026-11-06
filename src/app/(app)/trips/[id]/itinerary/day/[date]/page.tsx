@@ -5,10 +5,11 @@ import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { ISO_DATE } from "@/lib/form";
 import { addDays, formatDate, formatMoney, formatWeekday } from "@/lib/format";
-import { BOOKING_TYPE_LABEL, ITEM_TYPE_LABEL, LODGING_TYPE_LABEL } from "@/lib/labels";
+import { LODGING_TYPE_LABEL } from "@/lib/labels";
 import { getAgenda } from "@/services/agenda";
 import { getDayPlan } from "@/services/itinerary";
 import { getTripCities } from "@/services/cities";
+import { LEGACY_ACTIVITY_TYPE_IDS, listActivityTypes, listBookingTypes, toNameMap } from "@/services/catalogs";
 import { addItemAction, deleteItemAction, removeReservationAction } from "@/app/actions/items";
 import { saveDayAction } from "@/app/actions/days";
 import { DayStrip } from "@/components/DayStrip";
@@ -37,13 +38,17 @@ export default async function ItineraryDayPage({
   const { trip, canWrite } = await requireTripAccess(id);
   if (!ISO_DATE.test(date) || date < trip.startDate || date > trip.endDate) notFound();
 
-  const [cities, agenda, plan, docs] = await Promise.all([
+  const [cities, activityTypes, bookingTypes, agenda, plan, docs] = await Promise.all([
     getTripCities(trip.id),
+    listActivityTypes(),
+    listBookingTypes(),
     getAgenda(trip, date),
     getDayPlan(trip.id, date),
     db.select({ id: t.documents.id, fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.tripId, trip.id)),
   ]);
   const docName = new Map(docs.map((d) => [d.id, d.fileName]));
+  const activityTypeName = toNameMap(activityTypes);
+  const bookingTypeName = toNameMap(bookingTypes);
   const dayNumber = Math.round((Date.parse(date) - Date.parse(trip.startDate)) / 86_400_000) + 1;
   const prev = date > trip.startDate ? addDays(date, -1) : null;
   const next = date < trip.endDate ? addDays(date, 1) : null;
@@ -140,10 +145,10 @@ export default async function ItineraryDayPage({
                   <p className="text-sm font-medium">{e.title}</p>
                   <p className="text-xs text-slate-500">
                     {e.kind === "item"
-                      ? ITEM_TYPE_LABEL[e.type as keyof typeof ITEM_TYPE_LABEL]
+                      ? activityTypeName[e.type]
                       : e.kind === "lodging"
                         ? LODGING_TYPE_LABEL[e.type as keyof typeof LODGING_TYPE_LABEL]
-                        : BOOKING_TYPE_LABEL[e.type as keyof typeof BOOKING_TYPE_LABEL]}
+                        : bookingTypeName[e.type]}
                     {e.cityName ? ` · ${e.cityName}` : ""}
                     {e.location ? ` · ${e.location}` : ""}
                   </p>
@@ -242,7 +247,12 @@ export default async function ItineraryDayPage({
         <AddPanel title="Adicionar atividade" defaultOpen={agenda.entries.length === 0}>
           <form action={addItemAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-6">
             <input type="hidden" name="day" value={date} />
-            <ItemFields trip={trip} cities={cities} defaultDate={date} />
+            <ItemFields
+              trip={trip}
+              cities={cities}
+              types={activityTypes.filter((ty) => !LEGACY_ACTIVITY_TYPE_IDS.includes(ty.id))}
+              defaultDate={date}
+            />
             <div className="sm:col-span-6">
               <button className={btnPrimary}>Salvar atividade</button>
             </div>

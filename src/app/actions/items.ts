@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { CURRENCIES, ITEM_TYPE_LABEL } from "@/lib/labels";
+import { CURRENCIES } from "@/lib/labels";
 import { HH_MM, ISO_DATE, fail, parseDecimal, str } from "@/lib/form";
 
 async function parseItem(
@@ -31,7 +31,12 @@ async function parseItem(
   if (startTime && endTime && endTime < startTime) {
     fail(back, "O término não pode ser antes do início.");
   }
-  if (!(type in ITEM_TYPE_LABEL)) fail(back, "Tipo inválido.");
+  const [activityType] = await db
+    .select({ id: t.activityTypes.id })
+    .from(t.activityTypes)
+    .where(eq(t.activityTypes.id, type))
+    .limit(1);
+  if (!activityType) fail(back, "Tipo inválido.");
 
   if (cityId) {
     const [city] = await db
@@ -65,7 +70,7 @@ async function parseItem(
     date,
     startTime,
     endTime,
-    type: type as keyof typeof ITEM_TYPE_LABEL,
+    type,
     title,
     location: str(formData, "location"),
     address: str(formData, "address"),
