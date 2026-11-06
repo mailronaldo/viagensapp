@@ -105,8 +105,13 @@ export async function addItemAction(tripId: string, formData: FormData) {
     current: null,
   });
 
-  await db.insert(t.itineraryItems).values({ tripId, ...v, ticketDocumentId, reservationDocumentId });
-  redirect(`/trips/${tripId}/itinerary/day/${v.date}`);
+  const [item] = await db
+    .insert(t.itineraryItems)
+    .values({ tripId, ...v, ticketDocumentId, reservationDocumentId })
+    .returning({ id: t.itineraryItems.id });
+  // Leva direto pro editar: é lá que aparecem os boxes de Ingressos, Passe, Pontos de
+  // interesse, Tips e Região — todos dependem do id da atividade já existir.
+  redirect(`/trips/${tripId}/itinerary/items/${item.id}?saved=activity`);
 }
 
 export async function updateItemAction(tripId: string, itemId: string, formData: FormData) {
