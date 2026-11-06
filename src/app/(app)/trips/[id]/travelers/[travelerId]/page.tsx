@@ -10,6 +10,7 @@ import { listTravelerTickets } from "@/services/tickets";
 import { deleteChipAction, upsertChipAction } from "@/app/actions/chips";
 import {
   setTravelerAccessActiveFromTripAction,
+  setTravelerPermissionFromTripAction,
   updateTravelerFromTripAction,
 } from "@/app/actions/travelers";
 import { addPassAction, deletePassAction } from "@/app/actions/passes";
@@ -33,13 +34,13 @@ export default async function TravelerHubPage({
   const { trip, role, canWrite } = await requireTripAccess(id);
 
   const [linked] = await db
-    .select({ traveler: t.travelers })
+    .select({ traveler: t.travelers, permission: t.tripTravelers.permission })
     .from(t.tripTravelers)
     .innerJoin(t.travelers, eq(t.travelers.id, t.tripTravelers.travelerId))
     .where(and(eq(t.tripTravelers.tripId, trip.id), eq(t.tripTravelers.travelerId, travelerId)))
     .limit(1);
   if (!linked) notFound();
-  const { traveler } = linked;
+  const { traveler, permission } = linked;
 
   const [chip, [login], tickets, passes] = await Promise.all([
     db.select().from(t.chips).where(and(eq(t.chips.tripId, trip.id), eq(t.chips.travelerId, travelerId))).limit(1).then(([c]) => c),
@@ -58,7 +59,7 @@ export default async function TravelerHubPage({
         .then(([doc]) => (doc ? { name: doc.fileName, href: `/api/files/${trip.id}/${chip.receiptDocumentId}` } : null))
     : null;
   const loginUrl = await getLoginUrl();
-  const canEditCadastro = role === "OWNER";
+  const canEditCadastro = canWrite;
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -112,6 +113,22 @@ export default async function TravelerHubPage({
         </div>
 
         <div className="space-y-4">
+          {canWrite && (
+            <Card>
+              <h3 className="mb-2 text-sm font-medium">Permissão nesta viagem</h3>
+              <p className="mb-3 text-xs text-slate-500">
+                Total = vira administrador da viagem, como o cliente. Leitura = só vê o painel dele.
+              </p>
+              <form action={setTravelerPermissionFromTripAction.bind(null, trip.id, travelerId)} className="flex items-center gap-2">
+                <select name="permission" defaultValue={permission} className={inputCls}>
+                  <option value="READ">Apenas leitura</option>
+                  <option value="FULL">Permissão total</option>
+                </select>
+                <button className={btnPrimary}>Salvar</button>
+              </form>
+            </Card>
+          )}
+
           <AddPanel title="Internet / chip" defaultOpen>
 
             {chip && (

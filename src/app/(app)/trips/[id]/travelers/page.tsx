@@ -6,9 +6,9 @@ import { formatDate } from "@/lib/format";
 import {
   createAndLinkTravelerAction,
   linkTravelerAction,
-  setTravelerPermissionAction,
   unlinkTravelerAction,
 } from "@/app/actions/travelers";
+import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
 import {
   AddPanel,
   Card,
@@ -16,15 +16,11 @@ import {
   ErrorBanner,
   Field,
   Tag,
-  btnDanger,
   btnPrimary,
   inputCls,
 } from "@/components/ui";
 
 export const metadata = { title: "Viajantes da viagem" };
-
-const permissionSelectCls =
-  "rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-ring/15";
 
 function PermissionField() {
   return (
@@ -46,7 +42,7 @@ export default async function TripTravelersPage({
 }) {
   const { id } = await params;
   const { error } = await searchParams;
-  const { trip, role, canWrite } = await requireTripAccess(id);
+  const { trip, canWrite } = await requireTripAccess(id);
 
   const [linked, ownerTravelers, [owner]] = await Promise.all([
     db
@@ -136,13 +132,13 @@ export default async function TripTravelersPage({
         <Card className="mb-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 !p-3">
           <div className="min-w-0 flex-1">
             <p className="font-medium">
-              {owner.name} <Tag tone="ok">dono da viagem</Tag>
+              <Link href={`/trips/${trip.id}/travelers/owner`} className="text-brand-700 hover:underline">
+                {owner.name}
+              </Link>{" "}
+              <Tag tone="ok">dono da viagem</Tag>
             </p>
             <p className="text-xs text-slate-500">{owner.email}</p>
           </div>
-          <Link href={`/trips/${trip.id}/travelers/owner`} className="text-sm text-brand-700 hover:underline">
-            Internet / Telefonia
-          </Link>
         </Card>
       )}
 
@@ -155,7 +151,9 @@ export default async function TripTravelersPage({
               <Card className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 !p-3">
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">
-                    {tr.name}{" "}
+                    <Link href={`/trips/${trip.id}/travelers/${tr.id}`} className="text-brand-700 hover:underline">
+                      {tr.name}
+                    </Link>{" "}
                     {tr.userId ? <Tag tone="ok">com acesso</Tag> : <Tag tone="neutral">sem acesso</Tag>}{" "}
                     {permission === "FULL" ? (
                       <Tag tone="ok">permissão total</Tag>
@@ -169,33 +167,14 @@ export default async function TripTravelersPage({
                       .join(" · ") || "Sem contato cadastrado"}
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  {canWrite && (
-                    <form
-                      action={setTravelerPermissionAction.bind(null, trip.id, tr.id)}
-                      className="flex items-center gap-2"
-                    >
-                      <select name="permission" defaultValue={permission} className={permissionSelectCls}>
-                        <option value="READ">Apenas leitura</option>
-                        <option value="FULL">Permissão total</option>
-                      </select>
-                      <button className="text-sm text-brand-700 hover:underline">Salvar</button>
-                    </form>
-                  )}
-                  {role === "OWNER" && (
-                    <Link href={`/travelers/${tr.id}`} className="text-sm text-brand-700 hover:underline">
-                      Cadastro e acesso
-                    </Link>
-                  )}
-                  <Link href={`/trips/${trip.id}/travelers/${tr.id}`} className="text-sm text-brand-700 hover:underline">
-                    Internet / Telefonia
-                  </Link>
-                  {canWrite && (
-                    <form action={unlinkTravelerAction.bind(null, trip.id, tr.id)}>
-                      <button className={btnDanger}>Remover</button>
-                    </form>
-                  )}
-                </div>
+                {canWrite && (
+                  <ConfirmDeleteButton
+                    label="Remover do grupo"
+                    confirmTitle="Remover este viajante do grupo?"
+                    confirmDescription={`${tr.name} sai do grupo desta viagem. O cadastro dele continua existindo e pode ser incluído de novo depois.`}
+                    deleteAction={unlinkTravelerAction.bind(null, trip.id, tr.id)}
+                  />
+                )}
               </Card>
             </li>
           ))}

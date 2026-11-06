@@ -212,6 +212,20 @@ export async function setTravelerPermissionAction(tripId: string, travelerId: st
   redirect(travelersTab(tripId));
 }
 
+/** Mesma coisa que `setTravelerPermissionAction`, mas volta pro hub do viajante dentro da viagem. */
+export async function setTravelerPermissionFromTripAction(tripId: string, travelerId: string, formData: FormData) {
+  await requireTripAccess(tripId, { write: true });
+  const permission = readPermission(formData);
+  await db.transaction(async (tx) => {
+    await tx
+      .update(t.tripTravelers)
+      .set({ permission })
+      .where(and(eq(t.tripTravelers.tripId, tripId), eq(t.tripTravelers.travelerId, travelerId)));
+    await syncTravelerMembership(tx, tripId, travelerId);
+  });
+  redirect(`/trips/${tripId}/travelers/${travelerId}`);
+}
+
 // ---------- Acesso (login) do viajante ----------
 
 /**
