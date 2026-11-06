@@ -19,7 +19,7 @@ export default async function TripDashboardPage({
 
   const today = todayIn(trip.timezone);
 
-  const [days, summary, bookingTypes, upcoming, linked] = await Promise.all([
+  const [days, summary, bookingTypes, upcoming, linked, [owner]] = await Promise.all([
     getItinerarySummary(trip),
     getExpenseSummary(trip.id, trip.baseCurrency),
     listBookingTypes(),
@@ -40,8 +40,12 @@ export default async function TripDashboardPage({
       .innerJoin(t.travelers, eq(t.travelers.id, t.tripTravelers.travelerId))
       .where(eq(t.tripTravelers.tripId, trip.id))
       .orderBy(asc(t.travelers.name)),
+    trip.ownerIsTraveler
+      ? db.select({ id: t.users.id, name: t.users.name }).from(t.users).where(eq(t.users.id, trip.ownerId)).limit(1)
+      : [null],
   ]);
   const bookingTypeName = toNameMap(bookingTypes);
+  const travelers = owner ? [{ id: owner.id, name: `${owner.name} (dono da viagem)` }, ...linked] : linked;
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="lg:col-span-2">
@@ -134,12 +138,12 @@ export default async function TripDashboardPage({
         </Card>
 
         <Card>
-          <h2 className="mb-2 font-medium">Viajantes ({linked.length})</h2>
-          {linked.length === 0 ? (
+          <h2 className="mb-2 font-medium">Viajantes ({travelers.length})</h2>
+          {travelers.length === 0 ? (
             <p className="text-sm text-slate-500">Ninguém no grupo desta viagem ainda.</p>
           ) : (
             <ul className="space-y-1 text-sm">
-              {linked.map((l) => (
+              {travelers.map((l) => (
                 <li key={l.id}>{l.name}</li>
               ))}
             </ul>
