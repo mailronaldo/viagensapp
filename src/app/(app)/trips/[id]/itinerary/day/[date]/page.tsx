@@ -140,7 +140,10 @@ export default async function ItineraryDayPage({
           <ol className="space-y-2">
             {agenda.entries.map((e) => (
               <li key={`${e.kind}-${e.id}`} className="flex gap-3">
-                <span className="w-12 shrink-0 pt-3 text-sm font-medium tabular-nums">{e.time ?? "—"}</span>
+                <span className="w-12 shrink-0 pt-3 text-sm font-medium tabular-nums">
+                  {e.time ?? "—"}
+                  {e.endTime && <span className="block text-xs font-normal text-slate-400">–{e.endTime}</span>}
+                </span>
                 <div className="flex min-w-0 flex-1 flex-wrap justify-between gap-x-4 gap-y-2 rounded-lg border border-slate-200 bg-white p-3">
                 <div className="min-w-48 flex-1">
                   <p className="text-sm font-medium">{e.title}</p>

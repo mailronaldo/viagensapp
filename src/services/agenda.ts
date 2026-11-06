@@ -18,6 +18,8 @@ export type AgendaEntry = {
   id: string;
   kind: "item" | "booking" | "lodging";
   time: string | null; // "HH:MM"
+  /** Só para atividades com horário de término preenchido. */
+  endTime: string | null;
   title: string;
   type: string;
   location: string | null;
@@ -51,6 +53,7 @@ export async function getAgenda(
     .select({
       id: t.itineraryItems.id,
       startTime: t.itineraryItems.startTime,
+      endTime: t.itineraryItems.endTime,
       title: t.itineraryItems.title,
       type: t.itineraryItems.type,
       location: t.itineraryItems.location,
@@ -129,6 +132,7 @@ export async function getAgenda(
     const base = {
       id: l.id,
       kind: "lodging" as const,
+      endTime: null,
       type: l.type,
       location: null,
       address: l.address,
@@ -153,6 +157,7 @@ export async function getAgenda(
       id: i.id,
       kind: "item" as const,
       time: i.startTime,
+      endTime: i.endTime,
       title: i.title,
       type: i.type,
       location: i.location,
@@ -183,6 +188,7 @@ export async function getAgenda(
         id: b.id,
         kind: "booking" as const,
         time: b.originAt ? b.originAt.slice(11, 16) : null,
+        endTime: null,
         title: b.title,
         type: b.type,
         location: origin || destination ? `${origin} → ${destination}` : null,
@@ -201,6 +207,7 @@ export async function getAgenda(
         id: b.id,
         kind: "booking" as const,
         time: b.destinationAt ? b.destinationAt.slice(11, 16) : null,
+        endTime: null,
         title: `Chegada: ${b.title}`,
         type: b.type,
         location: destination || origin || null,
