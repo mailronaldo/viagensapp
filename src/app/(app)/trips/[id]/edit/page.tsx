@@ -78,6 +78,16 @@ export default async function EditTripPage({
               ))}
             </select>
           </Field>
+          <Field
+            label="Você é viajante ou está apenas planejando a viagem?"
+            className="sm:col-span-2"
+            hint="Se marcar que é viajante, você entra no grupo de viajantes desta viagem (e pode registrar chip/eSIM próprio)."
+          >
+            <select name="ownerIsTraveler" defaultValue={trip.ownerIsTraveler ? "yes" : "no"} className={inputCls}>
+              <option value="no">Só estou planejando (não vou viajar)</option>
+              <option value="yes">Sou viajante nesta viagem</option>
+            </select>
+          </Field>
           <Field label="Observações" className="sm:col-span-2">
             <textarea name="notes" rows={3} defaultValue={trip.notes ?? ""} className={inputCls} />
           </Field>

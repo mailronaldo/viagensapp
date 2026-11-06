@@ -85,6 +85,13 @@
       "when": 1793972000928,
       "tag": "0011_chip_viajante",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793974110393,
+      "tag": "0012_owner_is_traveler_e_chip_do_cliente",
+      "breakpoints": true
     }
   ]
 }

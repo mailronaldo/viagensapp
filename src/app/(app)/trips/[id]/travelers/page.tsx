@@ -48,7 +48,7 @@ export default async function TripTravelersPage({
   const { error } = await searchParams;
   const { trip, role, canWrite } = await requireTripAccess(id);
 
-  const [linked, ownerTravelers] = await Promise.all([
+  const [linked, ownerTravelers, [owner]] = await Promise.all([
     db
       .select({ traveler: t.travelers, permission: t.tripTravelers.permission })
       .from(t.tripTravelers)
@@ -57,6 +57,9 @@ export default async function TripTravelersPage({
       .orderBy(asc(t.travelers.name)),
     // Viajantes do cliente dono da viagem: os candidatos a entrar no grupo.
     db.select().from(t.travelers).where(eq(t.travelers.clientId, trip.ownerId)).orderBy(asc(t.travelers.name)),
+    trip.ownerIsTraveler
+      ? db.select({ name: t.users.name, email: t.users.email }).from(t.users).where(eq(t.users.id, trip.ownerId)).limit(1)
+      : [null],
   ]);
   const linkedIds = new Set(linked.map((l) => l.traveler.id));
   const available = ownerTravelers.filter((tr) => !linkedIds.has(tr.id));
@@ -127,6 +130,20 @@ export default async function TripTravelersPage({
             </form>
           </AddPanel>
         </>
+      )}
+
+      {owner && (
+        <Card className="mb-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 !p-3">
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">
+              {owner.name} <Tag tone="ok">dono da viagem</Tag>
+            </p>
+            <p className="text-xs text-slate-500">{owner.email}</p>
+          </div>
+          <Link href={`/trips/${trip.id}/travelers/owner`} className="text-sm text-brand-700 hover:underline">
+            Internet / Telefonia
+          </Link>
+        </Card>
       )}
 
       {linked.length === 0 ? (

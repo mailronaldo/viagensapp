@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   pgEnum,
@@ -68,6 +69,9 @@ export const trips = pgTable(
     timezone: text("timezone").notNull().default("America/Sao_Paulo"),
     baseCurrency: text("base_currency").notNull().default("BRL"),
     notes: text("notes"),
+    // O cliente (dono da viagem) também viaja nela? Controla se ele aparece
+    // na lista de viajantes da viagem (e pode ter chip próprio registrado).
+    ownerIsTraveler: boolean("owner_is_traveler").notNull().default(false),
     // Ícone da viagem (mostrado no card do dashboard). Sem upload, usa o padrão.
     iconKey: text("icon_key"),
     iconMimeType: text("icon_mime_type"),
@@ -262,7 +266,8 @@ export const documents = pgTable(
 // ---------- Chip / eSIM do viajante ----------
 
 // Escopado por viagem + viajante (não pelo cadastro global do viajante): o mesmo
-// viajante pode estar em viagens diferentes com chips diferentes.
+// viajante pode estar em viagens diferentes com chips diferentes. `travelerId`
+// nulo = chip do próprio cliente (dono da viagem), quando `trips.ownerIsTraveler`.
 export const chips = pgTable(
   "chips",
   {
@@ -270,9 +275,7 @@ export const chips = pgTable(
     tripId: text("trip_id")
       .notNull()
       .references(() => trips.id, { onDelete: "cascade" }),
-    travelerId: text("traveler_id")
-      .notNull()
-      .references(() => travelers.id, { onDelete: "cascade" }),
+    travelerId: text("traveler_id").references(() => travelers.id, { onDelete: "cascade" }),
     provider: text("provider"),
     orderNumber: text("order_number"),
     plan: text("plan"),
@@ -286,7 +289,10 @@ export const chips = pgTable(
     imei2: text("imei2"),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex("chips_trip_traveler_unique").on(t.tripId, t.travelerId)],
+  (t) => [
+    uniqueIndex("chips_trip_traveler_unique").on(t.tripId, t.travelerId).where(sql`${t.travelerId} IS NOT NULL`),
+    uniqueIndex("chips_trip_owner_unique").on(t.tripId).where(sql`${t.travelerId} IS NULL`),
+  ],
 );
 export type Chip = typeof chips.$inferSelect;
 

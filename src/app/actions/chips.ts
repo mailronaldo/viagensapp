@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
@@ -20,7 +20,7 @@ async function requireLinkedTraveler(tripId: string, travelerId: string) {
   if (!link) redirect(`/trips/${tripId}/travelers`);
 }
 
-async function parseChip(tripId: string, travelerId: string, formData: FormData, back: string) {
+function parseChip(formData: FormData, back: string) {
   const startDate = str(formData, "startDate");
   const endDate = str(formData, "endDate");
   const type = str(formData, "type") ?? "CHIP";
@@ -41,8 +41,6 @@ async function parseChip(tripId: string, travelerId: string, formData: FormData,
   if (costRaw && cost === null) fail(back, "Custo inválido.");
 
   return {
-    tripId,
-    travelerId,
     provider: str(formData, "provider"),
     orderNumber: str(formData, "orderNumber"),
     plan: str(formData, "plan"),
@@ -67,7 +65,7 @@ export async function upsertChipAction(tripId: string, travelerId: string, formD
     .where(and(eq(t.chips.tripId, tripId), eq(t.chips.travelerId, travelerId)))
     .limit(1);
 
-  const v = await parseChip(tripId, travelerId, formData, back);
+  const v = parseChip(formData, back);
   const receiptDocumentId = await attachmentFromForm({
     tripId,
     formData,
@@ -80,8 +78,12 @@ export async function upsertChipAction(tripId: string, travelerId: string, formD
 
   await db
     .insert(t.chips)
-    .values({ ...v, receiptDocumentId })
-    .onConflictDoUpdate({ target: [t.chips.tripId, t.chips.travelerId], set: { ...v, receiptDocumentId } });
+    .values({ tripId, travelerId, ...v, receiptDocumentId })
+    .onConflictDoUpdate({
+      target: [t.chips.tripId, t.chips.travelerId],
+      targetWhere: sql`${t.chips.travelerId} IS NOT NULL`,
+      set: { ...v, receiptDocumentId },
+    });
   redirect(`${back}?saved=1`);
 }
 
@@ -89,4 +91,45 @@ export async function deleteChipAction(tripId: string, travelerId: string) {
   await requireTripAccess(tripId, { write: true });
   await db.delete(t.chips).where(and(eq(t.chips.tripId, tripId), eq(t.chips.travelerId, travelerId)));
   redirect(`/trips/${tripId}/travelers/${travelerId}`);
+}
+
+// ---------- Chip do próprio cliente (dono da viagem), quando ele também viaja ----------
+
+export async function upsertOwnerChipAction(tripId: string, formData: FormData) {
+  const { trip } = await requireTripAccess(tripId, { write: true });
+  const back = `/trips/${tripId}/travelers/owner`;
+  if (!trip.ownerIsTraveler) redirect(`/trips/${tripId}/travelers`);
+
+  const [current] = await db
+    .select()
+    .from(t.chips)
+    .where(and(eq(t.chips.tripId, tripId), isNull(t.chips.travelerId)))
+    .limit(1);
+
+  const v = parseChip(formData, back);
+  const receiptDocumentId = await attachmentFromForm({
+    tripId,
+    formData,
+    fileField: "receipt",
+    removeField: "removeReceipt",
+    doc: { type: "RECEIPT", title: `Chip — ${v.provider ?? "sem fornecedor"}` },
+    back,
+    current: current?.receiptDocumentId ?? null,
+  });
+
+  await db
+    .insert(t.chips)
+    .values({ tripId, travelerId: null, ...v, receiptDocumentId })
+    .onConflictDoUpdate({
+      target: [t.chips.tripId],
+      targetWhere: sql`${t.chips.travelerId} IS NULL`,
+      set: { ...v, receiptDocumentId },
+    });
+  redirect(`${back}?saved=1`);
+}
+
+export async function deleteOwnerChipAction(tripId: string) {
+  await requireTripAccess(tripId, { write: true });
+  await db.delete(t.chips).where(and(eq(t.chips.tripId, tripId), isNull(t.chips.travelerId)));
+  redirect(`/trips/${tripId}/travelers/owner`);
 }

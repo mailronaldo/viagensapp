@@ -33,6 +33,7 @@ export async function createTripAction(formData: FormData) {
   const timezone = str(formData, "timezone") ?? "America/Sao_Paulo";
   const baseCurrency = str(formData, "baseCurrency") ?? "BRL";
   const notes = str(formData, "notes");
+  const ownerIsTraveler = str(formData, "ownerIsTraveler") === "yes";
   const cityIds = [...new Set(formData.getAll("cityIds").map(String).filter(Boolean))];
   const icon = file(formData, "icon");
 
@@ -68,6 +69,7 @@ export async function createTripAction(formData: FormData) {
         timezone,
         baseCurrency,
         notes,
+        ownerIsTraveler,
       })
       .returning({ id: t.trips.id });
     await tx
@@ -98,6 +100,7 @@ export async function updateTripAction(tripId: string, formData: FormData) {
   const endDate = str(formData, "endDate");
   const timezone = str(formData, "timezone") ?? trip.timezone;
   const baseCurrency = str(formData, "baseCurrency") ?? trip.baseCurrency;
+  const ownerIsTraveler = str(formData, "ownerIsTraveler") === "yes";
   const icon = file(formData, "icon");
   const removeIcon = formData.get("removeIcon") === "on";
 
@@ -171,7 +174,16 @@ export async function updateTripAction(tripId: string, formData: FormData) {
   await db.transaction(async (tx) => {
     await tx
       .update(t.trips)
-      .set({ title, destination, startDate, endDate, timezone, baseCurrency, notes: str(formData, "notes") })
+      .set({
+        title,
+        destination,
+        startDate,
+        endDate,
+        timezone,
+        baseCurrency,
+        notes: str(formData, "notes"),
+        ownerIsTraveler,
+      })
       .where(eq(t.trips.id, tripId));
     // Dias vazios que ficaram fora do período não têm utilidade.
     await tx
