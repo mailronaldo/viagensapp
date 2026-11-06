@@ -6,7 +6,18 @@ import { usePathname } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { TRIP_NAV, TRIP_LINKS_FLAT } from "./trip-nav";
+import { TRIP_NAV } from "./trip-nav";
+import { SYSTEM_NAV } from "./system-nav";
+
+// Ícones do lucide-react são componentes React: não dá pra passar o array de
+// navegação por props de Server Component pra Client Component (não é
+// serializável) — mesmo motivo documentado em nav-links.ts. Por isso aqui só
+// entra um identificador (string) e a lista em si é resolvida localmente.
+export type SideNavVariant = "trip" | "system";
+
+function navFor(variant: SideNavVariant) {
+  return variant === "trip" ? TRIP_NAV : SYSTEM_NAV;
+}
 
 function isActive(pathname: string, basePath: string, href: string) {
   const full = `${basePath}${href}`;
@@ -16,15 +27,17 @@ function isActive(pathname: string, basePath: string, href: string) {
 const leafCls =
   "flex h-8.5 items-center gap-2.5 rounded-lg px-2.5 text-sm font-normal text-foreground hover:bg-brand-50 hover:text-brand-800 data-[active=true]:bg-brand-50 data-[active=true]:font-medium data-[active=true]:text-brand-800";
 
-// MENU 2 (desktop): sub-navegação de uma viagem, fixa à esquerda. "Cadastros"
-// é um grupo expansível que abre sozinho quando a rota atual é um de seus filhos.
-export function TripSidebar({ basePath }: { basePath: string }) {
+// MENU 2 (desktop): sub-navegação fixa à esquerda de uma seção (viagem, área
+// "Sistema" da agência etc). "Cadastros"/grupos são expansíveis e abrem
+// sozinhos quando a rota atual é um de seus filhos.
+export function SideNav({ basePath, variant }: { basePath: string; variant: SideNavVariant }) {
   const pathname = usePathname();
+  const nav = navFor(variant);
   const groupHasActiveChild = (children: { href: string }[]) =>
     children.some((c) => isActive(pathname, basePath, c.href));
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
-      TRIP_NAV.filter((item) => item.kind === "group").map((item) => [item.label, groupHasActiveChild(item.children)]),
+      nav.filter((item) => item.kind === "group").map((item) => [item.label, groupHasActiveChild(item.children)]),
     ),
   );
 
@@ -32,7 +45,7 @@ export function TripSidebar({ basePath }: { basePath: string }) {
     <aside className="hidden lg:sticky lg:top-(--header-height) lg:flex lg:h-[calc(100vh-var(--header-height))] lg:w-(--sidebar-width) lg:shrink-0 lg:flex-col lg:self-start lg:border-e lg:border-border">
       <ScrollArea className="h-full grow">
         <nav className="space-y-0.5 px-2.5 py-4">
-          {TRIP_NAV.map((item) => {
+          {nav.map((item) => {
             if (item.kind === "link") {
               const Icon = item.icon;
               const active = isActive(pathname, basePath, item.href);
@@ -87,12 +100,14 @@ export function TripSidebar({ basePath }: { basePath: string }) {
 
 // Mesma sub-navegação, achatada e em faixa horizontal rolável — usada no
 // lugar do MENU 2 fixo quando a tela é pequena demais para uma sidebar.
-export function TripMobileTabs({ basePath }: { basePath: string }) {
+export function SideNavMobileTabs({ basePath, variant }: { basePath: string; variant: SideNavVariant }) {
   const pathname = usePathname();
+  const nav = navFor(variant);
+  const flat = nav.flatMap((item) => (item.kind === "link" ? [{ href: item.href, label: item.label, icon: item.icon }] : item.children));
 
   return (
     <nav className="thin-scroll -mx-4 mb-4 flex gap-1 overflow-x-auto border-b border-border px-4 lg:hidden">
-      {TRIP_LINKS_FLAT.map((item) => {
+      {flat.map((item) => {
         const Icon = item.icon;
         const active = isActive(pathname, basePath, item.href);
         return (

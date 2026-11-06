@@ -3,7 +3,7 @@ import { requireTripAccess } from "@/lib/access";
 import { formatDate } from "@/lib/format";
 import { getTripCountryCodes } from "@/services/cities";
 import { CountryFlag } from "@/components/CountryFlag";
-import { TripSidebar, TripMobileTabs } from "@/components/shell/TripSidebar";
+import { SideNav, SideNavMobileTabs } from "@/components/shell/SideNav";
 import { Toolbar, ToolbarActions, ToolbarHeading, ToolbarPageTitle } from "@/components/ui/toolbar";
 import { btnOutline } from "@/components/ui";
 
@@ -21,10 +21,10 @@ export default async function TripLayout({
 
   return (
     <div className="flex grow flex-col lg:flex-row">
-      <TripSidebar basePath={basePath} />
+      <SideNav basePath={basePath} variant="trip" />
       <div className="grow">
         <div className="mx-auto max-w-5xl">
-          <TripMobileTabs basePath={basePath} />
+          <SideNavMobileTabs basePath={basePath} variant="trip" />
           <Toolbar>
             <ToolbarHeading>
               <div className="flex items-center gap-2">

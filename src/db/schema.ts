@@ -27,6 +27,7 @@ export const lodgingType = pgEnum("lodging_type", [
   "OTHER",
 ]);
 export const travelerPermission = pgEnum("traveler_permission", ["READ", "FULL"]);
+export const chipType = pgEnum("chip_type", ["CHIP", "ESIM"]);
 
 // ---------- Contas e acesso ----------
 
@@ -257,6 +258,37 @@ export const documents = pgTable(
   },
   (t) => [index("documents_trip_type_idx").on(t.tripId, t.type)],
 );
+
+// ---------- Chip / eSIM do viajante ----------
+
+// Escopado por viagem + viajante (não pelo cadastro global do viajante): o mesmo
+// viajante pode estar em viagens diferentes com chips diferentes.
+export const chips = pgTable(
+  "chips",
+  {
+    id: id(),
+    tripId: text("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    travelerId: text("traveler_id")
+      .notNull()
+      .references(() => travelers.id, { onDelete: "cascade" }),
+    provider: text("provider"),
+    orderNumber: text("order_number"),
+    plan: text("plan"),
+    cost: numeric("cost", { precision: 12, scale: 2 }),
+    currency: text("currency"),
+    receiptDocumentId: text("receipt_document_id").references(() => documents.id, { onDelete: "set null" }),
+    startDate: date("start_date"),
+    endDate: date("end_date"),
+    type: chipType("type").notNull().default("CHIP"),
+    eid: text("eid"),
+    imei2: text("imei2"),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("chips_trip_traveler_unique").on(t.tripId, t.travelerId)],
+);
+export type Chip = typeof chips.$inferSelect;
 
 // ---------- Reservas (voos, hotéis, etc.) ----------
 

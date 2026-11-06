@@ -170,6 +170,9 @@ export default async function TripTravelersPage({
                       Cadastro e acesso
                     </Link>
                   )}
+                  <Link href={`/trips/${trip.id}/travelers/${tr.id}`} className="text-sm text-brand-700 hover:underline">
+                    Internet / Telefonia
+                  </Link>
                   {canWrite && (
                     <form action={unlinkTravelerAction.bind(null, trip.id, tr.id)}>
                       <button className={btnDanger}>Remover</button>

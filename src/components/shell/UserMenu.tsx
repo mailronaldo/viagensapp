@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { LogOut, KeyRound } from "lucide-react";
+import { LogOut, KeyRound, UserRound } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { NavRole } from "./nav-links";
 
 function initials(name: string) {
   return name
@@ -21,7 +22,15 @@ function initials(name: string) {
     .join("");
 }
 
-export function UserMenu({ userName, logoutAction }: { userName: string; logoutAction: () => void }) {
+export function UserMenu({
+  userName,
+  role,
+  logoutAction,
+}: {
+  userName: string;
+  role: NavRole;
+  logoutAction: () => void;
+}) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -36,6 +45,13 @@ export function UserMenu({ userName, logoutAction }: { userName: string; logoutA
           <p className="text-sm font-medium text-foreground">{userName}</p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {role === "client" && (
+          <DropdownMenuItem asChild>
+            <Link href="/account">
+              <UserRound /> Minha conta
+            </Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem asChild>
           <Link href="/account/password">
             <KeyRound /> Alterar senha

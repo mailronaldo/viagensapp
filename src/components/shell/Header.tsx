@@ -26,7 +26,7 @@ export function Header({
       </div>
       <HeaderMenu role={role} className="hidden lg:flex" />
       <div className="ml-auto flex items-center">
-        <UserMenu userName={userName} logoutAction={logoutAction} />
+        <UserMenu userName={userName} role={role} logoutAction={logoutAction} />
       </div>
     </header>
   );

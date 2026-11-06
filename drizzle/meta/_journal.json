@@ -78,6 +78,13 @@
       "when": 1793924952383,
       "tag": "0010_cadastro_tipos_atividade_transporte",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793972000928,
+      "tag": "0011_chip_viajante",
+      "breakpoints": true
     }
   ]
 }

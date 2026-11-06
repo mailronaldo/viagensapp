@@ -9,7 +9,7 @@ import { RESERVED_ACTIVITY_TYPE_NAMES } from "@/services/catalogs";
 
 export async function addDocumentTypeAction(formData: FormData) {
   await requireMaster();
-  const back = "/agency/document-types";
+  const back = "/agency/system/document-types";
   const name = str(formData, "name");
   if (!name) fail(back, "Informe o nome do tipo de documento.");
   await db.insert(t.documentTypes).values({ name });
@@ -18,7 +18,7 @@ export async function addDocumentTypeAction(formData: FormData) {
 
 export async function deleteDocumentTypeAction(id: string) {
   await requireMaster();
-  const back = "/agency/document-types";
+  const back = "/agency/system/document-types";
   const [{ count }] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(t.documents)
@@ -32,7 +32,7 @@ export async function deleteDocumentTypeAction(id: string) {
 
 export async function addExpenseCategoryAction(formData: FormData) {
   await requireMaster();
-  const back = "/agency/expense-categories";
+  const back = "/agency/system/expense-categories";
   const name = str(formData, "name");
   if (!name) fail(back, "Informe o nome da categoria de custo.");
   await db.insert(t.expenseCategories).values({ name });
@@ -41,7 +41,7 @@ export async function addExpenseCategoryAction(formData: FormData) {
 
 export async function deleteExpenseCategoryAction(id: string) {
   await requireMaster();
-  const back = "/agency/expense-categories";
+  const back = "/agency/system/expense-categories";
   const [{ count }] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(t.expenses)
@@ -55,7 +55,7 @@ export async function deleteExpenseCategoryAction(id: string) {
 
 export async function addActivityTypeAction(formData: FormData) {
   await requireMaster();
-  const back = "/agency/activity-types";
+  const back = "/agency/system/activity-types";
   const name = str(formData, "name");
   if (!name) fail(back, "Informe o nome do tipo de atividade.");
   if (RESERVED_ACTIVITY_TYPE_NAMES.includes(name.trim().toLowerCase())) {
@@ -70,7 +70,7 @@ export async function addActivityTypeAction(formData: FormData) {
 
 export async function deleteActivityTypeAction(id: string) {
   await requireMaster();
-  const back = "/agency/activity-types";
+  const back = "/agency/system/activity-types";
   const [{ count }] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(t.itineraryItems)
@@ -84,7 +84,7 @@ export async function deleteActivityTypeAction(id: string) {
 
 export async function addBookingTypeAction(formData: FormData) {
   await requireMaster();
-  const back = "/agency/booking-types";
+  const back = "/agency/system/booking-types";
   const name = str(formData, "name");
   if (!name) fail(back, "Informe o nome do tipo de transporte.");
   await db.insert(t.bookingTypes).values({ name });
@@ -93,7 +93,7 @@ export async function addBookingTypeAction(formData: FormData) {
 
 export async function deleteBookingTypeAction(id: string) {
   await requireMaster();
-  const back = "/agency/booking-types";
+  const back = "/agency/system/booking-types";
   const [{ count }] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(t.bookings)

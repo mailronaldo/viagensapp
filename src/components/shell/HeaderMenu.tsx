@@ -12,7 +12,7 @@ export function HeaderMenu({ role, className }: { role: NavRole; className?: str
   // "/" também é a raiz das viagens do cliente, que moram em /trips.
   const matches = (href: string) =>
     href === "/" ? pathname === "/" || pathname.startsWith("/trips") : pathname.startsWith(href);
-  // Com vários links sob o mesmo prefixo (ex.: "/agency" e "/agency/document-types"),
+  // Com vários links sob o mesmo prefixo (ex.: "/agency" e "/agency/system"),
   // só o mais específico (o de maior prefixo) fica marcado como ativo.
   const bestHref = links
     .map((l) => l.href)

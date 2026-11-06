@@ -1,4 +1,4 @@
-import type { Booking, Expense, ItineraryItem, Lodging } from "@/db/schema";
+import type { Booking, Chip, Expense, ItineraryItem, Lodging } from "@/db/schema";
 import { CURRENCIES, LODGING_TYPE_LABEL } from "@/lib/labels";
 import { Field, inputCls } from "@/components/ui";
 
@@ -402,6 +402,69 @@ export function BookingFields({
         </Field>
       </fieldset>
     </>
+  );
+}
+
+export function ChipFields({
+  trip,
+  chip,
+  attachment,
+}: {
+  trip: { baseCurrency: string };
+  chip?: Chip;
+  attachment?: { name: string; href: string } | null;
+}) {
+  return (
+    <fieldset id="chip" className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:col-span-6 sm:grid-cols-6">
+      <legend className="px-1 text-xs font-medium text-slate-600">
+        Internet / Telefonia (opcional — preencha se o viajante tiver chip ou eSIM nesta viagem)
+      </legend>
+      <Field label="Fornecedor / companhia" className="sm:col-span-3">
+        <input name="provider" defaultValue={chip?.provider ?? ""} className={inputCls} />
+      </Field>
+      <Field label="Número do pedido" className="sm:col-span-3">
+        <input name="orderNumber" defaultValue={chip?.orderNumber ?? ""} className={inputCls} />
+      </Field>
+      <Field label="Plano" className="sm:col-span-2">
+        <input name="plan" defaultValue={chip?.plan ?? ""} className={inputCls} />
+      </Field>
+      <Field label="Custo" className="sm:col-span-2">
+        <input name="cost" inputMode="decimal" defaultValue={dec(chip?.cost)} placeholder="0,00" className={inputCls} />
+      </Field>
+      <Field label="Moeda" className="sm:col-span-2">
+        <select name="currency" defaultValue={chip?.currency ?? trip.baseCurrency} className={inputCls}>
+          {CURRENCIES.map((c) => (
+            <option key={c}>{c}</option>
+          ))}
+        </select>
+      </Field>
+      <AttachmentField
+        label="Recibo (PDF ou imagem)"
+        name="receipt"
+        removeName="removeReceipt"
+        current={attachment?.name}
+        href={attachment?.href}
+        className="sm:col-span-6"
+      />
+      <Field label="Data início" className="sm:col-span-2">
+        <input name="startDate" type="date" defaultValue={chip?.startDate ?? ""} className={inputCls} />
+      </Field>
+      <Field label="Data término" className="sm:col-span-2">
+        <input name="endDate" type="date" defaultValue={chip?.endDate ?? ""} className={inputCls} />
+      </Field>
+      <Field label="Tipo" className="sm:col-span-2">
+        <select name="type" defaultValue={chip?.type ?? "CHIP"} className={inputCls}>
+          <option value="CHIP">Chip</option>
+          <option value="ESIM">eSIM</option>
+        </select>
+      </Field>
+      <Field label="EID (32 dígitos)" className="sm:col-span-3">
+        <input name="eid" defaultValue={chip?.eid ?? ""} inputMode="numeric" maxLength={32} className={inputCls} />
+      </Field>
+      <Field label="IMEI2 (15 dígitos)" className="sm:col-span-3">
+        <input name="imei2" defaultValue={chip?.imei2 ?? ""} inputMode="numeric" maxLength={15} className={inputCls} />
+      </Field>
+    </fieldset>
   );
 }
 
