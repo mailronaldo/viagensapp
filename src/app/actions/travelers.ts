@@ -112,6 +112,23 @@ export async function updateTravelerAction(travelerId: string, formData: FormDat
   redirect("/travelers");
 }
 
+/** Mesma coisa que `updateTravelerAction`, mas volta pro hub do viajante dentro da viagem. */
+export async function updateTravelerFromTripAction(tripId: string, travelerId: string, formData: FormData) {
+  const user = await requireClient();
+  const back = `/trips/${tripId}/travelers/${travelerId}`;
+  const current = await ownTraveler(user.id, travelerId);
+  if (!current) redirect(back);
+  const r = readTraveler(formData);
+  if (r.error) redirect(`${back}?error=${encodeURIComponent(r.error)}`);
+  const data = { ...r.data! };
+  if (current.userId) {
+    data.email = current.email;
+    await db.update(t.users).set({ name: data.name }).where(eq(t.users.id, current.userId));
+  }
+  await db.update(t.travelers).set(data).where(eq(t.travelers.id, travelerId));
+  redirect(`${back}?saved=cadastro`);
+}
+
 export async function deleteTravelerAction(travelerId: string) {
   const user = await requireClient();
   const tr = await ownTraveler(user.id, travelerId);
@@ -254,4 +271,17 @@ export async function setTravelerAccessActiveAction(travelerId: string, active: 
       .where(and(eq(t.users.id, tr.userId), eq(t.users.role, "TRAVELER")));
   }
   redirect(`/travelers/${travelerId}`);
+}
+
+/** Mesma coisa que `setTravelerAccessActiveAction`, mas volta pro hub do viajante dentro da viagem. */
+export async function setTravelerAccessActiveFromTripAction(tripId: string, travelerId: string, active: boolean) {
+  const client = await requireClient();
+  const tr = await ownTraveler(client.id, travelerId);
+  if (tr?.userId) {
+    await db
+      .update(t.users)
+      .set({ active })
+      .where(and(eq(t.users.id, tr.userId), eq(t.users.role, "TRAVELER")));
+  }
+  redirect(`/trips/${tripId}/travelers/${travelerId}`);
 }

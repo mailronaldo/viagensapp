@@ -463,6 +463,81 @@ export const itineraryItemRegions = pgTable(
   (t) => [index("itinerary_item_regions_item_idx").on(t.itemId)],
 );
 
+// ---------- Ingressos (1 atividade → N ingressos, 1 por viajante) ----------
+
+// `travelerId` nulo = ingresso do próprio cliente (dono da viagem), mesma
+// convenção de `chips`. `tripId` duplicado (já dá pra chegar nele via
+// itemId → itineraryItems → tripId) evita um join extra pra listar os
+// ingressos de um viajante na viagem toda, no hub do viajante.
+export const activityTickets = pgTable(
+  "activity_tickets",
+  {
+    id: id(),
+    itemId: text("item_id")
+      .notNull()
+      .references(() => itineraryItems.id, { onDelete: "cascade" }),
+    tripId: text("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    travelerId: text("traveler_id").references(() => travelers.id, { onDelete: "cascade" }),
+    provider: text("provider"),
+    ticketNumber: text("ticket_number"),
+    price: numeric("price", { precision: 12, scale: 2 }),
+    currency: text("currency"),
+    voucherDocumentId: text("voucher_document_id").references(() => documents.id, { onDelete: "set null" }),
+    details: text("details"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("activity_tickets_item_traveler_unique").on(t.itemId, t.travelerId).where(sql`${t.travelerId} IS NOT NULL`),
+    uniqueIndex("activity_tickets_item_owner_unique").on(t.itemId).where(sql`${t.travelerId} IS NULL`),
+    index("activity_tickets_trip_traveler_idx").on(t.tripId, t.travelerId),
+  ],
+);
+
+// ---------- Passes (estoque de usos, tipo Go City / passe explorer) ----------
+
+// Cadastrado uma vez por viajante na viagem (igual chips), com um limite de
+// usos (`maxUses`) gasto ao longo de várias atividades via `activityPassUsages`.
+// `firstUsedAt` grava a data da atividade em que foi usado a primeira vez —
+// informativo por ora (não trava nada por validade, só por limite de usos).
+export const passes = pgTable(
+  "passes",
+  {
+    id: id(),
+    tripId: text("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    travelerId: text("traveler_id").references(() => travelers.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    provider: text("provider"),
+    validityDays: integer("validity_days"),
+    maxUses: integer("max_uses"),
+    price: numeric("price", { precision: 12, scale: 2 }),
+    currency: text("currency"),
+    passNumber: text("pass_number"),
+    firstUsedAt: date("first_used_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("passes_trip_traveler_idx").on(t.tripId, t.travelerId)],
+);
+
+/** Um uso do passe numa atividade — soma pro limite `passes.maxUses`. */
+export const activityPassUsages = pgTable(
+  "activity_pass_usages",
+  {
+    id: id(),
+    itemId: text("item_id")
+      .notNull()
+      .references(() => itineraryItems.id, { onDelete: "cascade" }),
+    passId: text("pass_id")
+      .notNull()
+      .references(() => passes.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("activity_pass_usages_unique").on(t.itemId, t.passId)],
+);
+
 // ---------- Central de custos ----------
 
 export const expenses = pgTable(

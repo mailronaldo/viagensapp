@@ -3,15 +3,25 @@ import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
+import { formatDate, formatMoney } from "@/lib/format";
+import { getLoginUrl } from "@/lib/origin";
+import { listTravelerPasses } from "@/services/passes";
+import { listTravelerTickets } from "@/services/tickets";
 import { deleteChipAction, upsertChipAction } from "@/app/actions/chips";
-import { ChipFields } from "@/components/TripFields";
+import {
+  setTravelerAccessActiveFromTripAction,
+  updateTravelerFromTripAction,
+} from "@/app/actions/travelers";
+import { addPassAction, deletePassAction } from "@/app/actions/passes";
+import { ChipFields, PassFields } from "@/components/TripFields";
+import { TravelerAccessForm } from "@/components/TravelerAccess";
 import { SavedModal } from "@/components/SavedModal";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
-import { Card, ErrorBanner, btnGhost, btnPrimary } from "@/components/ui";
+import { AddPanel, Card, EmptyState, ErrorBanner, Field, btnGhost, btnPrimary, inputCls } from "@/components/ui";
 
-export const metadata = { title: "Internet / Telefonia do viajante" };
+export const metadata = { title: "Viajante" };
 
-export default async function TravelerChipPage({
+export default async function TravelerHubPage({
   params,
   searchParams,
 }: {
@@ -31,11 +41,14 @@ export default async function TravelerChipPage({
   if (!linked) notFound();
   const { traveler } = linked;
 
-  const [chip] = await db
-    .select()
-    .from(t.chips)
-    .where(and(eq(t.chips.tripId, trip.id), eq(t.chips.travelerId, travelerId)))
-    .limit(1);
+  const [chip, [login], tickets, passes] = await Promise.all([
+    db.select().from(t.chips).where(and(eq(t.chips.tripId, trip.id), eq(t.chips.travelerId, travelerId))).limit(1).then(([c]) => c),
+    traveler.userId
+      ? db.select({ active: t.users.active, mustChangePassword: t.users.mustChangePassword }).from(t.users).where(eq(t.users.id, traveler.userId)).limit(1)
+      : Promise.resolve([null]),
+    listTravelerTickets(trip.id, travelerId),
+    listTravelerPasses(trip.id, travelerId),
+  ]);
   const attachment = chip?.receiptDocumentId
     ? await db
         .select({ fileName: t.documents.fileName })
@@ -44,57 +57,172 @@ export default async function TravelerChipPage({
         .limit(1)
         .then(([doc]) => (doc ? { name: doc.fileName, href: `/api/files/${trip.id}/${chip.receiptDocumentId}` } : null))
     : null;
+  const loginUrl = await getLoginUrl();
+  const canEditCadastro = role === "OWNER";
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-5xl">
       <Link href={`/trips/${trip.id}/travelers`} className="text-xs text-slate-500 hover:underline">
         ← Viajantes
       </Link>
-      <h1 className="mb-4 mt-2 text-xl font-semibold">
-        Internet / Telefonia — {traveler.name}
-      </h1>
       {saved === "1" && (
-        <SavedModal
-          key={saved}
-          show
-          title="Chip salvo ✓"
-          body="As informações de internet / telefonia foram salvas."
-          cleanUrl={`/trips/${trip.id}/travelers/${travelerId}`}
-        />
+        <SavedModal key={saved} show title="Chip salvo ✓" body="As informações de internet / telefonia foram salvas." cleanUrl={`/trips/${trip.id}/travelers/${travelerId}`} />
       )}
-      {role === "OWNER" && (
-        <p className="mb-4 text-xs text-slate-500">
-          <Link href={`/travelers/${travelerId}`} className="text-brand-700 hover:underline">
-            Editar cadastro e acesso deste viajante
-          </Link>
-        </p>
+      {saved === "cadastro" && (
+        <SavedModal key={saved} show title="Cadastro salvo ✓" body="Os dados do viajante foram atualizados." cleanUrl={`/trips/${trip.id}/travelers/${travelerId}`} />
       )}
-      <Card>
-        {chip && (
-          <div className="mb-3 flex items-center justify-end">
-            <ConfirmDeleteButton
-              label="Remover chip"
-              confirmTitle="Remover este chip?"
-              confirmDescription="Isso remove o registro de internet / telefonia deste viajante nesta viagem."
-              deleteAction={deleteChipAction.bind(null, trip.id, travelerId)}
-            />
-          </div>
-        )}
-        <ErrorBanner message={error} />
-        {canWrite ? (
-          <form action={upsertChipAction.bind(null, trip.id, travelerId)} className="grid gap-3 sm:grid-cols-6">
-            <ChipFields trip={trip} chip={chip} attachment={attachment} />
-            <div className="flex gap-2 sm:col-span-6">
-              <button className={btnPrimary}>Salvar</button>
-              <Link href={`/trips/${trip.id}/travelers`} className={btnGhost}>
-                Cancelar
-              </Link>
-            </div>
-          </form>
-        ) : (
-          <p className="text-sm text-slate-500">Você não tem permissão para editar esta viagem.</p>
-        )}
-      </Card>
+      <ErrorBanner message={error} />
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <Card>
+            <h2 className="mb-3 text-lg font-medium">{traveler.name}</h2>
+            {canEditCadastro ? (
+              <form action={updateTravelerFromTripAction.bind(null, trip.id, travelerId)} className="grid gap-3 sm:grid-cols-6">
+                <Field label="Nome completo" className="sm:col-span-4">
+                  <input name="name" required defaultValue={traveler.name} className={inputCls} />
+                </Field>
+                <Field label="Nascimento" className="sm:col-span-2">
+                  <input name="birthDate" type="date" defaultValue={traveler.birthDate ?? ""} className={inputCls} />
+                </Field>
+                <Field label="E-mail" className="sm:col-span-3">
+                  <input name="email" type="email" defaultValue={traveler.email ?? ""} readOnly={!!traveler.userId} className={inputCls} />
+                </Field>
+                <Field label="Telefone / WhatsApp" className="sm:col-span-3">
+                  <input name="phone" inputMode="tel" defaultValue={traveler.phone ?? ""} className={inputCls} />
+                </Field>
+                <Field label="Documento (passaporte, RG ou CPF)" className="sm:col-span-6">
+                  <input name="documentNumber" defaultValue={traveler.documentNumber ?? ""} className={inputCls} />
+                </Field>
+                <Field label="Observações" className="sm:col-span-6">
+                  <textarea name="notes" rows={3} defaultValue={traveler.notes ?? ""} className={inputCls} />
+                </Field>
+                <div className="sm:col-span-6">
+                  <button className={btnPrimary}>Salvar cadastro</button>
+                </div>
+              </form>
+            ) : (
+              <p className="text-sm text-slate-600">
+                {[traveler.email, traveler.phone, traveler.birthDate ? `nasc. ${formatDate(traveler.birthDate)}` : null]
+                  .filter(Boolean)
+                  .join(" · ") || "Sem contato cadastrado"}
+              </p>
+            )}
+          </Card>
+        </div>
+
+        <div className="space-y-4">
+          <AddPanel title="Internet / chip" defaultOpen>
+
+            {chip && (
+              <div className="mb-3 flex items-center justify-end">
+                <ConfirmDeleteButton
+                  label="Remover chip"
+                  confirmTitle="Remover este chip?"
+                  confirmDescription="Isso remove o registro de internet / telefonia deste viajante nesta viagem."
+                  deleteAction={deleteChipAction.bind(null, trip.id, travelerId)}
+                  size="sm"
+                />
+              </div>
+            )}
+            {canWrite ? (
+              <form action={upsertChipAction.bind(null, trip.id, travelerId)} className="grid gap-3 sm:grid-cols-6">
+                <ChipFields trip={trip} chip={chip} attachment={attachment} />
+                <div className="sm:col-span-6">
+                  <button className={btnPrimary}>Salvar</button>
+                </div>
+              </form>
+            ) : (
+              <p className="text-sm text-slate-500">Você não tem permissão para editar esta viagem.</p>
+            )}
+          </AddPanel>
+
+          <AddPanel title={`Ingressos${tickets.length > 0 ? ` (${tickets.length})` : ""}`}>
+            {tickets.length === 0 ? (
+              <EmptyState>Nenhum ingresso cadastrado ainda nesta viagem.</EmptyState>
+            ) : (
+              <ul className="space-y-2 text-sm">
+                {tickets.map((row) => (
+                  <li key={row.ticket.id}>
+                    <Link href={`/trips/${trip.id}/itinerary/items/${row.ticket.itemId}`} className="block rounded-lg border border-slate-200 p-3 hover:border-brand-600">
+                      <p className="font-medium">{row.itemTitle}</p>
+                      <p className="text-xs text-slate-500">
+                        {formatDate(row.itemDate)}
+                        {row.ticket.provider ? ` · ${row.ticket.provider}` : ""}
+                        {row.ticket.price ? ` · ${formatMoney(row.ticket.price, row.ticket.currency ?? "BRL")}` : ""}
+                      </p>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </AddPanel>
+
+          <AddPanel title={`Passes${passes.length > 0 ? ` (${passes.length})` : ""}`}>
+            {passes.length > 0 && (
+              <ul className="mb-4 space-y-2 text-sm">
+                {passes.map((p) => (
+                  <li key={p.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 p-3">
+                    <div className="min-w-0">
+                      <p className="font-medium">{p.name}</p>
+                      <p className="text-xs text-slate-500">
+                        {[p.provider, `uso ${p.usedCount} de ${p.maxUses ?? "∞"}`, p.firstUsedAt ? `1º uso ${formatDate(p.firstUsedAt)}` : null]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                    </div>
+                    {canWrite && p.usedCount === 0 && (
+                      <ConfirmDeleteButton
+                        label="Excluir"
+                        confirmTitle="Excluir este passe?"
+                        confirmDescription="Isso remove o passe deste viajante."
+                        deleteAction={deletePassAction.bind(null, trip.id, travelerId, p.id)}
+                        size="sm"
+                      />
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {canWrite && (
+              <form action={addPassAction.bind(null, trip.id, travelerId)} className="grid gap-3 sm:grid-cols-6">
+                <PassFields trip={trip} />
+                <div className="sm:col-span-6">
+                  <button className={btnPrimary}>Cadastrar passe</button>
+                </div>
+              </form>
+            )}
+          </AddPanel>
+
+          {role === "OWNER" && (
+            <AddPanel title="Gestor de acesso" defaultOpen>
+
+              <p className="mb-3 text-sm text-slate-600">
+                Com o acesso, {traveler.name.split(" ")[0]} entra com o e-mail do cadastro e vê, somente para
+                leitura, o roteiro, as agendas, transportes, hospedagens e os documentos liberados para ele nas
+                viagens em que estiver no grupo.
+              </p>
+              {traveler.userId ? (
+                <p className="mb-3 text-sm">
+                  Status:{" "}
+                  <strong className={login?.active ? "text-emerald-700" : "text-rose-700"}>
+                    {login?.active ? "ativo" : "desativado"}
+                  </strong>
+                  {login?.mustChangePassword ? " · ainda não trocou a senha temporária" : ""}
+                </p>
+              ) : !traveler.email ? (
+                <p className="mb-3 text-sm text-amber-700">Cadastre o e-mail do viajante acima e salve para poder gerar o acesso.</p>
+              ) : null}
+              {traveler.email && <TravelerAccessForm travelerId={traveler.id} hasAccess={!!traveler.userId} loginUrl={loginUrl} />}
+              {traveler.userId && (
+                <form action={setTravelerAccessActiveFromTripAction.bind(null, trip.id, travelerId, !login?.active)} className="mt-3">
+                  <button className={btnGhost}>{login?.active ? "Desativar acesso" : "Reativar acesso"}</button>
+                </form>
+              )}
+            </AddPanel>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

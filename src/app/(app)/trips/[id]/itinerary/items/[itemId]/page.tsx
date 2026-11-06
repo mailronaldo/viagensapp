@@ -3,9 +3,13 @@ import { notFound, redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
+import { formatMoney } from "@/lib/format";
 import { getTripCities } from "@/services/cities";
 import { getActivityPoints, getActivityRegions } from "@/services/activity-points";
 import { listActivityTypes } from "@/services/catalogs";
+import { getActivityTickets } from "@/services/tickets";
+import { getItemPassUsages, listAvailablePassesForItem } from "@/services/passes";
+import { listTripTravelerOptions } from "@/services/trip-travelers";
 import { deleteItemAction, removeReservationAction, updateItemAction } from "@/app/actions/items";
 import {
   addActivityPointAction,
@@ -13,12 +17,14 @@ import {
   deleteActivityPointAction,
   deleteActivityRegionAction,
 } from "@/app/actions/activity-points";
-import { ItemMainFields, ReservationFields } from "@/components/TripFields";
+import { addTicketAction, deleteTicketAction } from "@/app/actions/tickets";
+import { removeItemPassUsageAction, useItemPassAction } from "@/app/actions/passes";
+import { ItemMainFields, ReservationFields, TicketFields } from "@/components/TripFields";
 import { ActivityPointCard } from "@/components/ActivityPointCard";
 import { ActivityRegionCard } from "@/components/ActivityRegionCard";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
 import { SavedModal } from "@/components/SavedModal";
-import { AddPanel, Card, ErrorBanner, btnGhost, btnPrimary } from "@/components/ui";
+import { AddPanel, Card, EmptyState, ErrorBanner, btnGhost, btnPrimary } from "@/components/ui";
 
 export const metadata = { title: "Editar atividade" };
 
@@ -43,7 +49,7 @@ export default async function EditItemPage({
     .limit(1);
   if (!item) notFound();
 
-  const [cities, activityTypes, doc, resDoc, pois, tips, regions] = await Promise.all([
+  const [cities, activityTypes, doc, resDoc, pois, tips, regions, travelerOptions, [owner]] = await Promise.all([
     getTripCities(trip.id),
     listActivityTypes(),
     item.ticketDocumentId
@@ -55,6 +61,13 @@ export default async function EditItemPage({
     getActivityPoints(itemId, "POI"),
     getActivityPoints(itemId, "TIP"),
     getActivityRegions(itemId),
+    listTripTravelerOptions(trip),
+    db.select({ name: t.users.name }).from(t.users).where(eq(t.users.id, trip.ownerId)).limit(1),
+  ]);
+  const [tickets, availablePasses, passUsages] = await Promise.all([
+    getActivityTickets(itemId, owner?.name ?? "Dono"),
+    listAvailablePassesForItem(trip.id, itemId),
+    getItemPassUsages(itemId),
   ]);
   const attachment = doc[0]
     ? { name: doc[0].fileName, href: `/api/files/${trip.id}/${item.ticketDocumentId}` }
@@ -62,6 +75,8 @@ export default async function EditItemPage({
   const reservationAttachment = resDoc[0]
     ? { name: resDoc[0].fileName, href: `/api/files/${trip.id}/${item.reservationDocumentId}` }
     : null;
+  const ticketedTravelerIds = new Set(tickets.map((ti) => ti.travelerId));
+  const travelersWithoutTicket = travelerOptions.filter((tr) => !ticketedTravelerIds.has(tr.id));
   const back = `/trips/${trip.id}/itinerary/day/${item.date}`;
   const hasReservation = !!(
     item.reservationProvider ||
@@ -131,6 +146,92 @@ export default async function EditItemPage({
                   Salvar reserva
                 </button>
               </div>
+            </AddPanel>
+          </div>
+
+          <div className="mt-6">
+            <AddPanel title={`Ingressos${tickets.length > 0 ? ` (${tickets.length})` : ""}`} defaultOpen={false}>
+              {tickets.length > 0 && (
+                <ul className="mb-4 space-y-2">
+                  {tickets.map((ti) => (
+                    <li key={ti.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 p-3 text-sm">
+                      <div className="min-w-0">
+                        <p className="font-medium">{ti.travelerName}</p>
+                        <p className="text-xs text-slate-500">
+                          {[ti.provider, ti.ticketNumber && `nº ${ti.ticketNumber}`, ti.price ? formatMoney(ti.price, ti.currency ?? "BRL") : null]
+                            .filter(Boolean)
+                            .join(" · ") || "Sem detalhes"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {ti.voucherDocumentId && (
+                          <a href={`/api/files/${trip.id}/${ti.voucherDocumentId}`} target="_blank" rel="noreferrer" className="text-xs text-brand-700 hover:underline">
+                            📎 voucher
+                          </a>
+                        )}
+                        <ConfirmDeleteButton
+                          label="Excluir"
+                          confirmTitle="Excluir este ingresso?"
+                          confirmDescription="Isso remove o ingresso deste viajante nesta atividade."
+                          deleteAction={deleteTicketAction.bind(null, trip.id, itemId, ti.id)}
+                          size="sm"
+                        />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {travelersWithoutTicket.length === 0 ? (
+                <EmptyState>Todos os viajantes do grupo já têm ingresso nesta atividade.</EmptyState>
+              ) : (
+                <form action={addTicketAction.bind(null, trip.id, itemId)} className="grid gap-3 sm:grid-cols-6">
+                  <TicketFields trip={trip} travelers={travelersWithoutTicket} />
+                  <div className="sm:col-span-6">
+                    <button className={btnPrimary}>Adicionar ingresso</button>
+                  </div>
+                </form>
+              )}
+            </AddPanel>
+          </div>
+
+          <div className="mt-6">
+            <AddPanel title={`Passe${passUsages.length > 0 ? ` (${passUsages.length})` : ""}`} defaultOpen={false}>
+              {passUsages.length > 0 && (
+                <ul className="mb-4 space-y-2">
+                  {passUsages.map((u) => (
+                    <li key={u.usage.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 p-3 text-sm">
+                      <div className="min-w-0">
+                        <p className="font-medium">{u.pass.name}</p>
+                        <p className="text-xs text-slate-500">
+                          {u.travelerName ?? "Dono da viagem"} · uso {u.usedCount} de {u.pass.maxUses ?? "∞"}
+                        </p>
+                      </div>
+                      <ConfirmDeleteButton
+                        label="Remover uso"
+                        confirmTitle="Remover este uso do passe?"
+                        confirmDescription="O passe volta a ter essa vaga disponível."
+                        deleteAction={removeItemPassUsageAction.bind(null, trip.id, itemId, u.usage.id)}
+                        size="sm"
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {availablePasses.length === 0 ? (
+                <EmptyState>Nenhum passe disponível. Cadastre um na página do viajante.</EmptyState>
+              ) : (
+                <form action={useItemPassAction.bind(null, trip.id, itemId)} className="flex flex-wrap items-end gap-3">
+                  <select name="passId" required className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-ring/15">
+                    <option value="">Selecione…</option>
+                    {availablePasses.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} — {p.travelerName ?? "dono da viagem"} ({p.usedCount}/{p.maxUses ?? "∞"})
+                      </option>
+                    ))}
+                  </select>
+                  <button className={btnPrimary}>Usar passe nesta atividade</button>
+                </form>
+              )}
             </AddPanel>
           </div>
         </div>

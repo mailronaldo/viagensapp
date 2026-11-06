@@ -1,6 +1,6 @@
 import type { Booking, Chip, Expense, ItineraryItem, Lodging } from "@/db/schema";
 import { CURRENCIES } from "@/lib/labels";
-import { Field, inputCls } from "@/components/ui";
+import { AddPanel, Field, inputCls } from "@/components/ui";
 
 /** "1234.50" → "1234,50" (formato do campo, aceito por parseDecimal). */
 const dec = (v: string | null | undefined) => (v ? v.replace(".", ",") : "");
@@ -206,14 +206,11 @@ export function ItemFields({
   return (
     <>
       <ItemMainFields trip={trip} cities={cities} types={types} item={item} defaultDate={defaultDate} attachment={attachment} />
-      <fieldset id="reserva" className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:col-span-6 sm:grid-cols-6">
-        <legend className="px-1 text-xs font-medium text-slate-600">
-          Reserva desta atividade (opcional — preencha se já reservou)
-        </legend>
-        <div className="sm:col-span-6">
+      <div id="reserva" className="sm:col-span-6">
+        <AddPanel title="Reserva desta atividade (opcional — preencha se já reservou)" defaultOpen={false}>
           <ReservationFields trip={trip} item={item} reservationAttachment={reservationAttachment} />
-        </div>
-      </fieldset>
+        </AddPanel>
+      </div>
     </>
   );
 }
@@ -542,6 +539,81 @@ export function ExpenseFields({
         href={attachment?.href}
         className="sm:col-span-3"
       />
+    </>
+  );
+}
+
+export function TicketFields({
+  trip,
+  travelers,
+}: {
+  trip: { baseCurrency: string };
+  travelers: { id: string | null; name: string }[];
+}) {
+  return (
+    <>
+      <Field label="Viajante" className="sm:col-span-6">
+        <select name="travelerId" required className={inputCls}>
+          <option value="">Selecione…</option>
+          {travelers.map((tr) => (
+            <option key={tr.id ?? "owner"} value={tr.id ?? "owner"}>
+              {tr.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Fornecedor" className="sm:col-span-3">
+        <input name="provider" className={inputCls} />
+      </Field>
+      <Field label="Número do ticket" className="sm:col-span-3">
+        <input name="ticketNumber" className={inputCls} />
+      </Field>
+      <Field label="Valor" className="sm:col-span-2">
+        <input name="price" inputMode="decimal" placeholder="0,00" className={inputCls} />
+      </Field>
+      <Field label="Moeda" className="sm:col-span-1">
+        <select name="currency" defaultValue={trip.baseCurrency} className={inputCls}>
+          {CURRENCIES.map((c) => (
+            <option key={c}>{c}</option>
+          ))}
+        </select>
+      </Field>
+      <AttachmentField label="Voucher (PDF ou imagem)" name="voucher" removeName="removeVoucher" className="sm:col-span-3" />
+      <Field label="Detalhes" className="sm:col-span-6">
+        <textarea name="details" rows={2} className={inputCls} />
+      </Field>
+    </>
+  );
+}
+
+export function PassFields({ trip }: { trip: { baseCurrency: string } }) {
+  return (
+    <>
+      <Field label="Nome do passe" className="sm:col-span-4">
+        <input name="name" required placeholder="Ex.: New York Explorer Pass" className={inputCls} />
+      </Field>
+      <Field label="Fornecedor" className="sm:col-span-2">
+        <input name="provider" className={inputCls} />
+      </Field>
+      <Field label="Validade em dias" hint="A partir do primeiro uso." className="sm:col-span-2">
+        <input name="validityDays" inputMode="numeric" className={inputCls} />
+      </Field>
+      <Field label="Número de atrações" hint="Máximo de entradas permitidas." className="sm:col-span-2">
+        <input name="maxUses" inputMode="numeric" className={inputCls} />
+      </Field>
+      <Field label="Número do passe" className="sm:col-span-2">
+        <input name="passNumber" className={inputCls} />
+      </Field>
+      <Field label="Valor" className="sm:col-span-2">
+        <input name="price" inputMode="decimal" placeholder="0,00" className={inputCls} />
+      </Field>
+      <Field label="Moeda" className="sm:col-span-2">
+        <select name="currency" defaultValue={trip.baseCurrency} className={inputCls}>
+          {CURRENCIES.map((c) => (
+            <option key={c}>{c}</option>
+          ))}
+        </select>
+      </Field>
     </>
   );
 }
