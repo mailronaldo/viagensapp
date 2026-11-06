@@ -9,7 +9,7 @@ import { getNavLinks, type NavRole } from "./nav-links";
 
 export function MobileNav({ role }: { role: NavRole }) {
   const [open, setOpen] = useState(false);
-  const links = getNavLinks(role);
+  const items = getNavLinks(role);
 
   return (
     <>
@@ -20,17 +20,41 @@ export function MobileNav({ role }: { role: NavRole }) {
         <SheetContent side="left" className="w-64 p-0">
           <SheetTitle className="sr-only">Menu</SheetTitle>
           <nav className="flex flex-col gap-1 p-3">
-            {links.map((link) => {
-              const Icon = link.icon;
+            {items.map((item) => {
+              const Icon = item.icon;
+              if (item.kind === "group") {
+                return (
+                  <div key={item.label} className="mt-2 first:mt-0">
+                    <p className="flex items-center gap-2.5 px-3 py-1 text-xs font-medium text-muted-foreground">
+                      <Icon className="size-4" />
+                      {item.label}
+                    </p>
+                    {item.children.map((child) => {
+                      const ChildIcon = child.icon;
+                      return (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          onClick={() => setOpen(false)}
+                          className="flex items-center gap-2.5 rounded-lg py-2 pl-8 pr-3 text-sm font-medium text-foreground hover:bg-brand-50 hover:text-brand-800"
+                        >
+                          <ChildIcon className="size-4" />
+                          {child.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                );
+              }
               return (
                 <Link
-                  key={link.href}
-                  href={link.href}
+                  key={item.href}
+                  href={item.href}
                   onClick={() => setOpen(false)}
                   className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-brand-50 hover:text-brand-800"
                 >
                   <Icon className="size-4" />
-                  {link.label}
+                  {item.label}
                 </Link>
               );
             })}

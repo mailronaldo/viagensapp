@@ -1,4 +1,4 @@
-import { Briefcase, HandCoins, LifeBuoy, Settings2, Users } from "lucide-react";
+import { Briefcase, FolderCog, HandCoins, LifeBuoy, MapPin, Settings2, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 // Ícones do lucide-react são componentes React: não dá pra passar por props de
@@ -8,24 +8,38 @@ import type { LucideIcon } from "lucide-react";
 export type NavRole = "agency" | "client" | "traveler";
 
 export type NavLink = { href: string; label: string; icon: LucideIcon };
+export type NavItem =
+  | ({ kind: "link" } & NavLink)
+  | { kind: "group"; label: string; icon: LucideIcon; children: NavLink[] };
 
-const AGENCY_LINKS: NavLink[] = [
-  { href: "/agency", label: "Clientes", icon: Users },
-  { href: "/agency/system", label: "Sistema", icon: Settings2 },
+const AGENCY_LINKS: NavItem[] = [
+  { kind: "link", href: "/agency", label: "Clientes", icon: Users },
+  { kind: "link", href: "/agency/system", label: "Sistema", icon: Settings2 },
 ];
 
 // Menu global do cliente (independe de estar dentro de uma viagem ou não).
+// "Gestores" reúne cadastros do cliente usados em qualquer viagem — hoje
+// cidades (precisa de ao menos uma pra criar uma viagem) e viajantes.
 // Financeiro e Suporte ainda não têm página própria — ficam aqui só pra
 // reservar o lugar; apontam pra uma página "em breve".
-const CLIENT_LINKS: NavLink[] = [
-  { href: "/", label: "Viagens", icon: Briefcase },
-  { href: "/financial", label: "Financeiro", icon: HandCoins },
-  { href: "/support", label: "Suporte ao cliente", icon: LifeBuoy },
+const CLIENT_LINKS: NavItem[] = [
+  { kind: "link", href: "/", label: "Viagens", icon: Briefcase },
+  {
+    kind: "group",
+    label: "Gestores",
+    icon: FolderCog,
+    children: [
+      { href: "/cities", label: "Cidades", icon: MapPin },
+      { href: "/travelers", label: "Viajantes", icon: Users },
+    ],
+  },
+  { kind: "link", href: "/financial", label: "Financeiro", icon: HandCoins },
+  { kind: "link", href: "/support", label: "Suporte ao cliente", icon: LifeBuoy },
 ];
 
-const TRAVELER_LINKS: NavLink[] = [{ href: "/traveler", label: "Minhas viagens", icon: Briefcase }];
+const TRAVELER_LINKS: NavItem[] = [{ kind: "link", href: "/traveler", label: "Minhas viagens", icon: Briefcase }];
 
-export function getNavLinks(role: NavRole): NavLink[] {
+export function getNavLinks(role: NavRole): NavItem[] {
   if (role === "agency") return AGENCY_LINKS;
   if (role === "traveler") return TRAVELER_LINKS;
   return CLIENT_LINKS;
