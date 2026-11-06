@@ -375,8 +375,11 @@ export function BookingFields({
       <Field label="Título" className="sm:col-span-4">
         <input name="title" required defaultValue={booking?.title} placeholder="Ex.: Voo GRU → LIS" className={inputCls} />
       </Field>
-      <Field label="Companhia / fornecedor" className="sm:col-span-6">
+      <Field label="Companhia / fornecedor" className="sm:col-span-3">
         <input name="provider" defaultValue={booking?.provider ?? ""} className={inputCls} />
+      </Field>
+      <Field label="Número do pedido" className="sm:col-span-3">
+        <input name="orderNumber" defaultValue={booking?.orderNumber ?? ""} className={inputCls} />
       </Field>
       <BookingLegFields legLabel="Origem" prefix="origin" cities={cities} booking={booking} />
       <BookingLegFields legLabel="Destino" prefix="destination" cities={cities} booking={booking} />

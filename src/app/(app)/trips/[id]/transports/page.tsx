@@ -103,6 +103,11 @@ export default async function BookingsPage({
                     </p>
                   )}
                   <p className="mt-1 text-xs text-slate-500">
+                    {b.orderNumber && (
+                      <span className="mr-3">
+                        Pedido: <span className="font-mono">{b.orderNumber}</span>
+                      </span>
+                    )}
                     {b.confirmationCode && (
                       <span className="mr-3">
                         Confirmação: <span className="font-mono">{b.confirmationCode}</span>

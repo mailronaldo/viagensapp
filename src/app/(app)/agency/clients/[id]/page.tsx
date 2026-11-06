@@ -6,11 +6,13 @@ import { requireMaster } from "@/lib/auth";
 import { getLoginUrl } from "@/lib/origin";
 import { formatDate } from "@/lib/format";
 import {
+  deleteClientAction,
   setClientActiveAction,
   startImpersonationAction,
   updateClientAction,
 } from "@/app/actions/agency";
 import { ResetPasswordForm } from "@/components/ClientForms";
+import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
 import { Card, EmptyState, ErrorBanner, Field, btnGhost, btnPrimary, inputCls } from "@/components/ui";
 
 export default async function ClientDetailPage({
@@ -130,6 +132,27 @@ export default async function ClientDetailPage({
                   : "O cliente está impedido de entrar até você reativar."}
               </p>
             </div>
+          </Card>
+
+          <Card>
+            <h2 className="mb-3 font-medium">Excluir cliente</h2>
+            {trips.length === 0 ? (
+              <>
+                <ConfirmDeleteButton
+                  label="Excluir cliente"
+                  confirmTitle="Excluir este cliente?"
+                  confirmDescription="Isso remove o cadastro, as cidades e os viajantes dele. Não dá pra desfazer."
+                  deleteAction={deleteClientAction.bind(null, client.id)}
+                />
+                <p className="mt-2 text-xs text-slate-400">
+                  Sem viagens cadastradas, dá pra excluir este cliente.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-slate-500">
+                Só é possível excluir se o cliente não tiver nenhuma viagem cadastrada.
+              </p>
+            )}
           </Card>
         </div>
       </div>

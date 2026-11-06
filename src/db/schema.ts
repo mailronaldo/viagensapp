@@ -319,6 +319,9 @@ export const bookings = pgTable(
       .references(() => bookingTypes.id),
     title: text("title").notNull(),
     provider: text("provider"),
+    // Número do pedido (ex.: da agência/site) — muitas vezes diferente do
+    // código de confirmação do fornecedor.
+    orderNumber: text("order_number"),
     confirmationCode: text("confirmation_code"),
     originAt: timestamp("origin_at", { mode: "string" }),
     destinationAt: timestamp("destination_at", { mode: "string" }),

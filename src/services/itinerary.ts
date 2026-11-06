@@ -19,9 +19,10 @@ export async function getItinerarySummary(trip: {
   endDate: string;
 }): Promise<DaySummary[]> {
   // "Atividades" do resumo conta tudo que aparece na agenda do dia: roteiro,
-  // transportes que partem no dia e hospedagens com check-in/check-out no dia
-  // — senão um dia só com hospedagem ou transporte aparecia "sem atividades".
-  const [plans, itemCounts, bookingCounts, checkInCounts, checkOutCounts] = await Promise.all([
+  // transportes que partem (ou chegam, se for em dia diferente) no dia e
+  // hospedagens com check-in/check-out no dia — senão um dia só com
+  // hospedagem ou transporte aparecia "sem atividades".
+  const [plans, itemCounts, departureCounts, arrivalCounts, checkInCounts, checkOutCounts] = await Promise.all([
     db.select().from(t.tripDays).where(eq(t.tripDays.tripId, trip.id)),
     db
       .select({ date: t.itineraryItems.date, n: sql<number>`count(*)::int` })
@@ -34,6 +35,17 @@ export async function getItinerarySummary(trip: {
       .where(and(eq(t.bookings.tripId, trip.id), isNotNull(t.bookings.originAt)))
       .groupBy(sql`to_char(${t.bookings.originAt}, 'YYYY-MM-DD')`),
     db
+      .select({ date: sql<string>`to_char(${t.bookings.destinationAt}, 'YYYY-MM-DD')`, n: sql<number>`count(*)::int` })
+      .from(t.bookings)
+      .where(
+        and(
+          eq(t.bookings.tripId, trip.id),
+          isNotNull(t.bookings.destinationAt),
+          sql`(${t.bookings.originAt} IS NULL OR to_char(${t.bookings.originAt}, 'YYYY-MM-DD') <> to_char(${t.bookings.destinationAt}, 'YYYY-MM-DD'))`,
+        ),
+      )
+      .groupBy(sql`to_char(${t.bookings.destinationAt}, 'YYYY-MM-DD')`),
+    db
       .select({ date: t.lodgings.checkInDate, n: sql<number>`count(*)::int` })
       .from(t.lodgings)
       .where(and(eq(t.lodgings.tripId, trip.id), isNotNull(t.lodgings.checkInDate)))
@@ -44,7 +56,10 @@ export async function getItinerarySummary(trip: {
       .where(and(eq(t.lodgings.tripId, trip.id), isNotNull(t.lodgings.checkOutDate)))
       .groupBy(t.lodgings.checkOutDate),
   ]);
-  const counts = [...itemCounts, ...bookingCounts, ...checkInCounts, ...checkOutCounts] as { date: string; n: number }[];
+  const counts = [...itemCounts, ...departureCounts, ...arrivalCounts, ...checkInCounts, ...checkOutCounts] as {
+    date: string;
+    n: number;
+  }[];
 
   const links = plans.length
     ? await db

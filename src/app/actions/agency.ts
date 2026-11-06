@@ -1,13 +1,14 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNotNull, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db, t } from "@/db";
 import { getAuth, requireMaster } from "@/lib/auth";
 import { createSession } from "@/lib/session";
 import { generateTempPassword } from "@/lib/password";
+import { fail } from "@/lib/form";
 
 // Todas as ações daqui exigem que quem fez login seja a agência (MASTER).
 
@@ -90,6 +91,37 @@ export async function setClientActiveAction(clientId: string, active: boolean) {
   if (!client) redirect("/agency");
   await db.update(t.users).set({ active }).where(eq(t.users.id, client.id));
   redirect(`/agency/clients/${client.id}`);
+}
+
+export async function deleteClientAction(clientId: string) {
+  await requireMaster();
+  const back = `/agency/clients/${clientId}`;
+  const client = await loadClient(clientId);
+  if (!client) redirect("/agency");
+
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(t.trips)
+    .where(eq(t.trips.ownerId, client.id));
+  if (count > 0) {
+    fail(back, `Esse cliente tem ${count === 1 ? "1 viagem" : `${count} viagens`}. Não dá pra excluir.`);
+  }
+
+  await db.transaction(async (tx) => {
+    // Viajantes do cliente que têm login próprio: a conta de login não é
+    // apagada em cascata (o cascade vai de travelers pra users, não o inverso).
+    const travelerLogins = await tx
+      .select({ userId: t.travelers.userId })
+      .from(t.travelers)
+      .where(and(eq(t.travelers.clientId, client.id), isNotNull(t.travelers.userId)));
+    for (const { userId } of travelerLogins) {
+      if (userId) await tx.delete(t.users).where(and(eq(t.users.id, userId), eq(t.users.role, "TRAVELER")));
+    }
+    // Cidades e viajantes do cliente saem em cascata com o usuário.
+    await tx.delete(t.users).where(eq(t.users.id, client.id));
+  });
+
+  redirect("/agency");
 }
 
 export async function updateClientAction(clientId: string, formData: FormData) {

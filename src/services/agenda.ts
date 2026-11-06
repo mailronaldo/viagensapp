@@ -93,6 +93,28 @@ export async function getAgenda(
       ),
     );
 
+  // Transporte que chega num dia diferente de quando partiu (ex.: voo noturno):
+  // também entra na agenda do dia da chegada, como "Chegada: …".
+  const arrivalRows = await db
+    .select({
+      booking: t.bookings,
+      originCityName: originCity.name,
+      destinationCityName: destinationCity.name,
+    })
+    .from(t.bookings)
+    .leftJoin(originCity, eq(originCity.id, t.bookings.originCityId))
+    .leftJoin(destinationCity, eq(destinationCity.id, t.bookings.destinationCityId))
+    .where(
+      and(
+        eq(t.bookings.tripId, trip.id),
+        gte(t.bookings.destinationAt, dayStart),
+        lte(t.bookings.destinationAt, dayEnd),
+      ),
+    );
+  const arrivals = arrivalRows.filter(
+    ({ booking: b }) => !b.originAt || b.originAt.slice(0, 10) !== b.destinationAt!.slice(0, 10),
+  );
+
   // Hospedagens: check-in e check-out caem no dia como entradas da agenda.
   const lodgingRows = await db
     .select()
@@ -164,6 +186,24 @@ export async function getAgenda(
         title: b.title,
         type: b.type,
         location: origin || destination ? `${origin} → ${destination}` : null,
+        address: null,
+        notes: b.confirmationCode ? `Código: ${b.confirmationCode}` : b.details,
+        cityName: null,
+        hasTicket: !!b.documentId,
+        ticketDocumentId: b.documentId,
+        reservation: null,
+      };
+    }),
+    ...arrivals.map(({ booking: b, originCityName, destinationCityName }) => {
+      const origin = [b.originLocation, originCityName].filter(Boolean).join(" · ");
+      const destination = [b.destinationLocation, destinationCityName].filter(Boolean).join(" · ");
+      return {
+        id: b.id,
+        kind: "booking" as const,
+        time: b.destinationAt ? b.destinationAt.slice(11, 16) : null,
+        title: `Chegada: ${b.title}`,
+        type: b.type,
+        location: destination || origin || null,
         address: null,
         notes: b.confirmationCode ? `Código: ${b.confirmationCode}` : b.details,
         cityName: null,

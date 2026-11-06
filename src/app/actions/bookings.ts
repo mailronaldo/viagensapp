@@ -54,6 +54,7 @@ async function parseBooking(tripId: string, formData: FormData, back: string) {
     type,
     title,
     provider: str(formData, "provider"),
+    orderNumber: str(formData, "orderNumber"),
     confirmationCode: str(formData, "confirmationCode"),
     originAt: origin.at,
     originLocation: origin.location,
