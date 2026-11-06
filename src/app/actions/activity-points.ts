@@ -8,6 +8,8 @@ import { fail, str } from "@/lib/form";
 
 type Kind = "POI" | "TIP";
 
+const TIP_CATEGORIES = ["COMIDA", "ARTE", "CULTURA", "ATRACOES", "LOJAS", "CURIOSIDADES", "OUTROS"];
+
 function itemEditPath(tripId: string, itemId: string) {
   return `/trips/${tripId}/itinerary/items/${itemId}`;
 }
@@ -40,12 +42,16 @@ export async function addActivityPointAction(tripId: string, itemId: string, kin
     .from(t.itineraryItemPoints)
     .where(and(eq(t.itineraryItemPoints.itemId, itemId), eq(t.itineraryItemPoints.kind, kind)));
 
+  const categoryRaw = str(formData, "category");
+  const category = kind === "TIP" && categoryRaw && TIP_CATEGORIES.includes(categoryRaw) ? categoryRaw : null;
+
   await db.insert(t.itineraryItemPoints).values({
     itemId,
     kind,
     name,
     description: str(formData, "description"),
     url: normalizeUrl(str(formData, "url")),
+    category: category as "COMIDA" | "ARTE" | "CULTURA" | "ATRACOES" | "LOJAS" | "CURIOSIDADES" | "OUTROS" | null,
     position: existing.length,
   });
   redirect(back);

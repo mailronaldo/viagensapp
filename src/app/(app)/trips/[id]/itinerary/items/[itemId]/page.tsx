@@ -142,6 +142,7 @@ export default async function EditItemPage({
             items={pois}
             addAction={addActivityPointAction.bind(null, trip.id, itemId, "POI")}
             deleteAction={deleteActivityPointAction.bind(null, trip.id, itemId)}
+            ai={{ kind: "POI", tripId: trip.id, itemId }}
           />
 
           <ActivityPointCard
@@ -150,6 +151,8 @@ export default async function EditItemPage({
             items={tips}
             addAction={addActivityPointAction.bind(null, trip.id, itemId, "TIP")}
             deleteAction={deleteActivityPointAction.bind(null, trip.id, itemId)}
+            showCategory
+            ai={{ kind: "TIP", tripId: trip.id, itemId }}
           />
 
           <ActivityRegionCard

@@ -1,0 +1,2 @@
+CREATE TYPE "public"."tip_category" AS ENUM('COMIDA', 'ARTE', 'CULTURA', 'ATRACOES', 'LOJAS', 'CURIOSIDADES', 'OUTROS');--> statement-breakpoint
+ALTER TABLE "itinerary_item_points" ADD COLUMN "category" "tip_category";

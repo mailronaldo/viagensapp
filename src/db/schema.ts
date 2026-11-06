@@ -420,6 +420,15 @@ export const itineraryItems = pgTable(
 // nas redondezas) e Tips (opções alternativas, pra quando não há reserva/
 // certeza do que fazer). Mesmo formato pros dois — só muda o rótulo na tela.
 export const activityPointKind = pgEnum("activity_point_kind", ["POI", "TIP"]);
+export const tipCategory = pgEnum("tip_category", [
+  "COMIDA",
+  "ARTE",
+  "CULTURA",
+  "ATRACOES",
+  "LOJAS",
+  "CURIOSIDADES",
+  "OUTROS",
+]);
 
 export const itineraryItemPoints = pgTable(
   "itinerary_item_points",
@@ -432,6 +441,8 @@ export const itineraryItemPoints = pgTable(
     name: text("name").notNull(),
     description: text("description"),
     url: text("url"),
+    // Só usado em kind = "TIP".
+    category: tipCategory("category"),
     position: integer("position").notNull().default(0),
     createdAt: createdAt(),
   },

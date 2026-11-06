@@ -1,5 +1,15 @@
 // Rótulos em português para os enums do banco.
 
+export const TIP_CATEGORY_LABEL = {
+  COMIDA: "Comida",
+  ARTE: "Arte",
+  CULTURA: "Cultura",
+  ATRACOES: "Atrações",
+  LOJAS: "Lojas",
+  CURIOSIDADES: "Curiosidades",
+  OUTROS: "Outros",
+} as const;
+
 export const CURRENCIES = ["BRL", "USD", "EUR", "GBP", "ARS", "CLP", "JPY", "CAD", "AUD", "CHF"] as const;
 
 export const TIMEZONES = [
