@@ -1,11 +1,10 @@
-import Link from "next/link";
 import { requireTripAccess } from "@/lib/access";
 import { formatDate } from "@/lib/format";
 import { getTripCountryCodes } from "@/services/cities";
 import { CountryFlag } from "@/components/CountryFlag";
 import { SideNav, SideNavMobileTabs } from "@/components/shell/SideNav";
+import { TripHeaderActions } from "@/components/TripHeaderActions";
 import { Toolbar, ToolbarActions, ToolbarHeading, ToolbarPageTitle } from "@/components/ui/toolbar";
-import { btnOutline } from "@/components/ui";
 
 export default async function TripLayout({
   children,
@@ -41,13 +40,9 @@ export default async function TripLayout({
                 {formatDate(trip.startDate)} → {formatDate(trip.endDate)}
               </p>
             </ToolbarHeading>
-            {role === "OWNER" && (
-              <ToolbarActions>
-                <Link href={`/trips/${trip.id}/edit`} className={btnOutline}>
-                  Editar viagem
-                </Link>
-              </ToolbarActions>
-            )}
+            <ToolbarActions>
+              <TripHeaderActions tripId={trip.id} canEditTrip={role === "OWNER"} />
+            </ToolbarActions>
           </Toolbar>
           {children}
         </div>

@@ -90,7 +90,6 @@ export default async function TripDashboardPage({
                           ? "Sem atividades"
                           : `${d.activityCount} atividade${d.activityCount > 1 ? "s" : ""}`}
                       </p>
-                      <p className="mt-1 text-brand-700">Ver o dia →</p>
                     </div>
                   </Card>
                 </Link>

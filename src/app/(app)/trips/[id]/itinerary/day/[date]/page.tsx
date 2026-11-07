@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
+import { Pencil } from "lucide-react";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { ISO_DATE } from "@/lib/form";
@@ -13,6 +14,7 @@ import { addItemAction, deleteItemAction, removeReservationAction } from "@/app/
 import { saveDayAction } from "@/app/actions/days";
 import { DayStrip } from "@/components/DayStrip";
 import { ItemFields } from "@/components/TripFields";
+import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
 import {
   AddPanel,
   Card,
@@ -191,7 +193,35 @@ export default async function ItineraryDayPage({
                     </a>
                   )}
                 </div>
-                <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:shrink-0 sm:flex-col sm:items-end">
+                <div className="flex w-full flex-col items-end gap-2 sm:w-auto sm:shrink-0">
+                  {canWrite && (
+                    <div className="flex items-center gap-1">
+                      <Link
+                        href={
+                          e.kind === "item"
+                            ? `${base}/items/${e.id}`
+                            : e.kind === "lodging"
+                              ? `/trips/${trip.id}/lodgings/${e.id}`
+                              : `/trips/${trip.id}/transports/${e.id}`
+                        }
+                        aria-label="Editar"
+                        title="Editar"
+                        className="flex size-7 items-center justify-center rounded-full text-brand-700 hover:bg-brand-50"
+                      >
+                        <Pencil className="size-4" />
+                      </Link>
+                      {e.kind === "item" && (
+                        <ConfirmDeleteButton
+                          label="Remover"
+                          confirmTitle="Remover esta atividade?"
+                          confirmDescription="Isso remove a atividade, a reserva, os ingressos, passes, pontos de interesse, tips e região cadastrados nela. Não dá pra desfazer."
+                          deleteAction={deleteItemAction.bind(null, trip.id, e.id, date)}
+                          size="sm"
+                        />
+                      )}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap items-center justify-end gap-2">
                     {e.kind === "booking" && (
                       <Link
                         href={`/trips/${trip.id}/transports/${e.id}`}
@@ -218,27 +248,7 @@ export default async function ItineraryDayPage({
                         {e.reservation ? "reservado" : "sem reserva"}
                       </Link>
                     )}
-                  {canWrite && (
-                  <div className="flex items-center gap-3">
-                    <Link
-                      href={
-                        e.kind === "item"
-                          ? `${base}/items/${e.id}`
-                          : e.kind === "lodging"
-                            ? `/trips/${trip.id}/lodgings/${e.id}`
-                            : `/trips/${trip.id}/transports/${e.id}`
-                      }
-                      className="text-xs text-brand-700 hover:underline"
-                    >
-                      Editar
-                    </Link>
-                    {e.kind === "item" && (
-                      <form action={deleteItemAction.bind(null, trip.id, e.id, date)}>
-                        <button className={btnDanger}>Remover</button>
-                      </form>
-                    )}
                   </div>
-                )}
                 </div>
                 </div>
               </li>
