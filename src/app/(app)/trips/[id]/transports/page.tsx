@@ -1,4 +1,5 @@
 import { asc, eq, inArray, sql } from "drizzle-orm";
+import { Pencil } from "lucide-react";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { formatDateTime, formatMoney } from "@/lib/format";
@@ -7,14 +8,8 @@ import { LEGACY_BOOKING_TYPE_IDS, listBookingTypes, toNameMap } from "@/services
 import Link from "next/link";
 import { BookingFields } from "@/components/TripFields";
 import { addBookingAction, deleteBookingAction } from "@/app/actions/bookings";
-import {
-  AddPanel,
-  Card,
-  EmptyState,
-  ErrorBanner,
-  btnDanger,
-  btnPrimary,
-} from "@/components/ui";
+import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
+import { AddPanel, Card, EmptyState, ErrorBanner, btnPrimary } from "@/components/ui";
 
 const ICON: Record<string, string> = {
   FLIGHT: "✈",
@@ -83,11 +78,30 @@ export default async function BookingsPage({
         <ul className="space-y-3">
           {rows.map(({ booking: b, fileName, originCityName }) => (
             <li key={b.id}>
-              <Card className="flex gap-4">
+              <Card className="relative flex gap-4">
+                {canWrite && (
+                  <div className="absolute right-3 top-3 flex items-center gap-1">
+                    <Link
+                      href={`/trips/${trip.id}/transports/${b.id}`}
+                      aria-label="Editar"
+                      title="Editar"
+                      className="flex size-7 items-center justify-center rounded-full text-brand-700 hover:bg-brand-50"
+                    >
+                      <Pencil className="size-4" />
+                    </Link>
+                    <ConfirmDeleteButton
+                      label="Remover"
+                      confirmTitle="Remover este transporte?"
+                      confirmDescription="Isso remove o transporte e o voucher anexado a ele. Não dá pra desfazer."
+                      deleteAction={deleteBookingAction.bind(null, trip.id, b.id)}
+                      size="sm"
+                    />
+                  </div>
+                )}
                 <span className="text-2xl" aria-hidden>
                   {ICON[b.type] ?? "📌"}
                 </span>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 pr-16">
                   <div className="flex flex-wrap items-baseline gap-x-2">
                     <h3 className="font-medium">{b.title}</h3>
                     <span className="text-xs text-slate-500">{typeName[b.type]}</span>
@@ -129,16 +143,6 @@ export default async function BookingsPage({
                     </a>
                   )}
                 </div>
-                {canWrite && (
-                  <div className="flex shrink-0 items-start gap-3">
-                    <Link href={`/trips/${trip.id}/transports/${b.id}`} className="text-xs text-brand-700 hover:underline">
-                      Editar
-                    </Link>
-                    <form action={deleteBookingAction.bind(null, trip.id, b.id)}>
-                      <button className={btnDanger}>Remover</button>
-                    </form>
-                  </div>
-                )}
               </Card>
             </li>
           ))}

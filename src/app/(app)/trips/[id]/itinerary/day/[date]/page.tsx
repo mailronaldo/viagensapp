@@ -9,21 +9,29 @@ import { addDays, formatDate, formatMoney, formatWeekday } from "@/lib/format";
 import { getAgenda } from "@/services/agenda";
 import { getDayPlan } from "@/services/itinerary";
 import { getTripCities } from "@/services/cities";
-import { LEGACY_ACTIVITY_TYPE_IDS, listActivityTypes, listBookingTypes, listLodgingTypes, toNameMap } from "@/services/catalogs";
+import {
+  LEGACY_ACTIVITY_TYPE_IDS,
+  LEGACY_BOOKING_TYPE_IDS,
+  listActivityTypes,
+  listBookingTypes,
+  listLodgingTypes,
+  listReservationMethods,
+  toNameMap,
+} from "@/services/catalogs";
 import { addItemAction, deleteItemAction, removeReservationAction } from "@/app/actions/items";
-import { saveDayAction } from "@/app/actions/days";
+import { addBookingAction } from "@/app/actions/bookings";
+import { addLodgingAction } from "@/app/actions/lodgings";
 import { DayStrip } from "@/components/DayStrip";
-import { ItemFields } from "@/components/TripFields";
+import { BookingFields, ItemFields, LodgingFields } from "@/components/TripFields";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
+import { EditDaySummaryButton } from "@/components/EditDaySummaryButton";
 import {
   AddPanel,
   Card,
   EmptyState,
   ErrorBanner,
-  Field,
   btnDanger,
   btnPrimary,
-  inputCls,
   tagCls,
 } from "@/components/ui";
 
@@ -39,11 +47,12 @@ export default async function ItineraryDayPage({
   const { trip, canWrite } = await requireTripAccess(id);
   if (!ISO_DATE.test(date) || date < trip.startDate || date > trip.endDate) notFound();
 
-  const [cities, activityTypes, bookingTypes, lodgingTypes, agenda, plan, docs] = await Promise.all([
+  const [cities, activityTypes, bookingTypes, lodgingTypes, reservationMethods, agenda, plan, docs] = await Promise.all([
     getTripCities(trip.id),
     listActivityTypes(),
     listBookingTypes(),
     listLodgingTypes(),
+    listReservationMethods(),
     getAgenda(trip, date),
     getDayPlan(trip.id, date),
     db.select({ id: t.documents.id, fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.tripId, trip.id)),
@@ -82,11 +91,21 @@ export default async function ItineraryDayPage({
 
       <DayStrip basePath={`${base}/day`} startDate={trip.startDate} endDate={trip.endDate} current={date} />
 
-      <Card className="mb-6">
+      <Card className="relative mb-6">
+        {canWrite && (
+          <EditDaySummaryButton
+            tripId={trip.id}
+            date={date}
+            title={plan.title}
+            summary={plan.summary}
+            cities={cities}
+            planCityIds={[...planCityIds]}
+          />
+        )}
         <p className="text-xs font-medium uppercase text-slate-400">
           Dia {dayNumber} · {formatDate(date)}
         </p>
-        <h2 className="text-xl font-semibold">
+        <h2 className="pr-8 text-xl font-semibold">
           <span className="inline-block first-letter:uppercase">{formatWeekday(date)}</span>
           {plan.title ? <span className="font-normal text-slate-500"> — {plan.title}</span> : null}
         </h2>
@@ -100,38 +119,6 @@ export default async function ItineraryDayPage({
           </div>
         )}
         {plan.summary && <p className="mt-2 whitespace-pre-line text-sm text-slate-600">{plan.summary}</p>}
-        {canWrite && (
-          <div className="mt-3">
-            <AddPanel title="Editar resumo do dia">
-              <form action={saveDayAction.bind(null, trip.id, date)} className="grid gap-3">
-                <Field label="Título do dia">
-                  <input name="title" maxLength={120} defaultValue={plan.title ?? ""} placeholder="Ex.: Chegada e Alfama" className={inputCls} />
-                </Field>
-                <Field label="Descrição breve">
-                  <textarea name="summary" rows={3} maxLength={1000} defaultValue={plan.summary ?? ""} className={inputCls} />
-                </Field>
-                <fieldset>
-                  <legend className="mb-1 text-xs font-medium text-slate-600">Cidades neste dia</legend>
-                  {cities.length === 0 ? (
-                    <p className="text-xs text-slate-400">Cadastre as cidades na tela do roteiro resumido.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-x-4 gap-y-1">
-                      {cities.map((c) => (
-                        <label key={c.id} className="inline-flex items-center gap-1.5 text-sm">
-                          <input type="checkbox" name="cityIds" value={c.id} defaultChecked={planCityIds.has(c.id)} />
-                          {c.name}
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </fieldset>
-                <div>
-                  <button className={btnPrimary}>Salvar resumo</button>
-                </div>
-              </form>
-            </AddPanel>
-          </div>
-        )}
       </Card>
 
       <section className="mb-6">
@@ -199,10 +186,10 @@ export default async function ItineraryDayPage({
                       <Link
                         href={
                           e.kind === "item"
-                            ? `${base}/items/${e.id}`
+                            ? `${base}/items/${e.id}?day=${date}`
                             : e.kind === "lodging"
-                              ? `/trips/${trip.id}/lodgings/${e.id}`
-                              : `/trips/${trip.id}/transports/${e.id}`
+                              ? `/trips/${trip.id}/lodgings/${e.id}?day=${date}`
+                              : `/trips/${trip.id}/transports/${e.id}?day=${date}`
                         }
                         aria-label="Editar"
                         title="Editar"
@@ -258,20 +245,47 @@ export default async function ItineraryDayPage({
       </section>
 
       {canWrite && (
-        <AddPanel title="Adicionar atividade" defaultOpen={agenda.entries.length === 0}>
-          <form action={addItemAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-6">
-            <input type="hidden" name="day" value={date} />
-            <ItemFields
-              trip={trip}
-              cities={cities}
-              types={activityTypes.filter((ty) => !LEGACY_ACTIVITY_TYPE_IDS.includes(ty.id))}
-              defaultDate={date}
-            />
-            <div className="sm:col-span-6">
-              <button className={btnPrimary}>Salvar atividade</button>
-            </div>
-          </form>
-        </AddPanel>
+        <div className="space-y-3">
+          <AddPanel title="Adicionar atividade" defaultOpen={agenda.entries.length === 0}>
+            <form action={addItemAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-6">
+              <input type="hidden" name="day" value={date} />
+              <ItemFields
+                trip={trip}
+                cities={cities}
+                types={activityTypes.filter((ty) => !LEGACY_ACTIVITY_TYPE_IDS.includes(ty.id))}
+                defaultDate={date}
+              />
+              <div className="sm:col-span-6">
+                <button className={btnPrimary}>Salvar atividade</button>
+              </div>
+            </form>
+          </AddPanel>
+
+          <AddPanel title="Adicionar transporte">
+            <form action={addBookingAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-6">
+              <input type="hidden" name="day" value={date} />
+              <BookingFields
+                trip={trip}
+                cities={cities}
+                types={bookingTypes.filter((ty) => !LEGACY_BOOKING_TYPE_IDS.includes(ty.id))}
+                defaultDate={date}
+              />
+              <div className="sm:col-span-6">
+                <button className={btnPrimary}>Salvar transporte</button>
+              </div>
+            </form>
+          </AddPanel>
+
+          <AddPanel title="Adicionar hospedagem">
+            <form action={addLodgingAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-6">
+              <input type="hidden" name="day" value={date} />
+              <LodgingFields trip={trip} cities={cities} types={lodgingTypes} methods={reservationMethods} defaultDate={date} />
+              <div className="sm:col-span-6">
+                <button className={btnPrimary}>Salvar hospedagem</button>
+              </div>
+            </form>
+          </AddPanel>
+        </div>
       )}
     </>
   );

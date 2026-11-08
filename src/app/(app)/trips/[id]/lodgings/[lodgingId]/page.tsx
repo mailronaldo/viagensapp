@@ -18,12 +18,13 @@ export default async function EditLodgingPage({
   searchParams,
 }: {
   params: Promise<{ id: string; lodgingId: string }>;
-  searchParams: Promise<{ error?: string; saved?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string; day?: string }>;
 }) {
   const { id, lodgingId } = await params;
-  const { error, saved } = await searchParams;
+  const { error, saved, day } = await searchParams;
   const { trip, canWrite } = await requireTripAccess(id);
   if (!canWrite) redirect(`/trips/${id}/lodgings`);
+  const cancelHref = day ? `/trips/${id}/itinerary/day/${day}` : `/trips/${id}/lodgings`;
 
   const [lodging] = await db
     .select()
@@ -50,7 +51,7 @@ export default async function EditLodgingPage({
           show
           title="Hospedagem salva ✓"
           body="As alterações da hospedagem foram salvas."
-          cleanUrl={`/trips/${trip.id}/lodgings/${lodging.id}`}
+          cleanUrl={`/trips/${trip.id}/lodgings/${lodging.id}${day ? `?day=${day}` : ""}`}
         />
       )}
       <Card>
@@ -65,10 +66,11 @@ export default async function EditLodgingPage({
         </div>
         <ErrorBanner message={error} />
         <form action={updateLodgingAction.bind(null, trip.id, lodging.id)} className="grid gap-3 sm:grid-cols-6">
+          <input type="hidden" name="day" value={day ?? ""} />
           <LodgingFields trip={trip} cities={cities} types={types} methods={methods} lodging={lodging} attachment={attachment} />
           <div className="flex gap-2 sm:col-span-6">
             <button className={btnPrimary}>Salvar alterações</button>
-            <Link href={`/trips/${trip.id}/lodgings`} className={btnGhost}>
+            <Link href={cancelHref} className={btnGhost}>
               Cancelar
             </Link>
           </div>

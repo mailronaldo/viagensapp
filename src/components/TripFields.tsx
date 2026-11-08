@@ -221,6 +221,7 @@ export function LodgingFields({
   types,
   methods,
   lodging,
+  defaultDate,
   attachment,
 }: {
   trip: { baseCurrency: string };
@@ -228,6 +229,7 @@ export function LodgingFields({
   types: { id: string; name: string }[];
   methods: { id: string; name: string }[];
   lodging?: Lodging;
+  defaultDate?: string;
   attachment?: { name: string; href: string } | null;
 }) {
   return (
@@ -268,7 +270,7 @@ export function LodgingFields({
         <input name="confirmationCode" defaultValue={lodging?.confirmationCode ?? ""} className={inputCls} />
       </Field>
       <Field label="Check-in (data)" className="sm:col-span-2">
-        <input name="checkInDate" type="date" defaultValue={lodging?.checkInDate ?? ""} className={inputCls} />
+        <input name="checkInDate" type="date" defaultValue={lodging?.checkInDate ?? defaultDate ?? ""} className={inputCls} />
       </Field>
       <Field label="Check-in (hora)" className="sm:col-span-1">
         <input name="checkInTime" type="time" defaultValue={lodging?.checkInTime ?? ""} className={inputCls} />
@@ -313,11 +315,13 @@ function BookingLegFields({
   prefix,
   cities,
   booking,
+  defaultDateTime,
 }: {
   legLabel: string;
   prefix: "origin" | "destination";
   cities: { id: string; name: string }[];
   booking?: Booking;
+  defaultDateTime?: string;
 }) {
   const at = prefix === "origin" ? booking?.originAt : booking?.destinationAt;
   const loc = prefix === "origin" ? booking?.originLocation : booking?.destinationLocation;
@@ -326,7 +330,7 @@ function BookingLegFields({
     <fieldset className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:col-span-6 sm:grid-cols-6">
       <legend className="px-1 text-xs font-medium text-slate-600">{legLabel}</legend>
       <Field label="Data/hora" className="sm:col-span-2">
-        <input name={`${prefix}At`} type="datetime-local" defaultValue={local(at)} className={inputCls} />
+        <input name={`${prefix}At`} type="datetime-local" defaultValue={local(at) || defaultDateTime || ""} className={inputCls} />
       </Field>
       <Field label="Local" className="sm:col-span-2">
         <input name={`${prefix}Location`} defaultValue={loc ?? ""} className={inputCls} />
@@ -350,12 +354,14 @@ export function BookingFields({
   cities,
   types,
   booking,
+  defaultDate,
   attachment,
 }: {
   trip: { baseCurrency: string };
   cities: { id: string; name: string }[];
   types: { id: string; name: string }[];
   booking?: Booking;
+  defaultDate?: string;
   attachment?: { name: string; href: string } | null;
 }) {
   return (
@@ -378,7 +384,13 @@ export function BookingFields({
       <Field label="Número do pedido" className="sm:col-span-3">
         <input name="orderNumber" defaultValue={booking?.orderNumber ?? ""} className={inputCls} />
       </Field>
-      <BookingLegFields legLabel="Origem" prefix="origin" cities={cities} booking={booking} />
+      <BookingLegFields
+        legLabel="Origem"
+        prefix="origin"
+        cities={cities}
+        booking={booking}
+        defaultDateTime={defaultDate ? `${defaultDate}T09:00` : undefined}
+      />
       <BookingLegFields legLabel="Destino" prefix="destination" cities={cities} booking={booking} />
       <fieldset
         id="reserva"

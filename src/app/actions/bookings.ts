@@ -71,7 +71,8 @@ async function parseBooking(tripId: string, formData: FormData, back: string) {
 
 export async function addBookingAction(tripId: string, formData: FormData) {
   await requireTripAccess(tripId, { write: true });
-  const back = `/trips/${tripId}/transports`;
+  const day = str(formData, "day");
+  const back = day ? `/trips/${tripId}/itinerary/day/${day}` : `/trips/${tripId}/transports`;
   const v = await parseBooking(tripId, formData, back);
 
   const documentId = await attachmentFromForm({
@@ -89,7 +90,9 @@ export async function addBookingAction(tripId: string, formData: FormData) {
 
 export async function updateBookingAction(tripId: string, bookingId: string, formData: FormData) {
   await requireTripAccess(tripId, { write: true });
-  const back = `/trips/${tripId}/transports/${bookingId}`;
+  const day = str(formData, "day");
+  const editUrl = `/trips/${tripId}/transports/${bookingId}`;
+  const back = day ? `${editUrl}?day=${day}` : editUrl;
 
   const [current] = await db
     .select()
@@ -113,7 +116,7 @@ export async function updateBookingAction(tripId: string, bookingId: string, for
     .update(t.bookings)
     .set({ ...v, documentId })
     .where(and(eq(t.bookings.id, bookingId), eq(t.bookings.tripId, tripId)));
-  redirect(`${back}?saved=1`);
+  redirect(day ? `/trips/${tripId}/itinerary/day/${day}` : `${back}?saved=1`);
 }
 
 export async function deleteBookingAction(tripId: string, bookingId: string) {

@@ -184,11 +184,18 @@ export async function getAgenda(
     ...bookings.map(({ booking: b, originCityName, destinationCityName }) => {
       const origin = [b.originLocation, originCityName].filter(Boolean).join(" · ");
       const destination = [b.destinationLocation, destinationCityName].filter(Boolean).join(" · ");
+      // Transfer/trecho dentro do mesmo dia: mostra o horário de chegada como
+      // "fim", igual a uma atividade comum. Quando a chegada cai noutro dia,
+      // ela já aparece separada como "Chegada: …" (ver `arrivals` abaixo).
+      const sameDayArrival =
+        b.originAt && b.destinationAt && b.originAt.slice(0, 10) === b.destinationAt.slice(0, 10)
+          ? b.destinationAt.slice(11, 16)
+          : null;
       return {
         id: b.id,
         kind: "booking" as const,
         time: b.originAt ? b.originAt.slice(11, 16) : null,
-        endTime: null,
+        endTime: sameDayArrival,
         title: b.title,
         type: b.type,
         location: origin || destination ? `${origin} → ${destination}` : null,

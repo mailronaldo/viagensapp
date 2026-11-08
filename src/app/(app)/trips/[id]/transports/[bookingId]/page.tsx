@@ -18,12 +18,13 @@ export default async function EditBookingPage({
   searchParams,
 }: {
   params: Promise<{ id: string; bookingId: string }>;
-  searchParams: Promise<{ error?: string; saved?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string; day?: string }>;
 }) {
   const { id, bookingId } = await params;
-  const { error, saved } = await searchParams;
+  const { error, saved, day } = await searchParams;
   const { trip, canWrite } = await requireTripAccess(id);
   if (!canWrite) redirect(`/trips/${id}/transports`);
+  const cancelHref = day ? `/trips/${id}/itinerary/day/${day}` : `/trips/${id}/transports`;
 
   const [booking] = await db
     .select()
@@ -49,7 +50,7 @@ export default async function EditBookingPage({
           show
           title="Transporte salvo ✓"
           body="As alterações do transporte foram salvas."
-          cleanUrl={`/trips/${trip.id}/transports/${booking.id}`}
+          cleanUrl={`/trips/${trip.id}/transports/${booking.id}${day ? `?day=${day}` : ""}`}
         />
       )}
       <Card>
@@ -64,10 +65,11 @@ export default async function EditBookingPage({
         </div>
         <ErrorBanner message={error} />
         <form action={updateBookingAction.bind(null, trip.id, booking.id)} className="grid gap-3 sm:grid-cols-6">
+          <input type="hidden" name="day" value={day ?? ""} />
           <BookingFields trip={trip} cities={cities} types={types} booking={booking} attachment={attachment} />
           <div className="flex gap-2 sm:col-span-6">
             <button className={btnPrimary}>Salvar alterações</button>
-            <Link href={`/trips/${trip.id}/transports`} className={btnGhost}>
+            <Link href={cancelHref} className={btnGhost}>
               Cancelar
             </Link>
           </div>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { asc, eq, sql } from "drizzle-orm";
+import { Pencil } from "lucide-react";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { formatDate, formatMoney } from "@/lib/format";
@@ -7,7 +8,8 @@ import { getTripCities } from "@/services/cities";
 import { listLodgingTypes, listReservationMethods, toNameMap } from "@/services/catalogs";
 import { addLodgingAction, deleteLodgingAction } from "@/app/actions/lodgings";
 import { LodgingFields } from "@/components/TripFields";
-import { AddPanel, EmptyState, ErrorBanner, Tag, btnDanger, btnOutline, btnPrimary, tagCls } from "@/components/ui";
+import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
+import { AddPanel, EmptyState, ErrorBanner, Tag, btnPrimary, tagCls } from "@/components/ui";
 
 const ICON: Record<string, string> = { HOTEL: "🏨", RENTAL: "🏠", HOSTEL: "🛏", RESORT: "🌴", OTHER: "📌" };
 const DEFAULT_ICON = "📌";
@@ -66,11 +68,30 @@ export default async function LodgingsPage({
           {rows.map(({ lodging: l, fileName, cityName }) => {
             const n = nights(l.checkInDate, l.checkOutDate);
             return (
-              <li key={l.id} className="flex flex-wrap overflow-hidden rounded-lg border border-slate-200 bg-white">
+              <li key={l.id} className="relative flex flex-wrap overflow-hidden rounded-lg border border-slate-200 bg-white">
+                {canWrite && (
+                  <div className="absolute right-3 top-3 flex items-center gap-1">
+                    <Link
+                      href={`/trips/${trip.id}/lodgings/${l.id}`}
+                      aria-label="Editar"
+                      title="Editar"
+                      className="flex size-7 items-center justify-center rounded-full text-brand-700 hover:bg-brand-50"
+                    >
+                      <Pencil className="size-4" />
+                    </Link>
+                    <ConfirmDeleteButton
+                      label="Remover"
+                      confirmTitle="Remover esta hospedagem?"
+                      confirmDescription="Isso remove a hospedagem e o voucher anexado a ela. Não dá pra desfazer."
+                      deleteAction={deleteLodgingAction.bind(null, trip.id, l.id)}
+                      size="sm"
+                    />
+                  </div>
+                )}
                 <div className="flex min-h-28 w-full items-center justify-center bg-brand-50 text-2xl sm:w-32" aria-hidden>
                   {ICON[l.type] ?? DEFAULT_ICON}
                 </div>
-                <div className="min-w-56 flex-1 p-3">
+                <div className="min-w-56 flex-1 p-3 pr-16">
                   <h3 className="font-medium">
                     {canWrite ? (
                       <Link href={`/trips/${trip.id}/lodgings/${l.id}`} className="text-brand-700 hover:underline">
@@ -119,16 +140,6 @@ export default async function LodgingsPage({
                       <p className="text-lg font-semibold">{formatMoney(l.totalPrice, l.currency)}</p>
                     )}
                   </div>
-                  {canWrite && (
-                    <div className="flex items-center gap-3">
-                      <form action={deleteLodgingAction.bind(null, trip.id, l.id)}>
-                        <button className={btnDanger}>Remover</button>
-                      </form>
-                      <Link href={`/trips/${trip.id}/lodgings/${l.id}`} className={btnOutline}>
-                        Editar
-                      </Link>
-                    </div>
-                  )}
                 </div>
               </li>
             );
