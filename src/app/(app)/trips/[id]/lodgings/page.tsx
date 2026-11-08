@@ -6,6 +6,7 @@ import { requireTripAccess } from "@/lib/access";
 import { formatDate, formatMoney } from "@/lib/format";
 import { getTripCities } from "@/services/cities";
 import { listLodgingTypes, listReservationMethods, toNameMap } from "@/services/catalogs";
+import { listClientCurrencyCodes } from "@/services/currencies";
 import { addLodgingAction, deleteLodgingAction } from "@/app/actions/lodgings";
 import { LodgingFields } from "@/components/TripFields";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
@@ -31,7 +32,7 @@ export default async function LodgingsPage({
   const { error } = await searchParams;
   const { trip, canWrite } = await requireTripAccess(id);
 
-  const [rows, cities, types, methods] = await Promise.all([
+  const [rows, cities, types, methods, currencies] = await Promise.all([
     db
       .select({ lodging: t.lodgings, fileName: t.documents.fileName, cityName: t.cities.name })
       .from(t.lodgings)
@@ -42,6 +43,7 @@ export default async function LodgingsPage({
     getTripCities(trip.id),
     listLodgingTypes(),
     listReservationMethods(),
+    listClientCurrencyCodes(trip.ownerId),
   ]);
   const typeName = toNameMap(types);
   const methodName = toNameMap(methods);
@@ -53,7 +55,7 @@ export default async function LodgingsPage({
       {canWrite && (
         <AddPanel title="Nova hospedagem" defaultOpen={rows.length === 0}>
           <form action={addLodgingAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-6">
-            <LodgingFields trip={trip} cities={cities} types={types} methods={methods} />
+            <LodgingFields trip={trip} cities={cities} types={types} methods={methods} currencies={currencies} />
             <div className="sm:col-span-6">
               <button className={btnPrimary}>Salvar hospedagem</button>
             </div>

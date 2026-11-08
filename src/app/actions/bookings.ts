@@ -5,8 +5,8 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { CURRENCIES } from "@/lib/labels";
 import { LOCAL_DATETIME, fail, parseDecimal, str, toWallClock } from "@/lib/form";
+import { listClientCurrencyCodes } from "@/services/currencies";
 
 async function parseLeg(formData: FormData, tripId: string, prefix: "origin" | "destination", back: string) {
   const at = str(formData, `${prefix}At`);
@@ -27,7 +27,7 @@ async function parseLeg(formData: FormData, tripId: string, prefix: "origin" | "
   };
 }
 
-async function parseBooking(tripId: string, formData: FormData, back: string) {
+async function parseBooking(tripId: string, ownerId: string, formData: FormData, back: string) {
   const type = str(formData, "type") ?? "OTHER";
   const title = str(formData, "title");
   const currency = str(formData, "currency");
@@ -35,8 +35,9 @@ async function parseBooking(tripId: string, formData: FormData, back: string) {
   if (!title) fail(back, "Informe um título para o transporte.");
   const [bookingType] = await db.select({ id: t.bookingTypes.id }).from(t.bookingTypes).where(eq(t.bookingTypes.id, type)).limit(1);
   if (!bookingType) fail(back, "Tipo de transporte inválido.");
-  if (currency && !(CURRENCIES as readonly string[]).includes(currency)) {
-    fail(back, "Moeda inválida.");
+  if (currency) {
+    const validCurrencies = await listClientCurrencyCodes(ownerId);
+    if (!validCurrencies.includes(currency)) fail(back, "Moeda inválida.");
   }
 
   const origin = await parseLeg(formData, tripId, "origin", back);
@@ -70,10 +71,10 @@ async function parseBooking(tripId: string, formData: FormData, back: string) {
 }
 
 export async function addBookingAction(tripId: string, formData: FormData) {
-  await requireTripAccess(tripId, { write: true });
+  const { trip } = await requireTripAccess(tripId, { write: true });
   const day = str(formData, "day");
   const back = day ? `/trips/${tripId}/itinerary/day/${day}` : `/trips/${tripId}/transports`;
-  const v = await parseBooking(tripId, formData, back);
+  const v = await parseBooking(tripId, trip.ownerId, formData, back);
 
   const documentId = await attachmentFromForm({
     tripId,
@@ -89,7 +90,7 @@ export async function addBookingAction(tripId: string, formData: FormData) {
 }
 
 export async function updateBookingAction(tripId: string, bookingId: string, formData: FormData) {
-  await requireTripAccess(tripId, { write: true });
+  const { trip } = await requireTripAccess(tripId, { write: true });
   const day = str(formData, "day");
   const editUrl = `/trips/${tripId}/transports/${bookingId}`;
   const back = day ? `${editUrl}?day=${day}` : editUrl;
@@ -101,7 +102,7 @@ export async function updateBookingAction(tripId: string, bookingId: string, for
     .limit(1);
   if (!current) redirect(`/trips/${tripId}/transports`);
 
-  const v = await parseBooking(tripId, formData, back);
+  const v = await parseBooking(tripId, trip.ownerId, formData, back);
   const documentId = await attachmentFromForm({
     tripId,
     formData,

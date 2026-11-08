@@ -5,12 +5,12 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { CURRENCIES } from "@/lib/labels";
 import { ISO_DATE, fail, parseDecimal, parseRate, str } from "@/lib/form";
 import { addExpense } from "@/services/expenses";
+import { listClientCurrencyCodes } from "@/services/currencies";
 
 async function parseExpense(
-  trip: { baseCurrency: string },
+  trip: { baseCurrency: string; ownerId: string },
   formData: FormData,
   back: string,
 ) {
@@ -23,7 +23,8 @@ async function parseExpense(
   if (!date || !ISO_DATE.test(date)) fail(back, "Data inválida.");
   const [cat] = await db.select({ id: t.expenseCategories.id }).from(t.expenseCategories).where(eq(t.expenseCategories.id, category)).limit(1);
   if (!cat) fail(back, "Categoria inválida.");
-  if (!(CURRENCIES as readonly string[]).includes(currency)) fail(back, "Moeda inválida.");
+  const validCurrencies = await listClientCurrencyCodes(trip.ownerId);
+  if (!validCurrencies.includes(currency)) fail(back, "Moeda inválida.");
 
   const amount = parseDecimal(str(formData, "amount"), { positive: true });
   if (amount === null) fail(back, "Informe um valor válido maior que zero.");

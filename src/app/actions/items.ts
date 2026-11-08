@@ -5,12 +5,12 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { CURRENCIES } from "@/lib/labels";
 import { HH_MM, ISO_DATE, fail, parseDecimal, str } from "@/lib/form";
+import { listClientCurrencyCodes } from "@/services/currencies";
 
 async function parseItem(
   tripId: string,
-  trip: { startDate: string; endDate: string },
+  trip: { startDate: string; endDate: string; ownerId: string },
   formData: FormData,
   back: string,
 ) {
@@ -55,8 +55,9 @@ async function parseItem(
   const reservationPrice = parseDecimal(resPriceRaw, { positive: true });
   if (resPriceRaw && reservationPrice === null) fail(back, "Valor da reserva inválido.");
   const resCurrency = str(formData, "reservationCurrency");
-  if (resCurrency && !(CURRENCIES as readonly string[]).includes(resCurrency)) {
-    fail(back, "Moeda da reserva inválida.");
+  if (resCurrency) {
+    const validCurrencies = await listClientCurrencyCodes(trip.ownerId);
+    if (!validCurrencies.includes(resCurrency)) fail(back, "Moeda da reserva inválida.");
   }
 
   return {

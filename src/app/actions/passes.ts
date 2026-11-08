@@ -4,9 +4,9 @@ import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
-import { CURRENCIES } from "@/lib/labels";
 import { fail, parseDecimal, str } from "@/lib/form";
 import { isInTripGroup } from "@/services/trip-travelers";
+import { listClientCurrencyCodes } from "@/services/currencies";
 
 function travelerHubPath(tripId: string, travelerId: string | null) {
   return travelerId === null ? `/trips/${tripId}/travelers/owner` : `/trips/${tripId}/travelers/${travelerId}`;
@@ -35,7 +35,10 @@ export async function addPassAction(tripId: string, travelerId: string, formData
   if (!name) fail(back, "Informe o nome do passe.");
 
   const currency = str(formData, "currency");
-  if (currency && !(CURRENCIES as readonly string[]).includes(currency)) fail(back, "Moeda inválida.");
+  if (currency) {
+    const validCurrencies = await listClientCurrencyCodes(trip.ownerId);
+    if (!validCurrencies.includes(currency)) fail(back, "Moeda inválida.");
+  }
   const priceRaw = str(formData, "price");
   const price = parseDecimal(priceRaw, { positive: true });
   if (priceRaw && price === null) fail(back, "Valor do passe inválido.");

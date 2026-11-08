@@ -1,6 +1,15 @@
 import type { Booking, Chip, Expense, ItineraryItem, Lodging } from "@/db/schema";
-import { CURRENCIES } from "@/lib/labels";
 import { AddPanel, Field, inputCls } from "@/components/ui";
+
+function CurrencyOptions({ currencies }: { currencies: string[] }) {
+  return (
+    <>
+      {currencies.map((c) => (
+        <option key={c}>{c}</option>
+      ))}
+    </>
+  );
+}
 
 /** "1234.50" → "1234,50" (formato do campo, aceito por parseDecimal). */
 const dec = (v: string | null | undefined) => (v ? v.replace(".", ",") : "");
@@ -132,11 +141,13 @@ export function ReservationFields({
   item,
   reservationAttachment,
   formId,
+  currencies,
 }: {
   trip: { baseCurrency: string };
   item?: ItineraryItem;
   reservationAttachment?: { name: string; href: string } | null;
   formId?: string;
+  currencies: string[];
 }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -158,9 +169,7 @@ export function ReservationFields({
       </Field>
       <Field label="Moeda">
         <select name="reservationCurrency" form={formId} defaultValue={item?.reservationCurrency ?? trip.baseCurrency} className={inputCls}>
-          {CURRENCIES.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
+          <CurrencyOptions currencies={currencies} />
         </select>
       </Field>
       <div className="sm:col-span-2">
@@ -194,6 +203,7 @@ export function ItemFields({
   defaultDate,
   attachment,
   reservationAttachment,
+  currencies,
 }: {
   trip: { id: string; startDate: string; endDate: string; baseCurrency: string };
   cities: { id: string; name: string }[];
@@ -202,13 +212,14 @@ export function ItemFields({
   defaultDate?: string;
   attachment?: { name: string; href: string } | null;
   reservationAttachment?: { name: string; href: string } | null;
+  currencies: string[];
 }) {
   return (
     <>
       <ItemMainFields trip={trip} cities={cities} types={types} item={item} defaultDate={defaultDate} attachment={attachment} />
       <div id="reserva" className="sm:col-span-6">
         <AddPanel title="Reserva desta atividade (opcional — preencha se já reservou)" defaultOpen={false}>
-          <ReservationFields trip={trip} item={item} reservationAttachment={reservationAttachment} />
+          <ReservationFields trip={trip} item={item} reservationAttachment={reservationAttachment} currencies={currencies} />
         </AddPanel>
       </div>
     </>
@@ -223,6 +234,7 @@ export function LodgingFields({
   lodging,
   defaultDate,
   attachment,
+  currencies,
 }: {
   trip: { baseCurrency: string };
   cities: { id: string; name: string }[];
@@ -231,6 +243,7 @@ export function LodgingFields({
   lodging?: Lodging;
   defaultDate?: string;
   attachment?: { name: string; href: string } | null;
+  currencies: string[];
 }) {
   return (
     <>
@@ -289,9 +302,7 @@ export function LodgingFields({
       </Field>
       <Field label="Moeda" className="sm:col-span-1">
         <select name="currency" defaultValue={lodging?.currency ?? trip.baseCurrency} className={inputCls}>
-          {CURRENCIES.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
+          <CurrencyOptions currencies={currencies} />
         </select>
       </Field>
       <AttachmentField
@@ -356,6 +367,7 @@ export function BookingFields({
   booking,
   defaultDate,
   attachment,
+  currencies,
 }: {
   trip: { baseCurrency: string };
   cities: { id: string; name: string }[];
@@ -363,6 +375,7 @@ export function BookingFields({
   booking?: Booking;
   defaultDate?: string;
   attachment?: { name: string; href: string } | null;
+  currencies: string[];
 }) {
   return (
     <>
@@ -404,9 +417,7 @@ export function BookingFields({
         </Field>
         <Field label="Moeda" className="sm:col-span-1">
           <select name="currency" defaultValue={booking?.currency ?? trip.baseCurrency} className={inputCls}>
-            {CURRENCIES.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
+            <CurrencyOptions currencies={currencies} />
           </select>
         </Field>
         <Field label="Código de confirmação" className="sm:col-span-3">
@@ -432,10 +443,12 @@ export function ChipFields({
   trip,
   chip,
   attachment,
+  currencies,
 }: {
   trip: { baseCurrency: string };
   chip?: Chip;
   attachment?: { name: string; href: string } | null;
+  currencies: string[];
 }) {
   return (
     <fieldset id="chip" className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:col-span-6 sm:grid-cols-6">
@@ -456,9 +469,7 @@ export function ChipFields({
       </Field>
       <Field label="Moeda" className="sm:col-span-2">
         <select name="currency" defaultValue={chip?.currency ?? trip.baseCurrency} className={inputCls}>
-          {CURRENCIES.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
+          <CurrencyOptions currencies={currencies} />
         </select>
       </Field>
       <AttachmentField
@@ -497,12 +508,14 @@ export function ExpenseFields({
   categories,
   defaultDate,
   attachment,
+  currencies,
 }: {
   trip: { baseCurrency: string };
   expense?: Expense;
   categories: { id: string; name: string }[];
   defaultDate?: string;
   attachment?: { name: string; href: string } | null;
+  currencies: string[];
 }) {
   return (
     <>
@@ -526,9 +539,7 @@ export function ExpenseFields({
       </Field>
       <Field label="Moeda" className="sm:col-span-1">
         <select name="currency" defaultValue={expense?.currency ?? trip.baseCurrency} className={inputCls}>
-          {CURRENCIES.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
+          <CurrencyOptions currencies={currencies} />
         </select>
       </Field>
       <Field label={`Cotação → ${trip.baseCurrency}`} hint="Só se a moeda for diferente." className="sm:col-span-1">
@@ -558,9 +569,11 @@ export function ExpenseFields({
 export function TicketFields({
   trip,
   travelers,
+  currencies,
 }: {
   trip: { baseCurrency: string };
   travelers: { id: string | null; name: string }[];
+  currencies: string[];
 }) {
   return (
     <>
@@ -585,9 +598,7 @@ export function TicketFields({
       </Field>
       <Field label="Moeda" className="sm:col-span-1">
         <select name="currency" defaultValue={trip.baseCurrency} className={inputCls}>
-          {CURRENCIES.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
+          <CurrencyOptions currencies={currencies} />
         </select>
       </Field>
       <AttachmentField label="Voucher (PDF ou imagem)" name="voucher" removeName="removeVoucher" className="sm:col-span-3" />
@@ -598,7 +609,7 @@ export function TicketFields({
   );
 }
 
-export function PassFields({ trip }: { trip: { baseCurrency: string } }) {
+export function PassFields({ trip, currencies }: { trip: { baseCurrency: string }; currencies: string[] }) {
   return (
     <>
       <Field label="Nome do passe" className="sm:col-span-4">
@@ -621,9 +632,7 @@ export function PassFields({ trip }: { trip: { baseCurrency: string } }) {
       </Field>
       <Field label="Moeda" className="sm:col-span-2">
         <select name="currency" defaultValue={trip.baseCurrency} className={inputCls}>
-          {CURRENCIES.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
+          <CurrencyOptions currencies={currencies} />
         </select>
       </Field>
     </>

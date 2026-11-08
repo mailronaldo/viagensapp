@@ -10,8 +10,6 @@ export const TIP_CATEGORY_LABEL = {
   OUTROS: "Outros",
 } as const;
 
-export const CURRENCIES = ["BRL", "USD", "EUR", "GBP", "ARS", "CLP", "JPY", "CAD", "AUD", "CHF"] as const;
-
 export const TIMEZONES = [
   "America/Sao_Paulo",
   "America/Argentina/Buenos_Aires",

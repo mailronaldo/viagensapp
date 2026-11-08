@@ -7,6 +7,7 @@ import { formatDate, formatMoney } from "@/lib/format";
 import { getLoginUrl } from "@/lib/origin";
 import { listTravelerPasses } from "@/services/passes";
 import { listTravelerTickets } from "@/services/tickets";
+import { listClientCurrencyCodes } from "@/services/currencies";
 import { deleteChipAction, upsertChipAction } from "@/app/actions/chips";
 import {
   setTravelerAccessActiveFromTripAction,
@@ -42,13 +43,14 @@ export default async function TravelerHubPage({
   if (!linked) notFound();
   const { traveler, permission } = linked;
 
-  const [chip, [login], tickets, passes] = await Promise.all([
+  const [chip, [login], tickets, passes, currencies] = await Promise.all([
     db.select().from(t.chips).where(and(eq(t.chips.tripId, trip.id), eq(t.chips.travelerId, travelerId))).limit(1).then(([c]) => c),
     traveler.userId
       ? db.select({ active: t.users.active, mustChangePassword: t.users.mustChangePassword }).from(t.users).where(eq(t.users.id, traveler.userId)).limit(1)
       : Promise.resolve([null]),
     listTravelerTickets(trip.id, travelerId),
     listTravelerPasses(trip.id, travelerId),
+    listClientCurrencyCodes(trip.ownerId),
   ]);
   const attachment = chip?.receiptDocumentId
     ? await db
@@ -144,7 +146,7 @@ export default async function TravelerHubPage({
             )}
             {canWrite ? (
               <form action={upsertChipAction.bind(null, trip.id, travelerId)} className="grid gap-3 sm:grid-cols-6">
-                <ChipFields trip={trip} chip={chip} attachment={attachment} />
+                <ChipFields trip={trip} chip={chip} attachment={attachment} currencies={currencies} />
                 <div className="sm:col-span-6">
                   <button className={btnPrimary}>Salvar</button>
                 </div>
@@ -203,7 +205,7 @@ export default async function TravelerHubPage({
             )}
             {canWrite && (
               <form action={addPassAction.bind(null, trip.id, travelerId)} className="grid gap-3 sm:grid-cols-6">
-                <PassFields trip={trip} />
+                <PassFields trip={trip} currencies={currencies} />
                 <div className="sm:col-span-6">
                   <button className={btnPrimary}>Cadastrar passe</button>
                 </div>

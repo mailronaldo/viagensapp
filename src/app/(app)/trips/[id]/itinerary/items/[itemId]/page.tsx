@@ -11,6 +11,7 @@ import { listActivityTypes } from "@/services/catalogs";
 import { getActivityTickets } from "@/services/tickets";
 import { getItemPassUsages, listAvailablePassesForItem } from "@/services/passes";
 import { listTripTravelerOptions } from "@/services/trip-travelers";
+import { listClientCurrencyCodes } from "@/services/currencies";
 import { deleteItemAction, removeReservationAction, updateItemAction } from "@/app/actions/items";
 import {
   addActivityPointAction,
@@ -50,7 +51,7 @@ export default async function EditItemPage({
     .limit(1);
   if (!item) notFound();
 
-  const [cities, activityTypes, doc, resDoc, pois, tips, regions, travelerOptions, [owner]] = await Promise.all([
+  const [cities, activityTypes, doc, resDoc, pois, tips, regions, travelerOptions, [owner], currencies] = await Promise.all([
     getTripCities(trip.id),
     listActivityTypes(),
     item.ticketDocumentId
@@ -64,6 +65,7 @@ export default async function EditItemPage({
     getActivityRegions(itemId),
     listTripTravelerOptions(trip),
     db.select({ name: t.users.name }).from(t.users).where(eq(t.users.id, trip.ownerId)).limit(1),
+    listClientCurrencyCodes(trip.ownerId),
   ]);
   const [tickets, availablePasses, passUsages] = await Promise.all([
     getActivityTickets(itemId, owner?.name ?? "Dono"),
@@ -151,7 +153,7 @@ export default async function EditItemPage({
                 ) : undefined
               }
             >
-              <ReservationFields trip={trip} item={item} reservationAttachment={reservationAttachment} formId={FORM_ID} />
+              <ReservationFields trip={trip} item={item} reservationAttachment={reservationAttachment} formId={FORM_ID} currencies={currencies} />
               <div className="mt-3">
                 <button form={FORM_ID} name="stayOnPage" value="reserva" className={btnPrimary}>
                   Salvar reserva
@@ -196,7 +198,7 @@ export default async function EditItemPage({
                 <EmptyState>Todos os viajantes do grupo já têm ingresso nesta atividade.</EmptyState>
               ) : (
                 <form action={addTicketAction.bind(null, trip.id, itemId)} className="grid gap-3 sm:grid-cols-6">
-                  <TicketFields trip={trip} travelers={travelersWithoutTicket} />
+                  <TicketFields trip={trip} travelers={travelersWithoutTicket} currencies={currencies} />
                   <div className="sm:col-span-6">
                     <button className={btnPrimary}>Adicionar ingresso</button>
                   </div>

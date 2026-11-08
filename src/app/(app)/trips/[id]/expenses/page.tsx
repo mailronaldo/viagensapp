@@ -2,6 +2,7 @@ import { requireTripAccess } from "@/lib/access";
 import { formatDate, formatMoney, todayIn } from "@/lib/format";
 import { getExpenseSummary, listExpenses } from "@/services/expenses";
 import { listExpenseCategories, toNameMap } from "@/services/catalogs";
+import { ensureTodayRates, listClientCurrencyCodes } from "@/services/currencies";
 import Link from "next/link";
 import { ExpenseFields } from "@/components/TripFields";
 import { addExpenseAction, deleteExpenseAction } from "@/app/actions/expenses";
@@ -25,11 +26,13 @@ export default async function ExpensesPage({
   const { error } = await searchParams;
   const { trip, canWrite } = await requireTripAccess(id);
 
-  const [rows, summary, categories] = await Promise.all([
+  const [rows, summary, categories, currencies] = await Promise.all([
     listExpenses(trip.id),
     getExpenseSummary(trip.id, trip.baseCurrency),
     listExpenseCategories(),
+    listClientCurrencyCodes(trip.ownerId),
   ]);
+  await ensureTodayRates(currencies);
   const categoryNames = toNameMap(categories);
   const maxCat = Math.max(1, ...summary.byCategory.map((c) => c.totalBase));
 
@@ -91,7 +94,7 @@ export default async function ExpensesPage({
             action={addExpenseAction.bind(null, trip.id)}
             className="grid gap-3 sm:grid-cols-6"
           >
-            <ExpenseFields trip={trip} categories={categories} defaultDate={todayIn(trip.timezone)} />
+            <ExpenseFields trip={trip} categories={categories} defaultDate={todayIn(trip.timezone)} currencies={currencies} />
             <div className="sm:col-span-6">
               <button className={btnPrimary}>Salvar lançamento</button>
             </div>

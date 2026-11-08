@@ -538,6 +538,41 @@ export const activityPassUsages = pgTable(
   (t) => [uniqueIndex("activity_pass_usages_unique").on(t.itemId, t.passId)],
 );
 
+// ---------- Moedas (cadastro do cliente + cotação diária) ----------
+
+// BRL é o padrão do sistema e não precisa de linha aqui (fica implícito em
+// todo lugar que lista moedas). O cliente cadastra as demais que vai usar
+// (ex.: USD) — mesmo padrão de `cities` (cadastro do cliente, reusado nas
+// viagens).
+export const currencies = pgTable(
+  "currencies",
+  {
+    id: id(),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    code: text("code").notNull(), // ISO 4217, ex. "USD"
+    name: text("name"), // rótulo livre opcional, ex. "Dólar americano"
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("currencies_client_code_unique").on(t.clientId, t.code)],
+);
+
+// Cotação é de mercado, não muda por cliente — por isso não tem clientId.
+// `rateToBrl` é sempre a âncora (quantos BRL vale 1 unidade da moeda);
+// conversão entre duas moedas quaisquer passa por BRL.
+export const currencyRates = pgTable(
+  "currency_rates",
+  {
+    id: id(),
+    code: text("code").notNull(),
+    rateToBrl: numeric("rate_to_brl", { precision: 14, scale: 6 }).notNull(),
+    asOfDate: date("as_of_date").notNull(),
+    fetchedAt: createdAt(),
+  },
+  (t) => [uniqueIndex("currency_rates_code_date_unique").on(t.code, t.asOfDate)],
+);
+
 // ---------- Central de custos ----------
 
 export const expenses = pgTable(
@@ -588,3 +623,5 @@ export type ActivityTypeRow = typeof activityTypes.$inferSelect;
 export type BookingTypeRow = typeof bookingTypes.$inferSelect;
 export type LodgingTypeRow = typeof lodgingTypes.$inferSelect;
 export type ReservationMethodRow = typeof reservationMethods.$inferSelect;
+export type CurrencyRow = typeof currencies.$inferSelect;
+export type CurrencyRateRow = typeof currencyRates.$inferSelect;

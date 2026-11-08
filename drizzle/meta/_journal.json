@@ -120,6 +120,13 @@
       "when": 1793996391105,
       "tag": "0016_ingressos_e_passes",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794153025133,
+      "tag": "0017_worthless_spot",
+      "breakpoints": true
     }
   ]
 }

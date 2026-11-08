@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { requireClient } from "@/lib/auth";
 import { createTripAction } from "@/app/actions/trips";
-import { CURRENCIES, TIMEZONES } from "@/lib/labels";
+import { TIMEZONES } from "@/lib/labels";
 import { getClientCities } from "@/services/cities";
+import { listClientCurrencyCodes } from "@/services/currencies";
 import { Card, ErrorBanner, Field, btnGhost, btnPrimary, inputCls } from "@/components/ui";
 
 export const metadata = { title: "Nova viagem" };
@@ -14,7 +15,7 @@ export default async function NewTripPage({
 }) {
   const user = await requireClient();
   const { error } = await searchParams;
-  const cities = await getClientCities(user.id);
+  const [cities, currencies] = await Promise.all([getClientCities(user.id), listClientCurrencyCodes(user.id)]);
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="mb-4 text-xl font-semibold">Nova viagem</h1>
@@ -76,7 +77,7 @@ export default async function NewTripPage({
           </Field>
           <Field label="Moeda base dos custos" hint="Os totais são somados nesta moeda.">
             <select name="baseCurrency" defaultValue="BRL" className={inputCls}>
-              {CURRENCIES.map((c) => (
+              {currencies.map((c) => (
                 <option key={c}>{c}</option>
               ))}
             </select>

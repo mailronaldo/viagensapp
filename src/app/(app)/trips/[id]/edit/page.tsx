@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireTripAccess } from "@/lib/access";
 import { updateTripAction } from "@/app/actions/trips";
-import { CURRENCIES, TIMEZONES } from "@/lib/labels";
+import { TIMEZONES } from "@/lib/labels";
+import { listClientCurrencyCodes } from "@/services/currencies";
 import { Card, ErrorBanner, Field, btnGhost, btnPrimary, inputCls } from "@/components/ui";
 
 export const metadata = { title: "Editar viagem" };
@@ -18,6 +19,7 @@ export default async function EditTripPage({
   const { error } = await searchParams;
   const { trip, role } = await requireTripAccess(id);
   if (role !== "OWNER") redirect(`/trips/${id}`);
+  const currencies = await listClientCurrencyCodes(trip.ownerId);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -73,7 +75,7 @@ export default async function EditTripPage({
           </Field>
           <Field label="Moeda base dos custos" hint="Só pode mudar enquanto não houver custos lançados.">
             <select name="baseCurrency" defaultValue={trip.baseCurrency} className={inputCls}>
-              {CURRENCIES.map((c) => (
+              {[...new Set([...currencies, trip.baseCurrency])].map((c) => (
                 <option key={c}>{c}</option>
               ))}
             </select>

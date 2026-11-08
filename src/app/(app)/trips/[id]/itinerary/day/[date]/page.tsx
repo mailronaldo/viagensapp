@@ -9,6 +9,7 @@ import { addDays, formatDate, formatMoney, formatWeekday } from "@/lib/format";
 import { getAgenda } from "@/services/agenda";
 import { getDayPlan } from "@/services/itinerary";
 import { getTripCities } from "@/services/cities";
+import { listClientCurrencyCodes } from "@/services/currencies";
 import {
   LEGACY_ACTIVITY_TYPE_IDS,
   LEGACY_BOOKING_TYPE_IDS,
@@ -47,7 +48,7 @@ export default async function ItineraryDayPage({
   const { trip, canWrite } = await requireTripAccess(id);
   if (!ISO_DATE.test(date) || date < trip.startDate || date > trip.endDate) notFound();
 
-  const [cities, activityTypes, bookingTypes, lodgingTypes, reservationMethods, agenda, plan, docs] = await Promise.all([
+  const [cities, activityTypes, bookingTypes, lodgingTypes, reservationMethods, agenda, plan, docs, currencies] = await Promise.all([
     getTripCities(trip.id),
     listActivityTypes(),
     listBookingTypes(),
@@ -56,6 +57,7 @@ export default async function ItineraryDayPage({
     getAgenda(trip, date),
     getDayPlan(trip.id, date),
     db.select({ id: t.documents.id, fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.tripId, trip.id)),
+    listClientCurrencyCodes(trip.ownerId),
   ]);
   const docName = new Map(docs.map((d) => [d.id, d.fileName]));
   const activityTypeName = toNameMap(activityTypes);
@@ -254,6 +256,7 @@ export default async function ItineraryDayPage({
                 cities={cities}
                 types={activityTypes.filter((ty) => !LEGACY_ACTIVITY_TYPE_IDS.includes(ty.id))}
                 defaultDate={date}
+                currencies={currencies}
               />
               <div className="sm:col-span-6">
                 <button className={btnPrimary}>Salvar atividade</button>
@@ -269,6 +272,7 @@ export default async function ItineraryDayPage({
                 cities={cities}
                 types={bookingTypes.filter((ty) => !LEGACY_BOOKING_TYPE_IDS.includes(ty.id))}
                 defaultDate={date}
+                currencies={currencies}
               />
               <div className="sm:col-span-6">
                 <button className={btnPrimary}>Salvar transporte</button>
@@ -279,7 +283,14 @@ export default async function ItineraryDayPage({
           <AddPanel title="Adicionar hospedagem">
             <form action={addLodgingAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-6">
               <input type="hidden" name="day" value={date} />
-              <LodgingFields trip={trip} cities={cities} types={lodgingTypes} methods={reservationMethods} defaultDate={date} />
+              <LodgingFields
+                trip={trip}
+                cities={cities}
+                types={lodgingTypes}
+                methods={reservationMethods}
+                defaultDate={date}
+                currencies={currencies}
+              />
               <div className="sm:col-span-6">
                 <button className={btnPrimary}>Salvar hospedagem</button>
               </div>

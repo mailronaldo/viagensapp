@@ -5,8 +5,8 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { CURRENCIES } from "@/lib/labels";
 import { ISO_DATE, fail, parseDecimal, str } from "@/lib/form";
+import { listClientCurrencyCodes } from "@/services/currencies";
 
 const EID = /^\d{32}$/;
 const IMEI2 = /^\d{15}$/;
@@ -20,7 +20,7 @@ async function requireLinkedTraveler(tripId: string, travelerId: string) {
   if (!link) redirect(`/trips/${tripId}/travelers`);
 }
 
-function parseChip(formData: FormData, back: string) {
+async function parseChip(ownerId: string, formData: FormData, back: string) {
   const startDate = str(formData, "startDate");
   const endDate = str(formData, "endDate");
   const type = str(formData, "type") ?? "CHIP";
@@ -32,7 +32,10 @@ function parseChip(formData: FormData, back: string) {
   if (endDate && !ISO_DATE.test(endDate)) fail(back, "Data de término inválida.");
   if (startDate && endDate && endDate < startDate) fail(back, "A data de término não pode ser antes do início.");
   if (type !== "CHIP" && type !== "ESIM") fail(back, "Tipo de chip inválido.");
-  if (currency && !(CURRENCIES as readonly string[]).includes(currency)) fail(back, "Moeda inválida.");
+  if (currency) {
+    const validCurrencies = await listClientCurrencyCodes(ownerId);
+    if (!validCurrencies.includes(currency)) fail(back, "Moeda inválida.");
+  }
   if (eid && !EID.test(eid)) fail(back, "EID deve ter 32 dígitos.");
   if (imei2 && !IMEI2.test(imei2)) fail(back, "IMEI2 deve ter 15 dígitos.");
 
@@ -55,7 +58,7 @@ function parseChip(formData: FormData, back: string) {
 }
 
 export async function upsertChipAction(tripId: string, travelerId: string, formData: FormData) {
-  await requireTripAccess(tripId, { write: true });
+  const { trip } = await requireTripAccess(tripId, { write: true });
   await requireLinkedTraveler(tripId, travelerId);
   const back = `/trips/${tripId}/travelers/${travelerId}`;
 
@@ -65,7 +68,7 @@ export async function upsertChipAction(tripId: string, travelerId: string, formD
     .where(and(eq(t.chips.tripId, tripId), eq(t.chips.travelerId, travelerId)))
     .limit(1);
 
-  const v = parseChip(formData, back);
+  const v = await parseChip(trip.ownerId, formData, back);
   const receiptDocumentId = await attachmentFromForm({
     tripId,
     formData,
@@ -106,7 +109,7 @@ export async function upsertOwnerChipAction(tripId: string, formData: FormData) 
     .where(and(eq(t.chips.tripId, tripId), isNull(t.chips.travelerId)))
     .limit(1);
 
-  const v = parseChip(formData, back);
+  const v = await parseChip(trip.ownerId, formData, back);
   const receiptDocumentId = await attachmentFromForm({
     tripId,
     formData,

@@ -6,7 +6,8 @@ import { and, asc, count, eq, gt, inArray, isNotNull, lt, or } from "drizzle-orm
 import { db, t } from "@/db";
 import { requireClient } from "@/lib/auth";
 import { requireTripAccess } from "@/lib/access";
-import { CURRENCIES, TIMEZONES } from "@/lib/labels";
+import { TIMEZONES } from "@/lib/labels";
+import { listClientCurrencyCodes } from "@/services/currencies";
 import { ISO_DATE, fail, file, str } from "@/lib/form";
 import { formatDate } from "@/lib/format";
 import { removeDocument } from "@/services/documents";
@@ -43,7 +44,7 @@ export async function createTripAction(formData: FormData) {
   if (!endDate || !ISO_DATE.test(endDate)) fail(back, "Data de volta inválida.");
   if (endDate < startDate) fail(back, "A volta não pode ser antes da ida.");
   if (!(TIMEZONES as readonly string[]).includes(timezone)) fail(back, "Fuso horário inválido.");
-  if (!(CURRENCIES as readonly string[]).includes(baseCurrency)) fail(back, "Moeda inválida.");
+  if (!(await listClientCurrencyCodes(user.id)).includes(baseCurrency)) fail(back, "Moeda inválida.");
   if (cityIds.length === 0) fail(back, "Selecione ao menos uma cidade.");
   try {
     validateIcon(icon);
@@ -110,7 +111,7 @@ export async function updateTripAction(tripId: string, formData: FormData) {
   if (!endDate || !ISO_DATE.test(endDate)) fail(back, "Data de volta inválida.");
   if (endDate < startDate) fail(back, "A volta não pode ser antes da ida.");
   if (!(TIMEZONES as readonly string[]).includes(timezone)) fail(back, "Fuso horário inválido.");
-  if (!(CURRENCIES as readonly string[]).includes(baseCurrency)) fail(back, "Moeda inválida.");
+  if (!(await listClientCurrencyCodes(trip.ownerId)).includes(baseCurrency)) fail(back, "Moeda inválida.");
   try {
     validateIcon(icon);
   } catch (e) {

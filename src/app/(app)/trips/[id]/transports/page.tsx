@@ -5,6 +5,7 @@ import { requireTripAccess } from "@/lib/access";
 import { formatDateTime, formatMoney } from "@/lib/format";
 import { getTripCities } from "@/services/cities";
 import { LEGACY_BOOKING_TYPE_IDS, listBookingTypes, toNameMap } from "@/services/catalogs";
+import { listClientCurrencyCodes } from "@/services/currencies";
 import Link from "next/link";
 import { BookingFields } from "@/components/TripFields";
 import { addBookingAction, deleteBookingAction } from "@/app/actions/bookings";
@@ -31,7 +32,7 @@ export default async function BookingsPage({
   const { error } = await searchParams;
   const { trip, canWrite } = await requireTripAccess(id);
 
-  const [cities, bookingTypes, rows] = await Promise.all([
+  const [cities, bookingTypes, rows, currencies] = await Promise.all([
     getTripCities(trip.id),
     listBookingTypes(),
     db
@@ -45,6 +46,7 @@ export default async function BookingsPage({
       .leftJoin(t.cities, eq(t.cities.id, t.bookings.originCityId))
       .where(eq(t.bookings.tripId, trip.id))
       .orderBy(sql`${t.bookings.originAt} asc nulls last`, asc(t.bookings.title)),
+    listClientCurrencyCodes(trip.ownerId),
   ]);
   // Segunda cidade (destino) resolvida num mapa aparte, já que um left join
   // só dá pra encadear uma vez sem repetir a tabela.
@@ -64,7 +66,7 @@ export default async function BookingsPage({
             action={addBookingAction.bind(null, trip.id)}
             className="grid gap-3 sm:grid-cols-6"
           >
-            <BookingFields trip={trip} cities={cities} types={creatableTypes} />
+            <BookingFields trip={trip} cities={cities} types={creatableTypes} currencies={currencies} />
             <div className="sm:col-span-6">
               <button className={btnPrimary}>Salvar transporte</button>
             </div>
