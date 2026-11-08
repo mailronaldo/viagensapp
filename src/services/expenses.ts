@@ -6,6 +6,7 @@ export type NewExpense = {
   date: string;
   /** Id de uma linha de `expense_categories` (cadastro da agência, não mais um enum fixo). */
   category: string;
+  status: "ESTIMADO" | "A_PAGAR" | "PAGO";
   description: string;
   amount: string; // decimal em string, ex.: "123.45"
   currency: string;
@@ -27,6 +28,7 @@ export async function addExpense(
       paidById,
       date: input.date,
       category: input.category,
+      status: input.status,
       description: input.description,
       amount: input.amount,
       currency: input.currency,

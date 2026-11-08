@@ -7,7 +7,7 @@ import { requireTripAccess } from "@/lib/access";
 import { formatMoney } from "@/lib/format";
 import { getTripCities } from "@/services/cities";
 import { getActivityPoints, getActivityRegions } from "@/services/activity-points";
-import { listActivityTypes } from "@/services/catalogs";
+import { listActivityTypes, listExpenseCategories } from "@/services/catalogs";
 import { getActivityTickets } from "@/services/tickets";
 import { getItemPassUsages, listAvailablePassesForItem } from "@/services/passes";
 import { listTripTravelerOptions } from "@/services/trip-travelers";
@@ -26,7 +26,8 @@ import { ActivityPointCard } from "@/components/ActivityPointCard";
 import { ActivityRegionCard } from "@/components/ActivityRegionCard";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
 import { SavedModal } from "@/components/SavedModal";
-import { AddPanel, Card, EmptyState, ErrorBanner, btnGhost, btnPrimary } from "@/components/ui";
+import { AddPanel, Card, EmptyState, ErrorBanner, Tag, btnGhost, btnPrimary } from "@/components/ui";
+import { VALUE_STATUS_LABEL, VALUE_STATUS_TONE } from "@/lib/labels";
 
 export const metadata = { title: "Editar atividade" };
 
@@ -51,9 +52,10 @@ export default async function EditItemPage({
     .limit(1);
   if (!item) notFound();
 
-  const [cities, activityTypes, doc, resDoc, pois, tips, regions, travelerOptions, [owner], currencies] = await Promise.all([
+  const [cities, activityTypes, categories, doc, resDoc, pois, tips, regions, travelerOptions, [owner], currencies] = await Promise.all([
     getTripCities(trip.id),
     listActivityTypes(),
+    listExpenseCategories(),
     item.ticketDocumentId
       ? db.select({ fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.id, item.ticketDocumentId)).limit(1)
       : Promise.resolve([]),
@@ -125,7 +127,7 @@ export default async function EditItemPage({
               </div>
             </div>
             <form id={FORM_ID} action={updateItemAction.bind(null, trip.id, item.id)} className="grid gap-3 sm:grid-cols-6">
-              <ItemMainFields trip={trip} cities={cities} types={activityTypes} item={item} attachment={attachment} />
+              <ItemMainFields trip={trip} cities={cities} types={activityTypes} categories={categories} item={item} attachment={attachment} />
             </form>
           </Card>
           <div className="mt-4 flex gap-2">
@@ -153,7 +155,7 @@ export default async function EditItemPage({
                 ) : undefined
               }
             >
-              <ReservationFields trip={trip} item={item} reservationAttachment={reservationAttachment} formId={FORM_ID} currencies={currencies} />
+              <ReservationFields trip={trip} item={item} reservationAttachment={reservationAttachment} formId={FORM_ID} currencies={currencies} categories={categories} />
               <div className="mt-3">
                 <button form={FORM_ID} name="stayOnPage" value="reserva" className={btnPrimary}>
                   Salvar reserva
@@ -177,6 +179,7 @@ export default async function EditItemPage({
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
+                        <Tag tone={VALUE_STATUS_TONE[ti.status]}>{VALUE_STATUS_LABEL[ti.status]}</Tag>
                         {ti.voucherDocumentId && (
                           <a href={`/api/files/${trip.id}/${ti.voucherDocumentId}`} target="_blank" rel="noreferrer" className="text-xs text-brand-700 hover:underline">
                             📎 voucher
@@ -198,7 +201,7 @@ export default async function EditItemPage({
                 <EmptyState>Todos os viajantes do grupo já têm ingresso nesta atividade.</EmptyState>
               ) : (
                 <form action={addTicketAction.bind(null, trip.id, itemId)} className="grid gap-3 sm:grid-cols-6">
-                  <TicketFields trip={trip} travelers={travelersWithoutTicket} currencies={currencies} />
+                  <TicketFields trip={trip} travelers={travelersWithoutTicket} currencies={currencies} categories={categories} />
                   <div className="sm:col-span-6">
                     <button className={btnPrimary}>Adicionar ingresso</button>
                   </div>

@@ -5,8 +5,9 @@ import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { formatDate, formatMoney } from "@/lib/format";
 import { getTripCities } from "@/services/cities";
-import { listLodgingTypes, listReservationMethods, toNameMap } from "@/services/catalogs";
+import { listExpenseCategories, listLodgingTypes, listReservationMethods, toNameMap } from "@/services/catalogs";
 import { listClientCurrencyCodes } from "@/services/currencies";
+import { VALUE_STATUS_LABEL, VALUE_STATUS_TONE } from "@/lib/labels";
 import { addLodgingAction, deleteLodgingAction } from "@/app/actions/lodgings";
 import { LodgingFields } from "@/components/TripFields";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
@@ -32,7 +33,7 @@ export default async function LodgingsPage({
   const { error } = await searchParams;
   const { trip, canWrite } = await requireTripAccess(id);
 
-  const [rows, cities, types, methods, currencies] = await Promise.all([
+  const [rows, cities, types, methods, categories, currencies] = await Promise.all([
     db
       .select({ lodging: t.lodgings, fileName: t.documents.fileName, cityName: t.cities.name })
       .from(t.lodgings)
@@ -43,10 +44,12 @@ export default async function LodgingsPage({
     getTripCities(trip.id),
     listLodgingTypes(),
     listReservationMethods(),
+    listExpenseCategories(),
     listClientCurrencyCodes(trip.ownerId),
   ]);
   const typeName = toNameMap(types);
   const methodName = toNameMap(methods);
+  const categoryName = toNameMap(categories);
 
   return (
     <>
@@ -55,7 +58,7 @@ export default async function LodgingsPage({
       {canWrite && (
         <AddPanel title="Nova hospedagem" defaultOpen={rows.length === 0}>
           <form action={addLodgingAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-6">
-            <LodgingFields trip={trip} cities={cities} types={types} methods={methods} currencies={currencies} />
+            <LodgingFields trip={trip} cities={cities} types={types} methods={methods} categories={categories} currencies={currencies} />
             <div className="sm:col-span-6">
               <button className={btnPrimary}>Salvar hospedagem</button>
             </div>
@@ -134,6 +137,7 @@ export default async function LodgingsPage({
                     </p>
                   )}
                   {l.notes && <p className="mt-1 text-xs text-slate-500">{l.notes}</p>}
+                  {l.category && <p className="mt-1 text-xs text-slate-500">{categoryName[l.category] ?? l.category}</p>}
                 </div>
                 <div className="flex w-full flex-col items-end justify-between gap-2 p-3 text-right sm:w-auto sm:min-w-32">
                   <div>
@@ -141,7 +145,10 @@ export default async function LodgingsPage({
                       <p className="text-lg font-semibold">{formatMoney(l.totalPrice, l.currency)}</p>
                     )}
                   </div>
-                  {n && <Tag tone="info">{`${n} noite${n > 1 ? "s" : ""}`}</Tag>}
+                  <div className="flex items-center gap-1.5">
+                    {n && <Tag tone="info">{`${n} noite${n > 1 ? "s" : ""}`}</Tag>}
+                    <Tag tone={VALUE_STATUS_TONE[l.status]}>{VALUE_STATUS_LABEL[l.status]}</Tag>
+                  </div>
                 </div>
               </li>
             );

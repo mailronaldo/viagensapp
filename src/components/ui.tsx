@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { VALUE_STATUS_LABEL } from "@/lib/labels";
 
 export const inputCls =
   "w-full rounded-md border border-input bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 transition focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-ring/15";
@@ -88,6 +89,43 @@ export function EmptyState({ children }: { children: ReactNode }) {
     <div className="rounded-xl border border-dashed border-slate-300 bg-white/70 px-6 py-12 text-center text-sm text-slate-500">
       {children}
     </div>
+  );
+}
+
+/** <select> de status do valor (ESTIMADO/A_PAGAR/PAGO), mesmas opções em todo lugar. */
+export function StatusSelect({
+  name,
+  defaultValue = "ESTIMADO",
+  className = inputCls,
+  form,
+}: {
+  name: string;
+  defaultValue?: string;
+  className?: string;
+  form?: string;
+}) {
+  return (
+    <select name={name} form={form} defaultValue={defaultValue} className={className}>
+      {Object.entries(VALUE_STATUS_LABEL).map(([value, label]) => (
+        <option key={value} value={value}>
+          {label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/** <option>s de categoria de custo, a partir do cadastro (lista {id, name}). */
+export function CategoryOptions({ categories }: { categories: { id: string; name: string }[] }) {
+  return (
+    <>
+      <option value="">Sem categoria</option>
+      {categories.map((c) => (
+        <option key={c.id} value={c.id}>
+          {c.name}
+        </option>
+      ))}
+    </>
   );
 }
 

@@ -1,5 +1,7 @@
 import type { Booking, Chip, Expense, ItineraryItem, Lodging } from "@/db/schema";
-import { AddPanel, Field, inputCls } from "@/components/ui";
+import { AddPanel, CategoryOptions, Field, StatusSelect, inputCls } from "@/components/ui";
+
+type Category = { id: string; name: string };
 
 function CurrencyOptions({ currencies }: { currencies: string[] }) {
   return (
@@ -55,6 +57,7 @@ export function ItemMainFields({
   trip,
   cities,
   types,
+  categories,
   item,
   defaultDate,
   attachment,
@@ -62,6 +65,7 @@ export function ItemMainFields({
   trip: { startDate: string; endDate: string };
   cities: { id: string; name: string }[];
   types: { id: string; name: string }[];
+  categories: Category[];
   item?: ItineraryItem;
   defaultDate?: string;
   attachment?: { name: string; href: string } | null;
@@ -116,6 +120,14 @@ export function ItemMainFields({
       <Field label="Custo estimado" className="sm:col-span-2">
         <input name="costEstimate" inputMode="decimal" defaultValue={dec(item?.costEstimate)} placeholder="0,00" className={inputCls} />
       </Field>
+      <Field label="Status do custo" className="sm:col-span-1">
+        <StatusSelect name="costStatus" defaultValue={item?.costStatus ?? "ESTIMADO"} />
+      </Field>
+      <Field label="Categoria do custo" className="sm:col-span-1">
+        <select name="costCategory" defaultValue={item?.costCategory ?? ""} className={inputCls}>
+          <CategoryOptions categories={categories} />
+        </select>
+      </Field>
       <AttachmentField
         label="Ingresso / voucher (PDF ou imagem)"
         name="ticket"
@@ -142,12 +154,14 @@ export function ReservationFields({
   reservationAttachment,
   formId,
   currencies,
+  categories,
 }: {
   trip: { baseCurrency: string };
   item?: ItineraryItem;
   reservationAttachment?: { name: string; href: string } | null;
   formId?: string;
   currencies: string[];
+  categories: Category[];
 }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -170,6 +184,14 @@ export function ReservationFields({
       <Field label="Moeda">
         <select name="reservationCurrency" form={formId} defaultValue={item?.reservationCurrency ?? trip.baseCurrency} className={inputCls}>
           <CurrencyOptions currencies={currencies} />
+        </select>
+      </Field>
+      <Field label="Status do valor">
+        <StatusSelect name="reservationStatus" form={formId} defaultValue={item?.reservationStatus ?? "ESTIMADO"} />
+      </Field>
+      <Field label="Categoria">
+        <select name="reservationCategory" form={formId} defaultValue={item?.reservationCategory ?? ""} className={inputCls}>
+          <CategoryOptions categories={categories} />
         </select>
       </Field>
       <div className="sm:col-span-2">
@@ -199,6 +221,7 @@ export function ItemFields({
   trip,
   cities,
   types,
+  categories,
   item,
   defaultDate,
   attachment,
@@ -208,6 +231,7 @@ export function ItemFields({
   trip: { id: string; startDate: string; endDate: string; baseCurrency: string };
   cities: { id: string; name: string }[];
   types: { id: string; name: string }[];
+  categories: Category[];
   item?: ItineraryItem;
   defaultDate?: string;
   attachment?: { name: string; href: string } | null;
@@ -216,10 +240,10 @@ export function ItemFields({
 }) {
   return (
     <>
-      <ItemMainFields trip={trip} cities={cities} types={types} item={item} defaultDate={defaultDate} attachment={attachment} />
+      <ItemMainFields trip={trip} cities={cities} types={types} categories={categories} item={item} defaultDate={defaultDate} attachment={attachment} />
       <div id="reserva" className="sm:col-span-6">
         <AddPanel title="Reserva desta atividade (opcional — preencha se já reservou)" defaultOpen={false}>
-          <ReservationFields trip={trip} item={item} reservationAttachment={reservationAttachment} currencies={currencies} />
+          <ReservationFields trip={trip} item={item} reservationAttachment={reservationAttachment} currencies={currencies} categories={categories} />
         </AddPanel>
       </div>
     </>
@@ -231,6 +255,7 @@ export function LodgingFields({
   cities,
   types,
   methods,
+  categories,
   lodging,
   defaultDate,
   attachment,
@@ -240,6 +265,7 @@ export function LodgingFields({
   cities: { id: string; name: string }[];
   types: { id: string; name: string }[];
   methods: { id: string; name: string }[];
+  categories: Category[];
   lodging?: Lodging;
   defaultDate?: string;
   attachment?: { name: string; href: string } | null;
@@ -305,6 +331,14 @@ export function LodgingFields({
           <CurrencyOptions currencies={currencies} />
         </select>
       </Field>
+      <Field label="Status do valor" className="sm:col-span-1">
+        <StatusSelect name="status" defaultValue={lodging?.status ?? "ESTIMADO"} />
+      </Field>
+      <Field label="Categoria" className="sm:col-span-1">
+        <select name="category" defaultValue={lodging?.category ?? ""} className={inputCls}>
+          <CategoryOptions categories={categories} />
+        </select>
+      </Field>
       <AttachmentField
         label="Voucher / confirmação (PDF ou imagem)"
         name="voucher"
@@ -364,6 +398,7 @@ export function BookingFields({
   trip,
   cities,
   types,
+  categories,
   booking,
   defaultDate,
   attachment,
@@ -372,6 +407,7 @@ export function BookingFields({
   trip: { baseCurrency: string };
   cities: { id: string; name: string }[];
   types: { id: string; name: string }[];
+  categories: Category[];
   booking?: Booking;
   defaultDate?: string;
   attachment?: { name: string; href: string } | null;
@@ -420,6 +456,14 @@ export function BookingFields({
             <CurrencyOptions currencies={currencies} />
           </select>
         </Field>
+        <Field label="Status do valor" className="sm:col-span-1">
+          <StatusSelect name="status" defaultValue={booking?.status ?? "ESTIMADO"} />
+        </Field>
+        <Field label="Categoria" className="sm:col-span-2">
+          <select name="category" defaultValue={booking?.category ?? ""} className={inputCls}>
+            <CategoryOptions categories={categories} />
+          </select>
+        </Field>
         <Field label="Código de confirmação" className="sm:col-span-3">
           <input name="confirmationCode" defaultValue={booking?.confirmationCode ?? ""} className={inputCls} />
         </Field>
@@ -444,11 +488,13 @@ export function ChipFields({
   chip,
   attachment,
   currencies,
+  categories,
 }: {
   trip: { baseCurrency: string };
   chip?: Chip;
   attachment?: { name: string; href: string } | null;
   currencies: string[];
+  categories: Category[];
 }) {
   return (
     <fieldset id="chip" className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:col-span-6 sm:grid-cols-6">
@@ -470,6 +516,14 @@ export function ChipFields({
       <Field label="Moeda" className="sm:col-span-2">
         <select name="currency" defaultValue={chip?.currency ?? trip.baseCurrency} className={inputCls}>
           <CurrencyOptions currencies={currencies} />
+        </select>
+      </Field>
+      <Field label="Status do valor" className="sm:col-span-2">
+        <StatusSelect name="status" defaultValue={chip?.status ?? "ESTIMADO"} />
+      </Field>
+      <Field label="Categoria" className="sm:col-span-2">
+        <select name="category" defaultValue={chip?.category ?? ""} className={inputCls}>
+          <CategoryOptions categories={categories} />
         </select>
       </Field>
       <AttachmentField
@@ -531,6 +585,9 @@ export function ExpenseFields({
           ))}
         </select>
       </Field>
+      <Field label="Status do valor" className="sm:col-span-2">
+        <StatusSelect name="status" defaultValue={expense?.status ?? "ESTIMADO"} />
+      </Field>
       <Field label="Data" className="sm:col-span-2">
         <input name="date" type="date" required defaultValue={expense?.date ?? defaultDate} className={inputCls} />
       </Field>
@@ -570,10 +627,12 @@ export function TicketFields({
   trip,
   travelers,
   currencies,
+  categories,
 }: {
   trip: { baseCurrency: string };
   travelers: { id: string | null; name: string }[];
   currencies: string[];
+  categories: Category[];
 }) {
   return (
     <>
@@ -601,6 +660,14 @@ export function TicketFields({
           <CurrencyOptions currencies={currencies} />
         </select>
       </Field>
+      <Field label="Status do valor" className="sm:col-span-1">
+        <StatusSelect name="status" />
+      </Field>
+      <Field label="Categoria" className="sm:col-span-1">
+        <select name="category" defaultValue="" className={inputCls}>
+          <CategoryOptions categories={categories} />
+        </select>
+      </Field>
       <AttachmentField label="Voucher (PDF ou imagem)" name="voucher" removeName="removeVoucher" className="sm:col-span-3" />
       <Field label="Detalhes" className="sm:col-span-6">
         <textarea name="details" rows={2} className={inputCls} />
@@ -609,7 +676,15 @@ export function TicketFields({
   );
 }
 
-export function PassFields({ trip, currencies }: { trip: { baseCurrency: string }; currencies: string[] }) {
+export function PassFields({
+  trip,
+  currencies,
+  categories,
+}: {
+  trip: { baseCurrency: string };
+  currencies: string[];
+  categories: Category[];
+}) {
   return (
     <>
       <Field label="Nome do passe" className="sm:col-span-4">
@@ -633,6 +708,14 @@ export function PassFields({ trip, currencies }: { trip: { baseCurrency: string 
       <Field label="Moeda" className="sm:col-span-2">
         <select name="currency" defaultValue={trip.baseCurrency} className={inputCls}>
           <CurrencyOptions currencies={currencies} />
+        </select>
+      </Field>
+      <Field label="Status do valor" className="sm:col-span-2">
+        <StatusSelect name="status" />
+      </Field>
+      <Field label="Categoria" className="sm:col-span-2">
+        <select name="category" defaultValue="" className={inputCls}>
+          <CategoryOptions categories={categories} />
         </select>
       </Field>
     </>

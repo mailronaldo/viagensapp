@@ -5,8 +5,9 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { LOCAL_DATETIME, fail, parseDecimal, str, toWallClock } from "@/lib/form";
+import { LOCAL_DATETIME, fail, parseDecimal, parseStatus, str, toWallClock } from "@/lib/form";
 import { listClientCurrencyCodes } from "@/services/currencies";
+import { parseOptionalCategory } from "@/services/catalogs";
 
 async function parseLeg(formData: FormData, tripId: string, prefix: "origin" | "destination", back: string) {
   const at = str(formData, `${prefix}At`);
@@ -67,6 +68,8 @@ async function parseBooking(tripId: string, ownerId: string, formData: FormData,
     totalPrice,
     // Sem valor, a moeda não faz sentido guardar.
     currency: totalPrice ? currency : null,
+    status: parseStatus(str(formData, "status")),
+    category: await parseOptionalCategory(str(formData, "category")),
   };
 }
 

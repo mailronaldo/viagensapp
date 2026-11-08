@@ -4,13 +4,14 @@ import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { formatDateTime, formatMoney } from "@/lib/format";
 import { getTripCities } from "@/services/cities";
-import { LEGACY_BOOKING_TYPE_IDS, listBookingTypes, toNameMap } from "@/services/catalogs";
+import { LEGACY_BOOKING_TYPE_IDS, listBookingTypes, listExpenseCategories, toNameMap } from "@/services/catalogs";
 import { listClientCurrencyCodes } from "@/services/currencies";
+import { VALUE_STATUS_LABEL, VALUE_STATUS_TONE } from "@/lib/labels";
 import Link from "next/link";
 import { BookingFields } from "@/components/TripFields";
 import { addBookingAction, deleteBookingAction } from "@/app/actions/bookings";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
-import { AddPanel, Card, EmptyState, ErrorBanner, btnPrimary } from "@/components/ui";
+import { AddPanel, Card, EmptyState, ErrorBanner, Tag, btnPrimary } from "@/components/ui";
 
 const ICON: Record<string, string> = {
   FLIGHT: "✈",
@@ -32,9 +33,10 @@ export default async function BookingsPage({
   const { error } = await searchParams;
   const { trip, canWrite } = await requireTripAccess(id);
 
-  const [cities, bookingTypes, rows, currencies] = await Promise.all([
+  const [cities, bookingTypes, categories, rows, currencies] = await Promise.all([
     getTripCities(trip.id),
     listBookingTypes(),
+    listExpenseCategories(),
     db
       .select({
         booking: t.bookings,
@@ -54,6 +56,7 @@ export default async function BookingsPage({
   const destCities = destCityIds.length ? await db.select().from(t.cities).where(inArray(t.cities.id, destCityIds)) : [];
   const destCityName = toNameMap(destCities);
   const typeName = toNameMap(bookingTypes);
+  const categoryName = toNameMap(categories);
   const creatableTypes = bookingTypes.filter((ty) => !LEGACY_BOOKING_TYPE_IDS.includes(ty.id));
 
   return (
@@ -66,7 +69,7 @@ export default async function BookingsPage({
             action={addBookingAction.bind(null, trip.id)}
             className="grid gap-3 sm:grid-cols-6"
           >
-            <BookingFields trip={trip} cities={cities} types={creatableTypes} currencies={currencies} />
+            <BookingFields trip={trip} cities={cities} types={creatableTypes} categories={categories} currencies={currencies} />
             <div className="sm:col-span-6">
               <button className={btnPrimary}>Salvar transporte</button>
             </div>
@@ -133,6 +136,10 @@ export default async function BookingsPage({
                       <span>{formatMoney(b.totalPrice, b.currency)}</span>
                     )}
                   </p>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <Tag tone={VALUE_STATUS_TONE[b.status]}>{VALUE_STATUS_LABEL[b.status]}</Tag>
+                    {b.category && <span className="text-xs text-slate-500">{categoryName[b.category] ?? b.category}</span>}
+                  </div>
                   {b.details && <p className="mt-1 text-xs text-slate-500">{b.details}</p>}
                   {b.documentId && (
                     <a

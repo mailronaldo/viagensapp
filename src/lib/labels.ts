@@ -10,6 +10,18 @@ export const TIP_CATEGORY_LABEL = {
   OUTROS: "Outros",
 } as const;
 
+export const VALUE_STATUS_LABEL = {
+  ESTIMADO: "Estimado",
+  A_PAGAR: "A pagar",
+  PAGO: "Pago",
+} as const;
+
+export const VALUE_STATUS_TONE = {
+  ESTIMADO: "warn",
+  A_PAGAR: "info",
+  PAGO: "ok",
+} as const;
+
 export const TIMEZONES = [
   "America/Sao_Paulo",
   "America/Argentina/Buenos_Aires",

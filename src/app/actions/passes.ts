@@ -4,9 +4,10 @@ import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
-import { fail, parseDecimal, str } from "@/lib/form";
+import { fail, parseDecimal, parseStatus, str } from "@/lib/form";
 import { isInTripGroup } from "@/services/trip-travelers";
 import { listClientCurrencyCodes } from "@/services/currencies";
+import { parseOptionalCategory } from "@/services/catalogs";
 
 function travelerHubPath(tripId: string, travelerId: string | null) {
   return travelerId === null ? `/trips/${tripId}/travelers/owner` : `/trips/${tripId}/travelers/${travelerId}`;
@@ -63,6 +64,8 @@ export async function addPassAction(tripId: string, travelerId: string, formData
     maxUses,
     price,
     currency: price ? (currency ?? "BRL") : null,
+    status: parseStatus(str(formData, "status")),
+    category: await parseOptionalCategory(str(formData, "category")),
     passNumber: str(formData, "passNumber"),
   });
   redirect(back);

@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { getTripCities } from "@/services/cities";
-import { listLodgingTypes, listReservationMethods } from "@/services/catalogs";
+import { listExpenseCategories, listLodgingTypes, listReservationMethods } from "@/services/catalogs";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import { deleteLodgingAction, updateLodgingAction } from "@/app/actions/lodgings";
 import { LodgingFields } from "@/components/TripFields";
@@ -35,10 +35,11 @@ export default async function EditLodgingPage({
     .limit(1);
   if (!lodging) notFound();
 
-  const [cities, types, methods, doc, currencies] = await Promise.all([
+  const [cities, types, methods, categories, doc, currencies] = await Promise.all([
     getTripCities(trip.id),
     listLodgingTypes(),
     listReservationMethods(),
+    listExpenseCategories(),
     lodging.documentId
       ? db.select({ fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.id, lodging.documentId)).limit(1)
       : Promise.resolve([]),
@@ -85,6 +86,7 @@ export default async function EditLodgingPage({
             cities={cities}
             types={types}
             methods={methods}
+            categories={categories}
             lodging={lodging}
             attachment={attachment}
             currencies={currencies}

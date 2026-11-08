@@ -5,8 +5,9 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { HH_MM, ISO_DATE, fail, parseDecimal, str } from "@/lib/form";
+import { HH_MM, ISO_DATE, fail, parseDecimal, parseStatus, str } from "@/lib/form";
 import { listClientCurrencyCodes } from "@/services/currencies";
+import { parseOptionalCategory } from "@/services/catalogs";
 
 async function parseItem(
   tripId: string,
@@ -66,6 +67,8 @@ async function parseItem(
     reservationPrice,
     // Sem valor, a moeda não é guardada.
     reservationCurrency: reservationPrice ? (resCurrency ?? "BRL") : null,
+    reservationStatus: parseStatus(str(formData, "reservationStatus")),
+    reservationCategory: await parseOptionalCategory(str(formData, "reservationCategory")),
     reservationDetails: str(formData, "reservationDetails"),
     cityId,
     date,
@@ -77,6 +80,8 @@ async function parseItem(
     address: str(formData, "address"),
     notes: str(formData, "notes"),
     costEstimate,
+    costStatus: parseStatus(str(formData, "costStatus")),
+    costCategory: await parseOptionalCategory(str(formData, "costCategory")),
   };
 }
 
@@ -181,6 +186,8 @@ export async function removeReservationAction(tripId: string, itemId: string, re
       reservationCode: null,
       reservationPrice: null,
       reservationCurrency: null,
+      reservationStatus: "ESTIMADO",
+      reservationCategory: null,
       reservationDetails: null,
       reservationDocumentId: null,
     })

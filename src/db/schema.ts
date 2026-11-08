@@ -22,6 +22,9 @@ const createdAt = () => timestamp("created_at").notNull().defaultNow();
 export const memberRole = pgEnum("member_role", ["OWNER", "EDITOR", "VIEWER"]);
 export const travelerPermission = pgEnum("traveler_permission", ["READ", "FULL"]);
 export const chipType = pgEnum("chip_type", ["CHIP", "ESIM"]);
+// Status de um valor lançado: estimado (ainda sem compromisso), a pagar
+// (já certo, pendente) ou pago (liquidado).
+export const valueStatus = pgEnum("value_status", ["ESTIMADO", "A_PAGAR", "PAGO"]);
 
 // ---------- Contas e acesso ----------
 
@@ -289,6 +292,8 @@ export const chips = pgTable(
     plan: text("plan"),
     cost: numeric("cost", { precision: 12, scale: 2 }),
     currency: text("currency"),
+    status: valueStatus("status").notNull().default("ESTIMADO"),
+    category: text("category").references(() => expenseCategories.id),
     receiptDocumentId: text("receipt_document_id").references(() => documents.id, { onDelete: "set null" }),
     startDate: date("start_date"),
     endDate: date("end_date"),
@@ -332,6 +337,8 @@ export const bookings = pgTable(
     details: text("details"),
     totalPrice: numeric("total_price", { precision: 12, scale: 2 }),
     currency: text("currency"),
+    status: valueStatus("status").notNull().default("ESTIMADO"),
+    category: text("category").references(() => expenseCategories.id),
     documentId: text("document_id").references(() => documents.id, {
       onDelete: "set null",
     }),
@@ -360,6 +367,8 @@ export const lodgings = pgTable(
     confirmationCode: text("confirmation_code"),
     totalPrice: numeric("total_price", { precision: 12, scale: 2 }),
     currency: text("currency"),
+    status: valueStatus("status").notNull().default("ESTIMADO"),
+    category: text("category").references(() => expenseCategories.id),
     notes: text("notes"),
     documentId: text("document_id").references(() => documents.id, {
       onDelete: "set null",
@@ -395,6 +404,8 @@ export const itineraryItems = pgTable(
     longitude: doublePrecision("longitude"),
     notes: text("notes"),
     costEstimate: numeric("cost_estimate", { precision: 12, scale: 2 }),
+    costStatus: valueStatus("cost_status").notNull().default("ESTIMADO"),
+    costCategory: text("cost_category").references(() => expenseCategories.id),
     // Ingresso/voucher e reserva vinculados
     ticketDocumentId: text("ticket_document_id").references(() => documents.id, {
       onDelete: "set null",
@@ -407,6 +418,8 @@ export const itineraryItems = pgTable(
     reservationCode: text("reservation_code"),
     reservationPrice: numeric("reservation_price", { precision: 12, scale: 2 }),
     reservationCurrency: text("reservation_currency"),
+    reservationStatus: valueStatus("reservation_status").notNull().default("ESTIMADO"),
+    reservationCategory: text("reservation_category").references(() => expenseCategories.id),
     reservationDetails: text("reservation_details"),
     reservationDocumentId: text("reservation_document_id").references(
       () => documents.id,
@@ -484,6 +497,8 @@ export const activityTickets = pgTable(
     ticketNumber: text("ticket_number"),
     price: numeric("price", { precision: 12, scale: 2 }),
     currency: text("currency"),
+    status: valueStatus("status").notNull().default("ESTIMADO"),
+    category: text("category").references(() => expenseCategories.id),
     voucherDocumentId: text("voucher_document_id").references(() => documents.id, { onDelete: "set null" }),
     details: text("details"),
     createdAt: createdAt(),
@@ -515,6 +530,8 @@ export const passes = pgTable(
     maxUses: integer("max_uses"),
     price: numeric("price", { precision: 12, scale: 2 }),
     currency: text("currency"),
+    status: valueStatus("status").notNull().default("ESTIMADO"),
+    category: text("category").references(() => expenseCategories.id),
     passNumber: text("pass_number"),
     firstUsedAt: date("first_used_at"),
     createdAt: createdAt(),
@@ -593,6 +610,7 @@ export const expenses = pgTable(
     description: text("description").notNull(),
     amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
     currency: text("currency").notNull(),
+    status: valueStatus("status").notNull().default("ESTIMADO"),
     // Cotação para a moeda base da viagem (opcional)
     exchangeRate: numeric("exchange_rate", { precision: 14, scale: 6 }),
     paymentMethod: text("payment_method"),

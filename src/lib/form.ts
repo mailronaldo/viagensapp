@@ -35,6 +35,13 @@ export function parseRate(input: string | null) {
   return Number.isFinite(n) && n > 0 ? n.toFixed(6) : null;
 }
 
+const VALUE_STATUSES = new Set(["ESTIMADO", "A_PAGAR", "PAGO"]);
+
+/** Status do valor (ESTIMADO/A_PAGAR/PAGO); vazio ou inválido cai no padrão. */
+export function parseStatus(input: string | null) {
+  return input && VALUE_STATUSES.has(input) ? (input as "ESTIMADO" | "A_PAGAR" | "PAGO") : "ESTIMADO";
+}
+
 export function toWallClock(local: string | null) {
   return local ? `${local.replace("T", " ")}:00` : null;
 }

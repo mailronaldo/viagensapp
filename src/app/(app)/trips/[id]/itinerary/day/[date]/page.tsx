@@ -15,6 +15,7 @@ import {
   LEGACY_BOOKING_TYPE_IDS,
   listActivityTypes,
   listBookingTypes,
+  listExpenseCategories,
   listLodgingTypes,
   listReservationMethods,
   toNameMap,
@@ -48,12 +49,13 @@ export default async function ItineraryDayPage({
   const { trip, canWrite } = await requireTripAccess(id);
   if (!ISO_DATE.test(date) || date < trip.startDate || date > trip.endDate) notFound();
 
-  const [cities, activityTypes, bookingTypes, lodgingTypes, reservationMethods, agenda, plan, docs, currencies] = await Promise.all([
+  const [cities, activityTypes, bookingTypes, lodgingTypes, reservationMethods, categories, agenda, plan, docs, currencies] = await Promise.all([
     getTripCities(trip.id),
     listActivityTypes(),
     listBookingTypes(),
     listLodgingTypes(),
     listReservationMethods(),
+    listExpenseCategories(),
     getAgenda(trip, date),
     getDayPlan(trip.id, date),
     db.select({ id: t.documents.id, fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.tripId, trip.id)),
@@ -255,6 +257,7 @@ export default async function ItineraryDayPage({
                 trip={trip}
                 cities={cities}
                 types={activityTypes.filter((ty) => !LEGACY_ACTIVITY_TYPE_IDS.includes(ty.id))}
+                categories={categories}
                 defaultDate={date}
                 currencies={currencies}
               />
@@ -271,6 +274,7 @@ export default async function ItineraryDayPage({
                 trip={trip}
                 cities={cities}
                 types={bookingTypes.filter((ty) => !LEGACY_BOOKING_TYPE_IDS.includes(ty.id))}
+                categories={categories}
                 defaultDate={date}
                 currencies={currencies}
               />
@@ -288,6 +292,7 @@ export default async function ItineraryDayPage({
                 cities={cities}
                 types={lodgingTypes}
                 methods={reservationMethods}
+                categories={categories}
                 defaultDate={date}
                 currencies={currencies}
               />

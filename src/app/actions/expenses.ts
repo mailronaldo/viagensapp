@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { ISO_DATE, fail, parseDecimal, parseRate, str } from "@/lib/form";
+import { ISO_DATE, fail, parseDecimal, parseRate, parseStatus, str } from "@/lib/form";
 import { addExpense } from "@/services/expenses";
 import { listClientCurrencyCodes } from "@/services/currencies";
 
@@ -36,6 +36,7 @@ async function parseExpense(
   return {
     date,
     category,
+    status: parseStatus(str(formData, "status")),
     description,
     amount,
     currency,

@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { getTripCities } from "@/services/cities";
-import { listBookingTypes } from "@/services/catalogs";
+import { listBookingTypes, listExpenseCategories } from "@/services/catalogs";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import { deleteBookingAction, updateBookingAction } from "@/app/actions/bookings";
 import { BookingFields } from "@/components/TripFields";
@@ -35,12 +35,13 @@ export default async function EditBookingPage({
     .limit(1);
   if (!booking) notFound();
 
-  const [[doc], cities, types, currencies] = await Promise.all([
+  const [[doc], cities, types, categories, currencies] = await Promise.all([
     booking.documentId
       ? db.select({ fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.id, booking.documentId)).limit(1)
       : Promise.resolve([]),
     getTripCities(trip.id),
     listBookingTypes(),
+    listExpenseCategories(),
     listClientCurrencyCodes(trip.ownerId),
   ]);
   const attachment = doc ? { name: doc.fileName, href: `/api/files/${trip.id}/${booking.documentId}` } : null;
@@ -79,7 +80,7 @@ export default async function EditBookingPage({
         <ErrorBanner message={error} />
         <form action={updateBookingAction.bind(null, trip.id, booking.id)} className="grid gap-3 sm:grid-cols-6">
           <input type="hidden" name="day" value={day ?? ""} />
-          <BookingFields trip={trip} cities={cities} types={types} booking={booking} attachment={attachment} currencies={currencies} />
+          <BookingFields trip={trip} cities={cities} types={types} categories={categories} booking={booking} attachment={attachment} currencies={currencies} />
           <div className="flex gap-2 sm:col-span-6">
             <button className={btnPrimary}>Salvar alterações</button>
             <Link href={cancelHref} className={btnGhost}>

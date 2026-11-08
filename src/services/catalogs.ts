@@ -1,5 +1,5 @@
 import "server-only";
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 
 /** Tipos de documento cadastrados pela agência (lista única, usada em todos os clientes). */
@@ -43,6 +43,13 @@ export async function listLodgingTypes() {
 
 export async function listReservationMethods() {
   return db.select().from(t.reservationMethods).orderBy(asc(t.reservationMethods.name));
+}
+
+/** Categoria é opcional em todo registro de valor exceto custo avulso; null/"" é válido. */
+export async function parseOptionalCategory(categoryId: string | null) {
+  if (!categoryId) return null;
+  const [cat] = await db.select({ id: t.expenseCategories.id }).from(t.expenseCategories).where(eq(t.expenseCategories.id, categoryId)).limit(1);
+  return cat ? categoryId : null;
 }
 
 /** Monta um mapa id → nome, pra exibir o rótulo salvo sem repetir a busca. */

@@ -69,15 +69,15 @@ async function main() {
 
     // --- Custos: totais por moeda e conversão
     await addExpense(trip.id, alice.id, {
-      date: "2026-11-10", category: "FOOD", description: "Almoço",
+      date: "2026-11-10", category: "FOOD", status: "ESTIMADO", description: "Almoço",
       amount: "20.00", currency: "EUR", exchangeRate: "6.000000",
     }, "whatsapp");
     await addExpense(trip.id, alice.id, {
-      date: "2026-11-10", category: "TRANSPORT", description: "Táxi",
+      date: "2026-11-10", category: "TRANSPORT", status: "ESTIMADO", description: "Táxi",
       amount: "50.00", currency: "BRL",
     });
     await addExpense(trip.id, alice.id, {
-      date: "2026-11-11", category: "SHOPPING", description: "Lembrança sem cotação",
+      date: "2026-11-11", category: "SHOPPING", status: "ESTIMADO", description: "Lembrança sem cotação",
       amount: "10.00", currency: "USD",
     });
     const s = await getExpenseSummary(trip.id, "BRL");

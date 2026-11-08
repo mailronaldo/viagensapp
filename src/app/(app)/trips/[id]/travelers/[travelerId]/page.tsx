@@ -8,6 +8,7 @@ import { getLoginUrl } from "@/lib/origin";
 import { listTravelerPasses } from "@/services/passes";
 import { listTravelerTickets } from "@/services/tickets";
 import { listClientCurrencyCodes } from "@/services/currencies";
+import { listExpenseCategories } from "@/services/catalogs";
 import { deleteChipAction, upsertChipAction } from "@/app/actions/chips";
 import {
   setTravelerAccessActiveFromTripAction,
@@ -19,7 +20,8 @@ import { ChipFields, PassFields } from "@/components/TripFields";
 import { TravelerAccessForm } from "@/components/TravelerAccess";
 import { SavedModal } from "@/components/SavedModal";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
-import { AddPanel, Card, EmptyState, ErrorBanner, Field, btnGhost, btnPrimary, inputCls } from "@/components/ui";
+import { AddPanel, Card, EmptyState, ErrorBanner, Field, Tag, btnGhost, btnPrimary, inputCls } from "@/components/ui";
+import { VALUE_STATUS_LABEL, VALUE_STATUS_TONE } from "@/lib/labels";
 
 export const metadata = { title: "Viajante" };
 
@@ -43,7 +45,7 @@ export default async function TravelerHubPage({
   if (!linked) notFound();
   const { traveler, permission } = linked;
 
-  const [chip, [login], tickets, passes, currencies] = await Promise.all([
+  const [chip, [login], tickets, passes, currencies, categories] = await Promise.all([
     db.select().from(t.chips).where(and(eq(t.chips.tripId, trip.id), eq(t.chips.travelerId, travelerId))).limit(1).then(([c]) => c),
     traveler.userId
       ? db.select({ active: t.users.active, mustChangePassword: t.users.mustChangePassword }).from(t.users).where(eq(t.users.id, traveler.userId)).limit(1)
@@ -51,6 +53,7 @@ export default async function TravelerHubPage({
     listTravelerTickets(trip.id, travelerId),
     listTravelerPasses(trip.id, travelerId),
     listClientCurrencyCodes(trip.ownerId),
+    listExpenseCategories(),
   ]);
   const attachment = chip?.receiptDocumentId
     ? await db
@@ -146,7 +149,7 @@ export default async function TravelerHubPage({
             )}
             {canWrite ? (
               <form action={upsertChipAction.bind(null, trip.id, travelerId)} className="grid gap-3 sm:grid-cols-6">
-                <ChipFields trip={trip} chip={chip} attachment={attachment} currencies={currencies} />
+                <ChipFields trip={trip} chip={chip} attachment={attachment} currencies={currencies} categories={categories} />
                 <div className="sm:col-span-6">
                   <button className={btnPrimary}>Salvar</button>
                 </div>
@@ -170,6 +173,7 @@ export default async function TravelerHubPage({
                         {row.ticket.provider ? ` · ${row.ticket.provider}` : ""}
                         {row.ticket.price ? ` · ${formatMoney(row.ticket.price, row.ticket.currency ?? "BRL")}` : ""}
                       </p>
+                      <Tag tone={VALUE_STATUS_TONE[row.ticket.status]}>{VALUE_STATUS_LABEL[row.ticket.status]}</Tag>
                     </Link>
                   </li>
                 ))}
@@ -189,6 +193,7 @@ export default async function TravelerHubPage({
                           .filter(Boolean)
                           .join(" · ")}
                       </p>
+                      <Tag tone={VALUE_STATUS_TONE[p.status]}>{VALUE_STATUS_LABEL[p.status]}</Tag>
                     </div>
                     {canWrite && p.usedCount === 0 && (
                       <ConfirmDeleteButton
@@ -205,7 +210,7 @@ export default async function TravelerHubPage({
             )}
             {canWrite && (
               <form action={addPassAction.bind(null, trip.id, travelerId)} className="grid gap-3 sm:grid-cols-6">
-                <PassFields trip={trip} currencies={currencies} />
+                <PassFields trip={trip} currencies={currencies} categories={categories} />
                 <div className="sm:col-span-6">
                   <button className={btnPrimary}>Cadastrar passe</button>
                 </div>

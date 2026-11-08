@@ -5,8 +5,9 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { HH_MM, ISO_DATE, fail, parseDecimal, str } from "@/lib/form";
+import { HH_MM, ISO_DATE, fail, parseDecimal, parseStatus, str } from "@/lib/form";
 import { listClientCurrencyCodes } from "@/services/currencies";
+import { parseOptionalCategory } from "@/services/catalogs";
 
 async function parseLodging(tripId: string, ownerId: string, formData: FormData, back: string) {
   const name = str(formData, "name");
@@ -68,6 +69,8 @@ async function parseLodging(tripId: string, ownerId: string, formData: FormData,
     confirmationCode: str(formData, "confirmationCode"),
     totalPrice,
     currency: totalPrice ? (currency ?? "BRL") : null,
+    status: parseStatus(str(formData, "status")),
+    category: await parseOptionalCategory(str(formData, "category")),
     notes: str(formData, "notes"),
   };
 }

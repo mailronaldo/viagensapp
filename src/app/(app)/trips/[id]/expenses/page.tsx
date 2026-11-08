@@ -3,6 +3,7 @@ import { formatDate, formatMoney, todayIn } from "@/lib/format";
 import { getExpenseSummary, listExpenses } from "@/services/expenses";
 import { listExpenseCategories, toNameMap } from "@/services/catalogs";
 import { ensureTodayRates, listClientCurrencyCodes } from "@/services/currencies";
+import { VALUE_STATUS_LABEL, VALUE_STATUS_TONE } from "@/lib/labels";
 import Link from "next/link";
 import { ExpenseFields } from "@/components/TripFields";
 import { addExpenseAction, deleteExpenseAction } from "@/app/actions/expenses";
@@ -11,6 +12,7 @@ import {
   Card,
   EmptyState,
   ErrorBanner,
+  Tag,
   btnDanger,
   btnPrimary,
 } from "@/components/ui";
@@ -112,6 +114,7 @@ export default async function ExpensesPage({
                 <th className="px-4 py-2 font-medium">Data</th>
                 <th className="px-4 py-2 font-medium">Descrição</th>
                 <th className="px-4 py-2 font-medium">Categoria</th>
+                <th className="px-4 py-2 font-medium">Status</th>
                 <th className="px-4 py-2 text-right font-medium">Valor</th>
                 <th className="px-4 py-2" />
               </tr>
@@ -145,6 +148,9 @@ export default async function ExpensesPage({
                   </td>
                   <td className="px-4 py-2 text-slate-600">
                     {categoryNames[e.category] ?? e.category}
+                  </td>
+                  <td className="px-4 py-2">
+                    <Tag tone={VALUE_STATUS_TONE[e.status]}>{VALUE_STATUS_LABEL[e.status]}</Tag>
                   </td>
                   <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums">
                     {formatMoney(e.amount, e.currency)}
