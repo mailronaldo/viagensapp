@@ -1,4 +1,4 @@
-import type { Booking, Chip, Expense, ItineraryItem, Lodging } from "@/db/schema";
+import type { Booking, Chip, Expense, ItineraryItem, Lodging, TravelInsurance } from "@/db/schema";
 import { AddPanel, CategoryOptions, Field, StatusSelect, inputCls } from "@/components/ui";
 
 type Category = { id: string; name: string };
@@ -717,6 +717,72 @@ export function PassFields({
         <select name="category" defaultValue="" className={inputCls}>
           <CategoryOptions categories={categories} />
         </select>
+      </Field>
+    </>
+  );
+}
+
+export function InsuranceFields({
+  trip,
+  insurance,
+  attachment,
+  currencies,
+  categories,
+}: {
+  trip: { baseCurrency: string };
+  insurance?: TravelInsurance | null;
+  attachment?: { name: string; href: string } | null;
+  currencies: string[];
+  categories: Category[];
+}) {
+  return (
+    <>
+      <Field label="Seguradora / fornecedor" className="sm:col-span-3">
+        <input name="provider" defaultValue={insurance?.provider ?? ""} className={inputCls} />
+      </Field>
+      <Field label="Número da apólice" className="sm:col-span-3">
+        <input name="policyNumber" defaultValue={insurance?.policyNumber ?? ""} className={inputCls} />
+      </Field>
+      <Field label="Cobertura" className="sm:col-span-2">
+        <input name="coverageAmount" inputMode="decimal" defaultValue={dec(insurance?.coverageAmount)} placeholder="0,00" className={inputCls} />
+      </Field>
+      <Field label="Moeda da cobertura" className="sm:col-span-2">
+        <select name="coverageCurrency" defaultValue={insurance?.coverageCurrency ?? trip.baseCurrency} className={inputCls}>
+          <CurrencyOptions currencies={currencies} />
+        </select>
+      </Field>
+      <Field label="Vigência início" className="sm:col-span-1">
+        <input name="startDate" type="date" defaultValue={insurance?.startDate ?? ""} className={inputCls} />
+      </Field>
+      <Field label="Vigência término" className="sm:col-span-1">
+        <input name="endDate" type="date" defaultValue={insurance?.endDate ?? ""} className={inputCls} />
+      </Field>
+      <Field label="Valor" className="sm:col-span-2">
+        <input name="price" inputMode="decimal" defaultValue={dec(insurance?.price)} placeholder="0,00" className={inputCls} />
+      </Field>
+      <Field label="Moeda" className="sm:col-span-1">
+        <select name="currency" defaultValue={insurance?.currency ?? trip.baseCurrency} className={inputCls}>
+          <CurrencyOptions currencies={currencies} />
+        </select>
+      </Field>
+      <Field label="Status do valor" className="sm:col-span-1">
+        <StatusSelect name="status" defaultValue={insurance?.status ?? "ESTIMADO"} />
+      </Field>
+      <Field label="Categoria" className="sm:col-span-2">
+        <select name="category" defaultValue={insurance?.category ?? ""} className={inputCls}>
+          <CategoryOptions categories={categories} />
+        </select>
+      </Field>
+      <AttachmentField
+        label="Apólice (PDF ou imagem)"
+        name="policy"
+        removeName="removePolicy"
+        current={attachment?.name}
+        href={attachment?.href}
+        className="sm:col-span-6"
+      />
+      <Field label="Observações" className="sm:col-span-6">
+        <textarea name="notes" rows={2} defaultValue={insurance?.notes ?? ""} className={inputCls} />
       </Field>
     </>
   );

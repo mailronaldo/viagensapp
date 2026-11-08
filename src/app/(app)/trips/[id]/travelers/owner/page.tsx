@@ -11,7 +11,9 @@ import { listExpenseCategories } from "@/services/catalogs";
 import { VALUE_STATUS_LABEL, VALUE_STATUS_TONE } from "@/lib/labels";
 import { deleteOwnerChipAction, upsertOwnerChipAction } from "@/app/actions/chips";
 import { addPassAction, deletePassAction } from "@/app/actions/passes";
-import { ChipFields, PassFields } from "@/components/TripFields";
+import { deleteOwnerInsuranceAction, upsertOwnerInsuranceAction } from "@/app/actions/travel-insurance";
+import { getTravelerInsurance } from "@/services/travel-insurance";
+import { ChipFields, InsuranceFields, PassFields } from "@/components/TripFields";
 import { SavedModal } from "@/components/SavedModal";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
 import { AddPanel, Card, EmptyState, ErrorBanner, Tag, btnPrimary } from "@/components/ui";
@@ -30,13 +32,14 @@ export default async function OwnerTravelerHubPage({
   const { trip, canWrite } = await requireTripAccess(id);
   if (!trip.ownerIsTraveler) redirect(`/trips/${trip.id}/travelers`);
 
-  const [[owner], chip, tickets, passes, currencies, categories] = await Promise.all([
+  const [[owner], chip, tickets, passes, currencies, categories, insurance] = await Promise.all([
     db.select({ name: t.users.name, email: t.users.email }).from(t.users).where(eq(t.users.id, trip.ownerId)).limit(1),
     db.select().from(t.chips).where(and(eq(t.chips.tripId, trip.id), isNull(t.chips.travelerId))).limit(1).then(([c]) => c),
     listTravelerTickets(trip.id, null),
     listTravelerPasses(trip.id, null),
     listClientCurrencyCodes(trip.ownerId),
     listExpenseCategories(),
+    getTravelerInsurance(trip.id, null),
   ]);
   const attachment = chip?.receiptDocumentId
     ? await db
@@ -46,6 +49,14 @@ export default async function OwnerTravelerHubPage({
         .limit(1)
         .then(([doc]) => (doc ? { name: doc.fileName, href: `/api/files/${trip.id}/${chip.receiptDocumentId}` } : null))
     : null;
+  const policyAttachment = insurance?.policyDocumentId
+    ? await db
+        .select({ fileName: t.documents.fileName })
+        .from(t.documents)
+        .where(eq(t.documents.id, insurance.policyDocumentId))
+        .limit(1)
+        .then(([doc]) => (doc ? { name: doc.fileName, href: `/api/files/${trip.id}/${insurance.policyDocumentId}` } : null))
+    : null;
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -54,6 +65,9 @@ export default async function OwnerTravelerHubPage({
       </Link>
       {saved === "1" && (
         <SavedModal key={saved} show title="Chip salvo ✓" body="As informações de internet / telefonia foram salvas." cleanUrl={`/trips/${trip.id}/travelers/owner`} />
+      )}
+      {saved === "seguro" && (
+        <SavedModal key={saved} show title="Seguro salvo ✓" body="Os dados do seguro viagem foram salvos." cleanUrl={`/trips/${trip.id}/travelers/owner`} />
       )}
       <ErrorBanner message={error} />
 
@@ -146,6 +160,30 @@ export default async function OwnerTravelerHubPage({
                   <button className={btnPrimary}>Cadastrar passe</button>
                 </div>
               </form>
+            )}
+          </AddPanel>
+
+          <AddPanel title="Seguro viagem">
+            {insurance && (
+              <div className="mb-3 flex items-center justify-end">
+                <ConfirmDeleteButton
+                  label="Remover seguro"
+                  confirmTitle="Remover este seguro?"
+                  confirmDescription="Isso remove a apólice de seguro viagem do dono da viagem."
+                  deleteAction={deleteOwnerInsuranceAction.bind(null, trip.id)}
+                  size="sm"
+                />
+              </div>
+            )}
+            {canWrite ? (
+              <form action={upsertOwnerInsuranceAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-6">
+                <InsuranceFields trip={trip} insurance={insurance} attachment={policyAttachment} currencies={currencies} categories={categories} />
+                <div className="sm:col-span-6">
+                  <button className={btnPrimary}>Salvar</button>
+                </div>
+              </form>
+            ) : (
+              <p className="text-sm text-slate-500">Você não tem permissão para editar esta viagem.</p>
             )}
           </AddPanel>
         </div>

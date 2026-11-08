@@ -555,6 +555,40 @@ export const activityPassUsages = pgTable(
   (t) => [uniqueIndex("activity_pass_usages_unique").on(t.itemId, t.passId)],
 );
 
+// ---------- Seguro viagem ----------
+
+// Escopado por viagem + viajante (mesmo padrão de `chips`/`passes`): uma
+// apólice por viajante por viagem. `travelerId` nulo = seguro do próprio
+// cliente (dono da viagem), quando `trips.ownerIsTraveler`.
+export const travelInsurances = pgTable(
+  "travel_insurances",
+  {
+    id: id(),
+    tripId: text("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    travelerId: text("traveler_id").references(() => travelers.id, { onDelete: "cascade" }),
+    provider: text("provider"),
+    policyNumber: text("policy_number"),
+    coverageAmount: numeric("coverage_amount", { precision: 12, scale: 2 }),
+    coverageCurrency: text("coverage_currency"),
+    startDate: date("start_date"),
+    endDate: date("end_date"),
+    price: numeric("price", { precision: 12, scale: 2 }),
+    currency: text("currency"),
+    status: valueStatus("status").notNull().default("ESTIMADO"),
+    category: text("category").references(() => expenseCategories.id),
+    policyDocumentId: text("policy_document_id").references(() => documents.id, { onDelete: "set null" }),
+    notes: text("notes"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("travel_insurances_trip_traveler_unique").on(t.tripId, t.travelerId).where(sql`${t.travelerId} IS NOT NULL`),
+    uniqueIndex("travel_insurances_trip_owner_unique").on(t.tripId).where(sql`${t.travelerId} IS NULL`),
+  ],
+);
+export type TravelInsurance = typeof travelInsurances.$inferSelect;
+
 // ---------- Moedas (cadastro do cliente + cotação diária) ----------
 
 // BRL é o padrão do sistema e não precisa de linha aqui (fica implícito em
