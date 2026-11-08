@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
+import { ArrowLeft } from "lucide-react";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { formatMoney } from "@/lib/format";
@@ -104,12 +105,22 @@ export default async function EditItemPage({
           <Card>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-lg font-medium">Editar atividade</h2>
-              <ConfirmDeleteButton
-                label="Excluir atividade"
-                confirmTitle="Excluir esta atividade?"
-                confirmDescription="Isso remove a atividade, a reserva, os pontos de interesse, as tips e a região cadastrados nela. Não dá pra desfazer."
-                deleteAction={deleteItemAction.bind(null, trip.id, item.id, item.date)}
-              />
+              <div className="flex items-center gap-1">
+                <Link
+                  href={back}
+                  aria-label="Voltar"
+                  title="Voltar"
+                  className="flex size-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
+                >
+                  <ArrowLeft className="size-5" />
+                </Link>
+                <ConfirmDeleteButton
+                  label="Excluir atividade"
+                  confirmTitle="Excluir esta atividade?"
+                  confirmDescription="Isso remove a atividade, a reserva, os pontos de interesse, as tips e a região cadastrados nela. Não dá pra desfazer."
+                  deleteAction={deleteItemAction.bind(null, trip.id, item.id, item.date)}
+                />
+              </div>
             </div>
             <form id={FORM_ID} action={updateItemAction.bind(null, trip.id, item.id)} className="grid gap-3 sm:grid-cols-6">
               <ItemMainFields trip={trip} cities={cities} types={activityTypes} item={item} attachment={attachment} />

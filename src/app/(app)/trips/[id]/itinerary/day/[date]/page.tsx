@@ -186,7 +186,7 @@ export default async function ItineraryDayPage({
                       <Link
                         href={
                           e.kind === "item"
-                            ? `${base}/items/${e.id}?day=${date}`
+                            ? `${base}/items/${e.id}`
                             : e.kind === "lodging"
                               ? `/trips/${trip.id}/lodgings/${e.id}?day=${date}`
                               : `/trips/${trip.id}/transports/${e.id}?day=${date}`
