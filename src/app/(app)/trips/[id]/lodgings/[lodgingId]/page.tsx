@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
+import { ArrowLeft } from "lucide-react";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { getTripCities } from "@/services/cities";
@@ -57,12 +58,22 @@ export default async function EditLodgingPage({
       <Card>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-medium">Editar hospedagem</h2>
-          <ConfirmDeleteButton
-            label="Excluir hospedagem"
-            confirmTitle="Excluir esta hospedagem?"
-            confirmDescription="Isso remove a hospedagem e o voucher anexado a ela. Não dá pra desfazer."
-            deleteAction={deleteLodgingAction.bind(null, trip.id, lodging.id)}
-          />
+          <div className="flex items-center gap-1">
+            <Link
+              href={cancelHref}
+              aria-label="Voltar"
+              title="Voltar"
+              className="flex size-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
+            >
+              <ArrowLeft className="size-5" />
+            </Link>
+            <ConfirmDeleteButton
+              label="Excluir hospedagem"
+              confirmTitle="Excluir esta hospedagem?"
+              confirmDescription="Isso remove a hospedagem e o voucher anexado a ela. Não dá pra desfazer."
+              deleteAction={deleteLodgingAction.bind(null, trip.id, lodging.id)}
+            />
+          </div>
         </div>
         <ErrorBanner message={error} />
         <form action={updateLodgingAction.bind(null, trip.id, lodging.id)} className="grid gap-3 sm:grid-cols-6">

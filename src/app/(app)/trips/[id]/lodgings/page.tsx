@@ -135,11 +135,11 @@ export default async function LodgingsPage({
                 </div>
                 <div className="flex w-full flex-col items-end justify-between gap-2 p-3 text-right sm:w-auto sm:min-w-32">
                   <div>
-                    {n && <p className="text-xs text-slate-500">{`${n} noite${n > 1 ? "s" : ""}`}</p>}
                     {l.totalPrice && l.currency && (
                       <p className="text-lg font-semibold">{formatMoney(l.totalPrice, l.currency)}</p>
                     )}
                   </div>
+                  {n && <Tag tone="info">{`${n} noite${n > 1 ? "s" : ""}`}</Tag>}
                 </div>
               </li>
             );
