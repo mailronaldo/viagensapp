@@ -251,25 +251,19 @@ export function ItemFields({
 }
 
 export function LodgingFields({
-  trip,
   cities,
   types,
   methods,
-  categories,
   lodging,
   defaultDate,
   attachment,
-  currencies,
 }: {
-  trip: { baseCurrency: string };
   cities: { id: string; name: string }[];
   types: { id: string; name: string }[];
   methods: { id: string; name: string }[];
-  categories: Category[];
   lodging?: Lodging;
   defaultDate?: string;
   attachment?: { name: string; href: string } | null;
-  currencies: string[];
 }) {
   return (
     <>
@@ -323,24 +317,8 @@ export function LodgingFields({
       <Field label="Endereço" className="sm:col-span-6">
         <input name="address" defaultValue={lodging?.address ?? ""} className={inputCls} />
       </Field>
-      <Field label="Valor total" className="sm:col-span-2">
-        <input name="totalPrice" inputMode="decimal" defaultValue={dec(lodging?.totalPrice)} placeholder="0,00" className={inputCls} />
-      </Field>
-      <Field label="Moeda" className="sm:col-span-1">
-        <select name="currency" defaultValue={lodging?.currency ?? trip.baseCurrency} className={inputCls}>
-          <CurrencyOptions currencies={currencies} />
-        </select>
-      </Field>
-      <Field label="Status do valor" className="sm:col-span-1">
-        <StatusSelect name="status" defaultValue={lodging?.status ?? "ESTIMADO"} />
-      </Field>
-      <Field label="Categoria" className="sm:col-span-1">
-        <select name="category" defaultValue={lodging?.category ?? ""} className={inputCls}>
-          <CategoryOptions categories={categories} />
-        </select>
-      </Field>
       <AttachmentField
-        label="Voucher / confirmação (PDF ou imagem)"
+        label="Confirmação da reserva (PDF ou imagem)"
         name="voucher"
         removeName="removeVoucher"
         current={attachment?.name}
@@ -349,6 +327,103 @@ export function LodgingFields({
       />
       <Field label="Observações" className="sm:col-span-6">
         <textarea name="notes" rows={2} defaultValue={lodging?.notes ?? ""} className={inputCls} />
+      </Field>
+    </>
+  );
+}
+
+export function LodgingVoucherFields({
+  trip,
+  travelers,
+  currencies,
+  categories,
+  subcategories,
+  voucher,
+  travelerIds,
+  attachment,
+}: {
+  trip: { baseCurrency: string };
+  travelers: { id: string | null; name: string }[];
+  currencies: string[];
+  categories: Category[];
+  subcategories: { id: string; name: string }[];
+  voucher?: {
+    name: string;
+    subcategoryId: string | null;
+    isGroup: boolean;
+    price: string | null;
+    currency: string | null;
+    status: string;
+    category: string | null;
+    notes: string | null;
+  } | null;
+  /** Viajantes já cobertos por este voucher (modo edição): "owner" ou o id do viajante. */
+  travelerIds?: string[];
+  attachment?: { name: string; href: string } | null;
+}) {
+  const checkedTravelers = new Set(travelerIds ?? []);
+  return (
+    <>
+      <Field label="Nome do voucher" className="sm:col-span-4">
+        <input name="name" required defaultValue={voucher?.name ?? ""} placeholder="Ex.: Suíte 101" className={inputCls} />
+      </Field>
+      <Field label="Tipo (subcategoria)" className="sm:col-span-2">
+        <select name="subcategoryId" defaultValue={voucher?.subcategoryId ?? ""} className={inputCls}>
+          <option value="">—</option>
+          {subcategories.map((sc) => (
+            <option key={sc.id} value={sc.id}>
+              {sc.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <div className="sm:col-span-6">
+        <label className="mb-2 flex items-center gap-2 text-sm">
+          <input type="checkbox" name="isGroup" defaultChecked={voucher?.isGroup ?? false} className="rounded" />
+          Voucher do grupo (custo compartilhado por todos)
+        </label>
+        <p className="mb-2 text-xs text-slate-500">Desmarcado, selecione 1 ou mais viajantes cobertos por este voucher:</p>
+        <div className="flex flex-wrap gap-3">
+          {travelers.map((tr) => (
+            <label key={tr.id ?? "owner"} className="flex items-center gap-1.5 text-sm">
+              <input
+                type="checkbox"
+                name="travelerIds"
+                value={tr.id ?? "owner"}
+                defaultChecked={checkedTravelers.has(tr.id ?? "owner")}
+                className="rounded"
+              />
+              {tr.name}
+            </label>
+          ))}
+        </div>
+      </div>
+      <Field label="Valor" className="sm:col-span-2">
+        <input name="price" inputMode="decimal" defaultValue={dec(voucher?.price)} placeholder="0,00" className={inputCls} />
+      </Field>
+      <Field label="Moeda" className="sm:col-span-1">
+        <select name="currency" defaultValue={voucher?.currency ?? trip.baseCurrency} className={inputCls}>
+          <CurrencyOptions currencies={currencies} />
+        </select>
+      </Field>
+      <Field label="Status do valor" className="sm:col-span-1">
+        <StatusSelect name="status" defaultValue={voucher?.status ?? "ESTIMADO"} />
+      </Field>
+      <Field label="Categoria" className="sm:col-span-2">
+        <select name="category" defaultValue={voucher?.category ?? ""} className={inputCls}>
+          <CategoryOptions categories={categories} />
+        </select>
+      </Field>
+      <AttachmentField
+        label="Comprovante (PDF ou imagem)"
+        name="voucher"
+        removeName="removeVoucher"
+        current={attachment?.name}
+        href={attachment?.href}
+        className="sm:col-span-4"
+      />
+      <Field label="Observações" className="sm:col-span-6">
+        <textarea name="notes" rows={2} defaultValue={voucher?.notes ?? ""} className={inputCls} />
       </Field>
     </>
   );

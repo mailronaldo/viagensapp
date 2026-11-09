@@ -128,6 +128,35 @@ export async function deleteLodgingTypeAction(id: string) {
   redirect(back);
 }
 
+export async function addLodgingTypeSubcategoryAction(lodgingTypeId: string, formData: FormData) {
+  await requireMaster();
+  const back = "/agency/system/lodging-types";
+  const name = str(formData, "name");
+  if (!name) fail(back, "Informe o nome da subcategoria.");
+  const [lodgingType] = await db.select({ id: t.lodgingTypes.id }).from(t.lodgingTypes).where(eq(t.lodgingTypes.id, lodgingTypeId)).limit(1);
+  if (!lodgingType) fail(back, "Tipo de hospedagem inválido.");
+  try {
+    await db.insert(t.lodgingTypeSubcategories).values({ lodgingTypeId, name });
+  } catch {
+    fail(back, "Essa subcategoria já existe para este tipo.");
+  }
+  redirect(back);
+}
+
+export async function deleteLodgingTypeSubcategoryAction(id: string) {
+  await requireMaster();
+  const back = "/agency/system/lodging-types";
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(t.lodgingVouchers)
+    .where(eq(t.lodgingVouchers.subcategoryId, id));
+  if (count > 0) {
+    fail(back, `Essa subcategoria está em uso em ${count === 1 ? "1 voucher" : `${count} vouchers`}. Não dá pra excluir.`);
+  }
+  await db.delete(t.lodgingTypeSubcategories).where(eq(t.lodgingTypeSubcategories.id, id));
+  redirect(back);
+}
+
 export async function addReservationMethodAction(formData: FormData) {
   await requireMaster();
   const back = "/agency/system/reservation-methods";

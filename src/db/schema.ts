@@ -395,16 +395,69 @@ export const lodgings = pgTable(
     checkOutDate: date("check_out_date"),
     checkOutTime: text("check_out_time"),
     confirmationCode: text("confirmation_code"),
-    totalPrice: numeric("total_price", { precision: 12, scale: 2 }),
-    currency: text("currency"),
-    status: valueStatus("status").notNull().default("ESTIMADO"),
-    category: text("category").references(() => expenseCategories.id),
     notes: text("notes"),
     documentId: text("document_id").references(() => documents.id, {
       onDelete: "set null",
     }),
   },
   (t) => [index("lodgings_trip_checkin_idx").on(t.tripId, t.checkInDate)],
+);
+
+// Subcategoria do tipo de hospedagem (ex.: Hotel → Standard, Suíte…), usada
+// no campo "tipo" de cada voucher de hospedagem. Gerenciada na mesma tela de
+// "Tipos de hospedagem" (Agência → Sistema), aninhada por tipo.
+export const lodgingTypeSubcategories = pgTable(
+  "lodging_type_subcategories",
+  {
+    id: id(),
+    lodgingTypeId: text("lodging_type_id")
+      .notNull()
+      .references(() => lodgingTypes.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("lodging_type_subcategories_type_name_unique").on(t.lodgingTypeId, t.name)],
+);
+
+// Custo da hospedagem, lançado por voucher: uma hospedagem pode ter vários
+// (ex.: hotel com 2-3 suítes reservadas separadamente), cada um do grupo
+// inteiro ou de 1+ viajantes específicos (ver `lodgingVoucherTravelers`).
+export const lodgingVouchers = pgTable("lodging_vouchers", {
+  id: id(),
+  lodgingId: text("lodging_id")
+    .notNull()
+    .references(() => lodgings.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  subcategoryId: text("subcategory_id").references(() => lodgingTypeSubcategories.id, { onDelete: "set null" }),
+  isGroup: boolean("is_group").notNull().default(false),
+  price: numeric("price", { precision: 12, scale: 2 }),
+  currency: text("currency"),
+  status: valueStatus("status").notNull().default("ESTIMADO"),
+  category: text("category").references(() => expenseCategories.id),
+  voucherDocumentId: text("voucher_document_id").references(() => documents.id, { onDelete: "set null" }),
+  notes: text("notes"),
+  createdAt: createdAt(),
+});
+
+// Quais viajantes um voucher (não-grupo) cobre — pode ser 1 ou mais.
+// `travelerId` nulo = dono da viagem como viajante (mesma convenção de
+// chips/ingressos/seguro/voucher de transporte).
+export const lodgingVoucherTravelers = pgTable(
+  "lodging_voucher_travelers",
+  {
+    voucherId: text("voucher_id")
+      .notNull()
+      .references(() => lodgingVouchers.id, { onDelete: "cascade" }),
+    travelerId: text("traveler_id").references(() => travelers.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    uniqueIndex("lodging_voucher_travelers_traveler_unique")
+      .on(t.voucherId, t.travelerId)
+      .where(sql`${t.travelerId} IS NOT NULL`),
+    uniqueIndex("lodging_voucher_travelers_owner_unique")
+      .on(t.voucherId)
+      .where(sql`${t.travelerId} IS NULL`),
+  ],
 );
 
 // ---------- Roteiro dia a dia ----------
@@ -696,6 +749,8 @@ export type Trip = typeof trips.$inferSelect;
 export type City = typeof cities.$inferSelect;
 export type ItineraryItem = typeof itineraryItems.$inferSelect;
 export type Lodging = typeof lodgings.$inferSelect;
+export type LodgingVoucher = typeof lodgingVouchers.$inferSelect;
+export type LodgingTypeSubcategory = typeof lodgingTypeSubcategories.$inferSelect;
 export type Booking = typeof bookings.$inferSelect;
 export type TransportVoucher = typeof transportVouchers.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;

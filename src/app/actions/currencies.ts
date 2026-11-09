@@ -55,7 +55,12 @@ export async function deleteCurrencyAction(currencyId: string) {
         .innerJoin(t.bookings, eq(t.bookings.id, t.transportVouchers.bookingId))
         .where(and(inArray(t.bookings.tripId, tripIds), eq(t.transportVouchers.currency, code)))
         .limit(1),
-      db.select({ id: t.lodgings.id }).from(t.lodgings).where(and(inArray(t.lodgings.tripId, tripIds), eq(t.lodgings.currency, code))).limit(1),
+      db
+        .select({ id: t.lodgingVouchers.id })
+        .from(t.lodgingVouchers)
+        .innerJoin(t.lodgings, eq(t.lodgings.id, t.lodgingVouchers.lodgingId))
+        .where(and(inArray(t.lodgings.tripId, tripIds), eq(t.lodgingVouchers.currency, code)))
+        .limit(1),
       db.select({ id: t.chips.id }).from(t.chips).where(and(inArray(t.chips.tripId, tripIds), eq(t.chips.currency, code))).limit(1),
       db.select({ id: t.activityTickets.id }).from(t.activityTickets).where(and(inArray(t.activityTickets.tripId, tripIds), eq(t.activityTickets.currency, code))).limit(1),
       db.select({ id: t.passes.id }).from(t.passes).where(and(inArray(t.passes.tripId, tripIds), eq(t.passes.currency, code))).limit(1),

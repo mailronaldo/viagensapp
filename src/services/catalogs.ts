@@ -41,6 +41,20 @@ export async function listLodgingTypes() {
   return db.select().from(t.lodgingTypes).orderBy(asc(t.lodgingTypes.name));
 }
 
+/** Subcategorias de um tipo de hospedagem (ex.: Hotel → Standard, Suíte…), usadas no tipo do voucher. */
+export async function listLodgingTypeSubcategories(lodgingTypeId: string) {
+  return db
+    .select()
+    .from(t.lodgingTypeSubcategories)
+    .where(eq(t.lodgingTypeSubcategories.lodgingTypeId, lodgingTypeId))
+    .orderBy(asc(t.lodgingTypeSubcategories.name));
+}
+
+/** Todas as subcategorias de todos os tipos, pra exibir na tela de gestão. */
+export async function listAllLodgingTypeSubcategories() {
+  return db.select().from(t.lodgingTypeSubcategories).orderBy(asc(t.lodgingTypeSubcategories.name));
+}
+
 export async function listReservationMethods() {
   return db.select().from(t.reservationMethods).orderBy(asc(t.reservationMethods.name));
 }

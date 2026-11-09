@@ -148,6 +148,13 @@
       "when": 1794226680927,
       "tag": "0020_gifted_gauntlet",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794227795102,
+      "tag": "0021_ambitious_talisman",
+      "breakpoints": true
     }
   ]
 }

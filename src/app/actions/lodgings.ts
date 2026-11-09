@@ -5,11 +5,9 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { HH_MM, ISO_DATE, fail, parseDecimal, parseStatus, str } from "@/lib/form";
-import { listClientCurrencyCodes } from "@/services/currencies";
-import { parseOptionalCategory } from "@/services/catalogs";
+import { HH_MM, ISO_DATE, fail, str } from "@/lib/form";
 
-async function parseLodging(tripId: string, ownerId: string, formData: FormData, back: string) {
+async function parseLodging(tripId: string, formData: FormData, back: string) {
   const name = str(formData, "name");
   const type = str(formData, "type") ?? "HOTEL";
   const provider = str(formData, "provider");
@@ -18,7 +16,6 @@ async function parseLodging(tripId: string, ownerId: string, formData: FormData,
   const checkOutDate = str(formData, "checkOutDate");
   const checkInTime = str(formData, "checkInTime");
   const checkOutTime = str(formData, "checkOutTime");
-  const currency = str(formData, "currency");
 
   if (!name) fail(back, "Informe o nome da hospedagem.");
   const [lodgingType] = await db.select({ id: t.lodgingTypes.id }).from(t.lodgingTypes).where(eq(t.lodgingTypes.id, type)).limit(1);
@@ -38,14 +35,6 @@ async function parseLodging(tripId: string, ownerId: string, formData: FormData,
   if (checkInDate && checkOutDate && checkOutDate < checkInDate) {
     fail(back, "O check-out não pode ser antes do check-in.");
   }
-  if (currency) {
-    const validCurrencies = await listClientCurrencyCodes(ownerId);
-    if (!validCurrencies.includes(currency)) fail(back, "Moeda inválida.");
-  }
-
-  const priceRaw = str(formData, "totalPrice");
-  const totalPrice = parseDecimal(priceRaw, { positive: true });
-  if (priceRaw && totalPrice === null) fail(back, "Valor inválido.");
 
   if (cityId) {
     const [city] = await db
@@ -67,19 +56,15 @@ async function parseLodging(tripId: string, ownerId: string, formData: FormData,
     checkOutDate,
     checkOutTime,
     confirmationCode: str(formData, "confirmationCode"),
-    totalPrice,
-    currency: totalPrice ? (currency ?? "BRL") : null,
-    status: parseStatus(str(formData, "status")),
-    category: await parseOptionalCategory(str(formData, "category")),
     notes: str(formData, "notes"),
   };
 }
 
 export async function addLodgingAction(tripId: string, formData: FormData) {
-  const { trip } = await requireTripAccess(tripId, { write: true });
+  await requireTripAccess(tripId, { write: true });
   const day = str(formData, "day");
   const back = day ? `/trips/${tripId}/itinerary/day/${day}` : `/trips/${tripId}/lodgings`;
-  const v = await parseLodging(tripId, trip.ownerId, formData, back);
+  const v = await parseLodging(tripId, formData, back);
   const documentId = await attachmentFromForm({
     tripId,
     formData,
@@ -93,7 +78,7 @@ export async function addLodgingAction(tripId: string, formData: FormData) {
 }
 
 export async function updateLodgingAction(tripId: string, lodgingId: string, formData: FormData) {
-  const { trip } = await requireTripAccess(tripId, { write: true });
+  await requireTripAccess(tripId, { write: true });
   const day = str(formData, "day");
   const editUrl = `/trips/${tripId}/lodgings/${lodgingId}`;
   const back = day ? `${editUrl}?day=${day}` : editUrl;
@@ -104,7 +89,7 @@ export async function updateLodgingAction(tripId: string, lodgingId: string, for
     .limit(1);
   if (!current) redirect(`/trips/${tripId}/lodgings`);
 
-  const v = await parseLodging(tripId, trip.ownerId, formData, back);
+  const v = await parseLodging(tripId, formData, back);
   const documentId = await attachmentFromForm({
     tripId,
     formData,

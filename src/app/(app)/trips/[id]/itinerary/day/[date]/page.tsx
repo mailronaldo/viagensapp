@@ -285,13 +285,10 @@ export default async function ItineraryDayPage({
             <form action={addLodgingAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-6">
               <input type="hidden" name="day" value={date} />
               <LodgingFields
-                trip={trip}
                 cities={cities}
                 types={lodgingTypes}
                 methods={reservationMethods}
-                categories={categories}
                 defaultDate={date}
-                currencies={currencies}
               />
               <div className="sm:col-span-6">
                 <button className={btnPrimary}>Salvar hospedagem</button>
