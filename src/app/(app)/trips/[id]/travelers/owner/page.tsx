@@ -106,7 +106,7 @@ export default async function OwnerTravelerHubPage({
         </div>
 
         <div className="space-y-4">
-          <AddPanel title="Internet / chip" defaultOpen>
+          <AddPanel title="Internet / chip">
             {chip && (
               <div className="mb-3 flex items-center justify-end">
                 <ConfirmDeleteButton

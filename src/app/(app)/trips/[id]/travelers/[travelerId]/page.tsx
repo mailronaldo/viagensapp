@@ -174,7 +174,7 @@ export default async function TravelerHubPage({
             </Card>
           )}
 
-          <AddPanel title="Internet / chip" defaultOpen>
+          <AddPanel title="Internet / chip">
 
             {chip && (
               <div className="mb-3 flex items-center justify-end">
