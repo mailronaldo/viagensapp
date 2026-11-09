@@ -271,12 +271,9 @@ export default async function ItineraryDayPage({
             <form action={addBookingAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-6">
               <input type="hidden" name="day" value={date} />
               <BookingFields
-                trip={trip}
                 cities={cities}
                 types={bookingTypes.filter((ty) => !LEGACY_BOOKING_TYPE_IDS.includes(ty.id))}
-                categories={categories}
                 defaultDate={date}
-                currencies={currencies}
               />
               <div className="sm:col-span-6">
                 <button className={btnPrimary}>Salvar transporte</button>

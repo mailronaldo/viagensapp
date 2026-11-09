@@ -4,8 +4,8 @@ import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { formatDateTime, formatMoney } from "@/lib/format";
 import { getTripCities } from "@/services/cities";
-import { LEGACY_BOOKING_TYPE_IDS, listBookingTypes, listExpenseCategories, toNameMap } from "@/services/catalogs";
-import { listClientCurrencyCodes } from "@/services/currencies";
+import { LEGACY_BOOKING_TYPE_IDS, listBookingTypes, toNameMap } from "@/services/catalogs";
+import { listVouchersForBookings } from "@/services/transport-vouchers";
 import { VALUE_STATUS_LABEL, VALUE_STATUS_TONE } from "@/lib/labels";
 import Link from "next/link";
 import { BookingFields } from "@/components/TripFields";
@@ -33,10 +33,9 @@ export default async function BookingsPage({
   const { error } = await searchParams;
   const { trip, canWrite } = await requireTripAccess(id);
 
-  const [cities, bookingTypes, categories, rows, currencies] = await Promise.all([
+  const [cities, bookingTypes, rows, [owner]] = await Promise.all([
     getTripCities(trip.id),
     listBookingTypes(),
-    listExpenseCategories(),
     db
       .select({
         booking: t.bookings,
@@ -48,7 +47,7 @@ export default async function BookingsPage({
       .leftJoin(t.cities, eq(t.cities.id, t.bookings.originCityId))
       .where(eq(t.bookings.tripId, trip.id))
       .orderBy(sql`${t.bookings.originAt} asc nulls last`, asc(t.bookings.title)),
-    listClientCurrencyCodes(trip.ownerId),
+    db.select({ name: t.users.name }).from(t.users).where(eq(t.users.id, trip.ownerId)).limit(1),
   ]);
   // Segunda cidade (destino) resolvida num mapa aparte, já que um left join
   // só dá pra encadear uma vez sem repetir a tabela.
@@ -56,8 +55,8 @@ export default async function BookingsPage({
   const destCities = destCityIds.length ? await db.select().from(t.cities).where(inArray(t.cities.id, destCityIds)) : [];
   const destCityName = toNameMap(destCities);
   const typeName = toNameMap(bookingTypes);
-  const categoryName = toNameMap(categories);
   const creatableTypes = bookingTypes.filter((ty) => !LEGACY_BOOKING_TYPE_IDS.includes(ty.id));
+  const vouchersByBooking = await listVouchersForBookings(rows.map((r) => r.booking.id), owner?.name ?? "Dono");
 
   return (
     <>
@@ -69,7 +68,7 @@ export default async function BookingsPage({
             action={addBookingAction.bind(null, trip.id)}
             className="grid gap-3 sm:grid-cols-6"
           >
-            <BookingFields trip={trip} cities={cities} types={creatableTypes} categories={categories} currencies={currencies} />
+            <BookingFields cities={cities} types={creatableTypes} />
             <div className="sm:col-span-6">
               <button className={btnPrimary}>Salvar transporte</button>
             </div>
@@ -132,14 +131,25 @@ export default async function BookingsPage({
                         Confirmação: <span className="font-mono">{b.confirmationCode}</span>
                       </span>
                     )}
-                    {b.totalPrice && b.currency && (
-                      <span>{formatMoney(b.totalPrice, b.currency)}</span>
-                    )}
                   </p>
-                  <div className="mt-1 flex items-center gap-1.5">
-                    <Tag tone={VALUE_STATUS_TONE[b.status]}>{VALUE_STATUS_LABEL[b.status]}</Tag>
-                    {b.category && <span className="text-xs text-slate-500">{categoryName[b.category] ?? b.category}</span>}
-                  </div>
+                  {(() => {
+                    const vouchers = vouchersByBooking.get(b.id) ?? [];
+                    return vouchers.length > 0 ? (
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        {vouchers.map((v, i) => (
+                          <span key={i} className="flex items-center gap-1.5 text-xs text-slate-600">
+                            {v.scopeLabel}
+                            {v.price && <span>· {formatMoney(v.price, v.currency ?? "BRL")}</span>}
+                            <Tag tone={VALUE_STATUS_TONE[v.status as keyof typeof VALUE_STATUS_TONE]}>
+                              {VALUE_STATUS_LABEL[v.status as keyof typeof VALUE_STATUS_LABEL]}
+                            </Tag>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-xs text-slate-400">Sem voucher cadastrado</p>
+                    );
+                  })()}
                   {b.details && <p className="mt-1 text-xs text-slate-500">{b.details}</p>}
                   {b.documentId && (
                     <a

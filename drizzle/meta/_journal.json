@@ -141,6 +141,13 @@
       "when": 1794170013017,
       "tag": "0019_mute_black_tom",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794226680927,
+      "tag": "0020_gifted_gauntlet",
+      "breakpoints": true
     }
   ]
 }

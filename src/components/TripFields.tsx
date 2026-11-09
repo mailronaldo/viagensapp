@@ -395,23 +395,17 @@ function BookingLegFields({
 }
 
 export function BookingFields({
-  trip,
   cities,
   types,
-  categories,
   booking,
   defaultDate,
   attachment,
-  currencies,
 }: {
-  trip: { baseCurrency: string };
   cities: { id: string; name: string }[];
   types: { id: string; name: string }[];
-  categories: Category[];
   booking?: Booking;
   defaultDate?: string;
   attachment?: { name: string; href: string } | null;
-  currencies: string[];
 }) {
   return (
     <>
@@ -448,22 +442,6 @@ export function BookingFields({
         <legend className="px-1 text-xs font-medium text-slate-600">
           Reserva deste transporte (opcional — preencha se já reservou)
         </legend>
-        <Field label="Valor total" className="sm:col-span-2">
-          <input name="totalPrice" inputMode="decimal" defaultValue={dec(booking?.totalPrice)} placeholder="0,00" className={inputCls} />
-        </Field>
-        <Field label="Moeda" className="sm:col-span-1">
-          <select name="currency" defaultValue={booking?.currency ?? trip.baseCurrency} className={inputCls}>
-            <CurrencyOptions currencies={currencies} />
-          </select>
-        </Field>
-        <Field label="Status do valor" className="sm:col-span-1">
-          <StatusSelect name="status" defaultValue={booking?.status ?? "ESTIMADO"} />
-        </Field>
-        <Field label="Categoria" className="sm:col-span-2">
-          <select name="category" defaultValue={booking?.category ?? ""} className={inputCls}>
-            <CategoryOptions categories={categories} />
-          </select>
-        </Field>
         <Field label="Código de confirmação" className="sm:col-span-3">
           <input name="confirmationCode" defaultValue={booking?.confirmationCode ?? ""} className={inputCls} />
         </Field>
@@ -479,6 +457,91 @@ export function BookingFields({
           <textarea name="details" rows={2} defaultValue={booking?.details ?? ""} className={inputCls} />
         </Field>
       </fieldset>
+    </>
+  );
+}
+
+export function TransportVoucherFields({
+  trip,
+  travelers,
+  currencies,
+  categories,
+  voucher,
+  scopeLabel,
+  attachment,
+  allowGroup = true,
+}: {
+  trip: { baseCurrency: string };
+  travelers: { id: string | null; name: string }[];
+  currencies: string[];
+  categories: Category[];
+  voucher?: {
+    provider: string | null;
+    reservationCode: string | null;
+    price: string | null;
+    currency: string | null;
+    status: string;
+    category: string | null;
+    notes: string | null;
+  } | null;
+  /** No modo edição, o escopo (grupo / viajante) já está definido e não muda. */
+  scopeLabel?: string;
+  attachment?: { name: string; href: string } | null;
+  /** Esconde a opção "Grupo" quando já existe um voucher de grupo pra este transporte. */
+  allowGroup?: boolean;
+}) {
+  return (
+    <>
+      {voucher ? (
+        <Field label="Escopo" className="sm:col-span-6">
+          <input value={scopeLabel ?? ""} disabled className={inputCls} />
+        </Field>
+      ) : (
+        <Field label="Escopo" className="sm:col-span-6">
+          <select name="scope" required className={inputCls}>
+            <option value="">Selecione…</option>
+            {allowGroup && <option value="group">Grupo (custo compartilhado)</option>}
+            {travelers.map((tr) => (
+              <option key={tr.id ?? "owner"} value={tr.id ?? "owner"}>
+                {tr.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
+      <Field label="Fornecedor" className="sm:col-span-3">
+        <input name="provider" defaultValue={voucher?.provider ?? ""} className={inputCls} />
+      </Field>
+      <Field label="Código de reserva" className="sm:col-span-3">
+        <input name="reservationCode" defaultValue={voucher?.reservationCode ?? ""} className={inputCls} />
+      </Field>
+      <Field label="Valor" className="sm:col-span-2">
+        <input name="price" inputMode="decimal" defaultValue={dec(voucher?.price)} placeholder="0,00" className={inputCls} />
+      </Field>
+      <Field label="Moeda" className="sm:col-span-1">
+        <select name="currency" defaultValue={voucher?.currency ?? trip.baseCurrency} className={inputCls}>
+          <CurrencyOptions currencies={currencies} />
+        </select>
+      </Field>
+      <Field label="Status do valor" className="sm:col-span-1">
+        <StatusSelect name="status" defaultValue={voucher?.status ?? "ESTIMADO"} />
+      </Field>
+      <Field label="Categoria" className="sm:col-span-2">
+        <select name="category" defaultValue={voucher?.category ?? ""} className={inputCls}>
+          <CategoryOptions categories={categories} />
+        </select>
+      </Field>
+      <AttachmentField
+        label="Comprovante (PDF ou imagem)"
+        name="voucher"
+        removeName="removeVoucher"
+        current={attachment?.name}
+        href={attachment?.href}
+        className="sm:col-span-4"
+      />
+      <Field label="Observações" className="sm:col-span-6">
+        <textarea name="notes" rows={2} defaultValue={voucher?.notes ?? ""} className={inputCls} />
+      </Field>
     </>
   );
 }

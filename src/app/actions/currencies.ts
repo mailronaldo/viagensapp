@@ -49,7 +49,12 @@ export async function deleteCurrencyAction(currencyId: string) {
     const [inTrip, inExpense, inBooking, inLodging, inChip, inTicket, inPass, inItem] = await Promise.all([
       db.select({ id: t.trips.id }).from(t.trips).where(and(inArray(t.trips.id, tripIds), eq(t.trips.baseCurrency, code))).limit(1),
       db.select({ id: t.expenses.id }).from(t.expenses).where(and(inArray(t.expenses.tripId, tripIds), eq(t.expenses.currency, code))).limit(1),
-      db.select({ id: t.bookings.id }).from(t.bookings).where(and(inArray(t.bookings.tripId, tripIds), eq(t.bookings.currency, code))).limit(1),
+      db
+        .select({ id: t.transportVouchers.id })
+        .from(t.transportVouchers)
+        .innerJoin(t.bookings, eq(t.bookings.id, t.transportVouchers.bookingId))
+        .where(and(inArray(t.bookings.tripId, tripIds), eq(t.transportVouchers.currency, code)))
+        .limit(1),
       db.select({ id: t.lodgings.id }).from(t.lodgings).where(and(inArray(t.lodgings.tripId, tripIds), eq(t.lodgings.currency, code))).limit(1),
       db.select({ id: t.chips.id }).from(t.chips).where(and(inArray(t.chips.tripId, tripIds), eq(t.chips.currency, code))).limit(1),
       db.select({ id: t.activityTickets.id }).from(t.activityTickets).where(and(inArray(t.activityTickets.tripId, tripIds), eq(t.activityTickets.currency, code))).limit(1),

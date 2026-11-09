@@ -335,15 +335,45 @@ export const bookings = pgTable(
     originCityId: text("origin_city_id").references(() => cities.id, { onDelete: "set null" }),
     destinationCityId: text("destination_city_id").references(() => cities.id, { onDelete: "set null" }),
     details: text("details"),
-    totalPrice: numeric("total_price", { precision: 12, scale: 2 }),
-    currency: text("currency"),
-    status: valueStatus("status").notNull().default("ESTIMADO"),
-    category: text("category").references(() => expenseCategories.id),
     documentId: text("document_id").references(() => documents.id, {
       onDelete: "set null",
     }),
   },
   (t) => [index("bookings_trip_start_idx").on(t.tripId, t.originAt)],
+);
+
+// Custo do transporte, lançado por partes: um voucher do grupo (custo
+// compartilhado) e/ou um voucher por viajante (custo individual, com seu
+// próprio código de reserva). `travelerId` nulo com `isGroup` falso = dono da
+// viagem como viajante — mesma convenção de chips/ingressos/seguro.
+export const transportVouchers = pgTable(
+  "transport_vouchers",
+  {
+    id: id(),
+    bookingId: text("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "cascade" }),
+    isGroup: boolean("is_group").notNull().default(false),
+    travelerId: text("traveler_id").references(() => travelers.id, { onDelete: "cascade" }),
+    provider: text("provider"),
+    reservationCode: text("reservation_code"),
+    price: numeric("price", { precision: 12, scale: 2 }),
+    currency: text("currency"),
+    status: valueStatus("status").notNull().default("ESTIMADO"),
+    category: text("category").references(() => expenseCategories.id),
+    voucherDocumentId: text("voucher_document_id").references(() => documents.id, { onDelete: "set null" }),
+    notes: text("notes"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("transport_vouchers_group_unique").on(t.bookingId).where(sql`${t.isGroup} = true`),
+    uniqueIndex("transport_vouchers_traveler_unique")
+      .on(t.bookingId, t.travelerId)
+      .where(sql`${t.isGroup} = false AND ${t.travelerId} IS NOT NULL`),
+    uniqueIndex("transport_vouchers_owner_unique")
+      .on(t.bookingId)
+      .where(sql`${t.isGroup} = false AND ${t.travelerId} IS NULL`),
+  ],
 );
 
 // ---------- Hospedagens (hotéis, aluguéis, Airbnb…) ----------
@@ -667,6 +697,7 @@ export type City = typeof cities.$inferSelect;
 export type ItineraryItem = typeof itineraryItems.$inferSelect;
 export type Lodging = typeof lodgings.$inferSelect;
 export type Booking = typeof bookings.$inferSelect;
+export type TransportVoucher = typeof transportVouchers.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type Document = typeof documents.$inferSelect;
 export type DocumentTypeRow = typeof documentTypes.$inferSelect;

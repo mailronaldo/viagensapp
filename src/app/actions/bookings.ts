@@ -5,9 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { LOCAL_DATETIME, fail, parseDecimal, parseStatus, str, toWallClock } from "@/lib/form";
-import { listClientCurrencyCodes } from "@/services/currencies";
-import { parseOptionalCategory } from "@/services/catalogs";
+import { LOCAL_DATETIME, fail, str, toWallClock } from "@/lib/form";
 
 async function parseLeg(formData: FormData, tripId: string, prefix: "origin" | "destination", back: string) {
   const at = str(formData, `${prefix}At`);
@@ -31,26 +29,16 @@ async function parseLeg(formData: FormData, tripId: string, prefix: "origin" | "
 async function parseBooking(tripId: string, ownerId: string, formData: FormData, back: string) {
   const type = str(formData, "type") ?? "OTHER";
   const title = str(formData, "title");
-  const currency = str(formData, "currency");
 
   if (!title) fail(back, "Informe um título para o transporte.");
   const [bookingType] = await db.select({ id: t.bookingTypes.id }).from(t.bookingTypes).where(eq(t.bookingTypes.id, type)).limit(1);
   if (!bookingType) fail(back, "Tipo de transporte inválido.");
-  if (currency) {
-    const validCurrencies = await listClientCurrencyCodes(ownerId);
-    if (!validCurrencies.includes(currency)) fail(back, "Moeda inválida.");
-  }
 
   const origin = await parseLeg(formData, tripId, "origin", back);
   const destination = await parseLeg(formData, tripId, "destination", back);
   if (origin.at && destination.at && destination.at < origin.at) {
     fail(back, "O destino não pode ser antes da origem.");
   }
-
-  const priceRaw = str(formData, "totalPrice");
-  const totalPrice = parseDecimal(priceRaw, { positive: true });
-  if (priceRaw && totalPrice === null) fail(back, "Valor inválido.");
-  if (totalPrice && !currency) fail(back, "Informe a moeda do valor.");
 
   return {
     type,
@@ -65,11 +53,6 @@ async function parseBooking(tripId: string, ownerId: string, formData: FormData,
     destinationLocation: destination.location,
     destinationCityId: destination.cityId,
     details: str(formData, "details"),
-    totalPrice,
-    // Sem valor, a moeda não faz sentido guardar.
-    currency: totalPrice ? currency : null,
-    status: parseStatus(str(formData, "status")),
-    category: await parseOptionalCategory(str(formData, "category")),
   };
 }
 
