@@ -8,7 +8,6 @@ import { getLoginUrl } from "@/lib/origin";
 import { listTravelerPasses } from "@/services/passes";
 import { listTravelerTickets } from "@/services/tickets";
 import { listClientCurrencyCodes } from "@/services/currencies";
-import { listExpenseCategories } from "@/services/catalogs";
 import { deleteChipAction, upsertChipAction } from "@/app/actions/chips";
 import {
   setTravelerAccessActiveFromTripAction,
@@ -47,7 +46,7 @@ export default async function TravelerHubPage({
   if (!linked) notFound();
   const { traveler, permission } = linked;
 
-  const [chip, [login], tickets, passes, currencies, categories, insurance] = await Promise.all([
+  const [chip, [login], tickets, passes, currencies, insurance] = await Promise.all([
     db.select().from(t.chips).where(and(eq(t.chips.tripId, trip.id), eq(t.chips.travelerId, travelerId))).limit(1).then(([c]) => c),
     traveler.userId
       ? db.select({ active: t.users.active, mustChangePassword: t.users.mustChangePassword }).from(t.users).where(eq(t.users.id, traveler.userId)).limit(1)
@@ -55,7 +54,6 @@ export default async function TravelerHubPage({
     listTravelerTickets(trip.id, travelerId),
     listTravelerPasses(trip.id, travelerId),
     listClientCurrencyCodes(trip.ownerId),
-    listExpenseCategories(),
     getTravelerInsurance(trip.id, travelerId),
   ]);
   const attachment = chip?.receiptDocumentId
@@ -256,7 +254,7 @@ export default async function TravelerHubPage({
                             </div>
                           )}
                           <form action={updatePassAction.bind(null, trip.id, travelerId, p.id)} className="grid gap-3 sm:grid-cols-6">
-                            <PassFields trip={trip} currencies={currencies} categories={categories} pass={p} />
+                            <PassFields trip={trip} currencies={currencies} pass={p} />
                             <div className="sm:col-span-6">
                               <button className={btnPrimary}>Salvar passe</button>
                             </div>
@@ -270,7 +268,7 @@ export default async function TravelerHubPage({
             )}
             {canWrite && (
               <form action={addPassAction.bind(null, trip.id, travelerId)} className="grid gap-3 sm:grid-cols-6">
-                <PassFields trip={trip} currencies={currencies} categories={categories} />
+                <PassFields trip={trip} currencies={currencies} />
                 <div className="sm:col-span-6">
                   <button className={btnPrimary}>Cadastrar passe</button>
                 </div>

@@ -183,6 +183,20 @@
       "when": 1794236094549,
       "tag": "0025_panoramic_salo",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1794243778620,
+      "tag": "0026_green_junta",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1794243976736,
+      "tag": "0027_black_silver_fox",
+      "breakpoints": true
     }
   ]
 }

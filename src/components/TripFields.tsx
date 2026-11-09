@@ -258,6 +258,7 @@ export function LodgingFields({
   lodging,
   defaultDate,
   attachment,
+  iconAttachment,
 }: {
   cities: { id: string; name: string }[];
   types: { id: string; name: string }[];
@@ -265,6 +266,7 @@ export function LodgingFields({
   lodging?: Lodging;
   defaultDate?: string;
   attachment?: { name: string; href: string } | null;
+  iconAttachment?: { name: string; href: string } | null;
 }) {
   return (
     <>
@@ -290,19 +292,6 @@ export function LodgingFields({
           ))}
         </select>
       </Field>
-      <Field label="Método de reserva" className="sm:col-span-2">
-        <select name="provider" defaultValue={lodging?.provider ?? ""} className={inputCls}>
-          <option value="">—</option>
-          {methods.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Field label="Código de confirmação" className="sm:col-span-2">
-        <input name="confirmationCode" defaultValue={lodging?.confirmationCode ?? ""} className={inputCls} />
-      </Field>
       <Field label="Check-in (data)" className="sm:col-span-2">
         <input name="checkInDate" type="date" defaultValue={lodging?.checkInDate ?? defaultDate ?? ""} className={inputCls} />
       </Field>
@@ -319,16 +308,43 @@ export function LodgingFields({
         <input name="address" defaultValue={lodging?.address ?? ""} className={inputCls} />
       </Field>
       <AttachmentField
-        label="Confirmação da reserva (PDF ou imagem)"
-        name="voucher"
-        removeName="removeVoucher"
-        current={attachment?.name}
-        href={attachment?.href}
+        label="Ícone da hospedagem (opcional — recomendado 256×256px, PNG/JPG)"
+        name="icon"
+        removeName="removeIcon"
+        current={iconAttachment?.name}
+        href={iconAttachment?.href}
         className="sm:col-span-3"
       />
       <Field label="Observações" className="sm:col-span-6">
         <textarea name="notes" rows={2} defaultValue={lodging?.notes ?? ""} className={inputCls} />
       </Field>
+      <fieldset className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:col-span-6 sm:grid-cols-6">
+        <legend className="px-1 text-xs font-medium text-slate-600">Voucher da reserva</legend>
+        <Field label="Método de reserva" className="sm:col-span-2">
+          <select name="provider" defaultValue={lodging?.provider ?? ""} className={inputCls}>
+            <option value="">—</option>
+            {methods.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Código de confirmação" className="sm:col-span-2">
+          <input name="confirmationCode" defaultValue={lodging?.confirmationCode ?? ""} className={inputCls} />
+        </Field>
+        <Field label="PIN" className="sm:col-span-2">
+          <input name="pin" defaultValue={lodging?.pin ?? ""} className={inputCls} />
+        </Field>
+        <AttachmentField
+          label="Confirmação da reserva (PDF ou imagem)"
+          name="voucher"
+          removeName="removeVoucher"
+          current={attachment?.name}
+          href={attachment?.href}
+          className="sm:col-span-6"
+        />
+      </fieldset>
     </>
   );
 }
@@ -915,12 +931,10 @@ export function TicketFields({
 export function PassFields({
   trip,
   currencies,
-  categories,
   pass,
 }: {
   trip: { baseCurrency: string };
   currencies: string[];
-  categories: Category[];
   pass?: {
     name: string;
     provider: string | null;
@@ -930,7 +944,6 @@ export function PassFields({
     price: string | null;
     currency: string | null;
     status: string;
-    category: string | null;
   } | null;
 }) {
   return (
@@ -960,11 +973,6 @@ export function PassFields({
       </Field>
       <Field label="Status do valor" className="sm:col-span-2">
         <StatusSelect name="status" defaultValue={pass?.status ?? "ESTIMADO"} />
-      </Field>
-      <Field label="Categoria" className="sm:col-span-2">
-        <select name="category" defaultValue={pass?.category ?? ""} className={inputCls}>
-          <CategoryOptions categories={categories} />
-        </select>
       </Field>
     </>
   );

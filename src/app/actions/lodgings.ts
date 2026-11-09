@@ -56,6 +56,7 @@ async function parseLodging(tripId: string, formData: FormData, back: string) {
     checkOutDate,
     checkOutTime,
     confirmationCode: str(formData, "confirmationCode"),
+    pin: str(formData, "pin"),
     notes: str(formData, "notes"),
   };
 }
@@ -73,7 +74,15 @@ export async function addLodgingAction(tripId: string, formData: FormData) {
     back,
     current: null,
   });
-  await db.insert(t.lodgings).values({ tripId, ...v, documentId });
+  const iconDocumentId = await attachmentFromForm({
+    tripId,
+    formData,
+    fileField: "icon",
+    doc: { type: "RECEIPT", title: `Ícone — ${v.name}` },
+    back,
+    current: null,
+  });
+  await db.insert(t.lodgings).values({ tripId, ...v, documentId, iconDocumentId });
   redirect(back);
 }
 
@@ -99,9 +108,18 @@ export async function updateLodgingAction(tripId: string, lodgingId: string, for
     back,
     current: current.documentId,
   });
+  const iconDocumentId = await attachmentFromForm({
+    tripId,
+    formData,
+    fileField: "icon",
+    removeField: "removeIcon",
+    doc: { type: "RECEIPT", title: `Ícone — ${v.name}` },
+    back,
+    current: current.iconDocumentId,
+  });
   await db
     .update(t.lodgings)
-    .set({ ...v, documentId })
+    .set({ ...v, documentId, iconDocumentId })
     .where(and(eq(t.lodgings.id, lodgingId), eq(t.lodgings.tripId, tripId)));
   redirect(day ? `/trips/${tripId}/itinerary/day/${day}` : `${back}?saved=1`);
 }

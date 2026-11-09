@@ -7,7 +7,6 @@ import { formatDate, formatMoney } from "@/lib/format";
 import { listTravelerPasses } from "@/services/passes";
 import { listTravelerTickets } from "@/services/tickets";
 import { listClientCurrencyCodes } from "@/services/currencies";
-import { listExpenseCategories } from "@/services/catalogs";
 import { VALUE_STATUS_LABEL, VALUE_STATUS_TONE } from "@/lib/labels";
 import { deleteOwnerChipAction, upsertOwnerChipAction } from "@/app/actions/chips";
 import { addPassAction, deletePassAction, updatePassAction } from "@/app/actions/passes";
@@ -32,13 +31,12 @@ export default async function OwnerTravelerHubPage({
   const { trip, canWrite } = await requireTripAccess(id);
   if (!trip.ownerIsTraveler) redirect(`/trips/${trip.id}/travelers`);
 
-  const [[owner], chip, tickets, passes, currencies, categories, insurance] = await Promise.all([
+  const [[owner], chip, tickets, passes, currencies, insurance] = await Promise.all([
     db.select({ name: t.users.name, email: t.users.email }).from(t.users).where(eq(t.users.id, trip.ownerId)).limit(1),
     db.select().from(t.chips).where(and(eq(t.chips.tripId, trip.id), isNull(t.chips.travelerId))).limit(1).then(([c]) => c),
     listTravelerTickets(trip.id, null),
     listTravelerPasses(trip.id, null),
     listClientCurrencyCodes(trip.ownerId),
-    listExpenseCategories(),
     getTravelerInsurance(trip.id, null),
   ]);
   const attachment = chip?.receiptDocumentId
@@ -187,7 +185,7 @@ export default async function OwnerTravelerHubPage({
                             </div>
                           )}
                           <form action={updatePassAction.bind(null, trip.id, "owner", p.id)} className="grid gap-3 sm:grid-cols-6">
-                            <PassFields trip={trip} currencies={currencies} categories={categories} pass={p} />
+                            <PassFields trip={trip} currencies={currencies} pass={p} />
                             <div className="sm:col-span-6">
                               <button className={btnPrimary}>Salvar passe</button>
                             </div>
@@ -201,7 +199,7 @@ export default async function OwnerTravelerHubPage({
             )}
             {canWrite && (
               <form action={addPassAction.bind(null, trip.id, "owner")} className="grid gap-3 sm:grid-cols-6">
-                <PassFields trip={trip} currencies={currencies} categories={categories} />
+                <PassFields trip={trip} currencies={currencies} />
                 <div className="sm:col-span-6">
                   <button className={btnPrimary}>Cadastrar passe</button>
                 </div>

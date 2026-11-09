@@ -419,8 +419,12 @@ export const lodgings = pgTable(
     checkOutDate: date("check_out_date"),
     checkOutTime: text("check_out_time"),
     confirmationCode: text("confirmation_code"),
+    pin: text("pin"),
     notes: text("notes"),
     documentId: text("document_id").references(() => documents.id, {
+      onDelete: "set null",
+    }),
+    iconDocumentId: text("icon_document_id").references(() => documents.id, {
       onDelete: "set null",
     }),
   },
@@ -532,6 +536,7 @@ export const itineraryItems = pgTable(
       () => documents.id,
       { onDelete: "set null" },
     ),
+    createdAt: createdAt(),
   },
   (t) => [index("items_trip_date_idx").on(t.tripId, t.date)],
 );

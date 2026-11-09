@@ -7,7 +7,7 @@ import { requireTripAccess } from "@/lib/access";
 import { fail, parseDecimal, parseStatus, str } from "@/lib/form";
 import { isInTripGroup } from "@/services/trip-travelers";
 import { listClientCurrencyCodes } from "@/services/currencies";
-import { parseOptionalCategory } from "@/services/catalogs";
+import { getTicketCategoryId } from "@/services/catalogs";
 
 function travelerHubPath(tripId: string, travelerId: string | null) {
   return travelerId === null ? `/trips/${tripId}/travelers/owner` : `/trips/${tripId}/travelers/${travelerId}`;
@@ -65,7 +65,7 @@ export async function addPassAction(tripId: string, travelerId: string, formData
     price,
     currency: price ? (currency ?? "BRL") : null,
     status: parseStatus(str(formData, "status")),
-    category: await parseOptionalCategory(str(formData, "category")),
+    category: await getTicketCategoryId(),
     passNumber: str(formData, "passNumber"),
   });
   redirect(back);
@@ -115,7 +115,7 @@ async function updatePass(tripId: string, ownerId: string, passId: string, formD
       price,
       currency: price ? (currency ?? "BRL") : null,
       status: parseStatus(str(formData, "status")),
-      category: await parseOptionalCategory(str(formData, "category")),
+      category: await getTicketCategoryId(),
       passNumber: str(formData, "passNumber"),
     })
     .where(eq(t.passes.id, passId));

@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { eachDay, formatDate } from "@/lib/format";
 
-const VISIBLE_DAYS = 7;
-
-/** Tira com até 7 dias ao redor do dia aberto, que fica em destaque. */
+/** Tira com todos os dias da viagem, que fica em destaque. Se não couber, rola na horizontal. */
 export function DayStrip({
   basePath,
   startDate,
@@ -16,11 +14,10 @@ export function DayStrip({
   current: string;
 }) {
   const days = eachDay(startDate, endDate);
-  const first = Math.max(0, Math.min(days.indexOf(current) - 3, days.length - VISIBLE_DAYS));
 
   return (
     <nav aria-label="Dias da viagem" className="mb-4 flex gap-1.5 overflow-x-auto pb-1">
-      {days.slice(first, first + VISIBLE_DAYS).map((day) => (
+      {days.map((day) => (
         <Link
           key={day}
           href={`${basePath}/${day}`}

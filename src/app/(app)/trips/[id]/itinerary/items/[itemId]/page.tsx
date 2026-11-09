@@ -259,7 +259,7 @@ export default async function EditItemPage({
                         </summary>
                         <div className="border-t border-slate-100 p-3">
                           <form action={updatePassFromItemAction.bind(null, trip.id, itemId, u.pass.id)} className="grid gap-3 sm:grid-cols-6">
-                            <PassFields trip={trip} currencies={currencies} categories={categories} pass={u.pass} />
+                            <PassFields trip={trip} currencies={currencies} pass={u.pass} />
                             <div className="sm:col-span-6">
                               <button className={btnPrimary}>Salvar passe</button>
                             </div>

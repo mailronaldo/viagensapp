@@ -40,12 +40,15 @@ export default async function EditLodgingPage({
     .limit(1);
   if (!lodging) notFound();
 
-  const [cities, types, methods, doc, currencies, travelerOptions, subcategories, owner] = await Promise.all([
+  const [cities, types, methods, doc, iconDoc, currencies, travelerOptions, subcategories, owner] = await Promise.all([
     getTripCities(trip.id),
     listLodgingTypes(),
     listReservationMethods(),
     lodging.documentId
       ? db.select({ fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.id, lodging.documentId)).limit(1)
+      : Promise.resolve([]),
+    lodging.iconDocumentId
+      ? db.select({ fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.id, lodging.iconDocumentId)).limit(1)
       : Promise.resolve([]),
     listClientCurrencyCodes(trip.ownerId),
     listTripTravelerOptions(trip),
@@ -53,6 +56,7 @@ export default async function EditLodgingPage({
     db.select({ name: t.users.name }).from(t.users).where(eq(t.users.id, trip.ownerId)).limit(1).then(([o]) => o),
   ]);
   const attachment = doc[0] ? { name: doc[0].fileName, href: `/api/files/${trip.id}/${lodging.documentId}` } : null;
+  const iconAttachment = iconDoc[0] ? { name: iconDoc[0].fileName, href: `/api/files/${trip.id}/${lodging.iconDocumentId}` } : null;
   const vouchers = await listLodgingVouchers(lodgingId, owner?.name ?? "Dono");
   const voucherDocIds = vouchers.map((v) => v.voucherDocumentId).filter((docId): docId is string => !!docId);
   const voucherDocs = voucherDocIds.length
@@ -94,7 +98,7 @@ export default async function EditLodgingPage({
         <ErrorBanner message={error} />
         <form action={updateLodgingAction.bind(null, trip.id, lodging.id)} className="grid gap-3 sm:grid-cols-6">
           <input type="hidden" name="day" value={day ?? ""} />
-          <LodgingFields cities={cities} types={types} methods={methods} lodging={lodging} attachment={attachment} />
+          <LodgingFields cities={cities} types={types} methods={methods} lodging={lodging} attachment={attachment} iconAttachment={iconAttachment} />
           <div className="flex gap-2 sm:col-span-6">
             <button className={btnPrimary}>Salvar alterações</button>
             <Link href={cancelHref} className={btnGhost}>

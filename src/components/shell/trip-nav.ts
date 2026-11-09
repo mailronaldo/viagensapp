@@ -1,4 +1,4 @@
-import { LayoutDashboard, MapPin, Briefcase, Hotel, Users, Wallet, FileText, FolderCog } from "lucide-react";
+import { LayoutDashboard, MapPin, Briefcase, Hotel, Users, Wallet, Receipt, FileText, FolderCog } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 type SideNavLeaf = { kind: "link"; href: string; label: string; icon: LucideIcon };
@@ -21,7 +21,8 @@ export const TRIP_NAV: SideNavItem[] = [
   { kind: "link", href: "/transports", label: "Transportes", icon: Briefcase },
   { kind: "link", href: "/lodgings", label: "Hospedagens", icon: Hotel },
   { kind: "link", href: "/travelers", label: "Viajantes", icon: Users },
-  { kind: "link", href: "/expenses", label: "Custos", icon: Wallet },
+  { kind: "link", href: "/costs", label: "Central de custos", icon: Wallet },
+  { kind: "link", href: "/expenses", label: "Custo avulso", icon: Receipt },
   {
     kind: "group",
     label: "Gestores",

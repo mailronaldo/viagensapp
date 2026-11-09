@@ -91,8 +91,13 @@ export default async function LodgingsPage({
                     />
                   </div>
                 )}
-                <div className="flex min-h-28 w-full items-center justify-center bg-brand-50 text-2xl sm:w-32" aria-hidden>
-                  {ICON[l.type] ?? DEFAULT_ICON}
+                <div className="flex min-h-28 w-full items-center justify-center overflow-hidden bg-brand-50 text-2xl sm:w-32" aria-hidden>
+                  {l.iconDocumentId ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- ícone enviado pelo cliente, servido por rota autenticada (não dá pra usar next/image aqui)
+                    <img src={`/api/files/${trip.id}/${l.iconDocumentId}`} alt="" className="size-full object-cover" />
+                  ) : (
+                    (ICON[l.type] ?? DEFAULT_ICON)
+                  )}
                 </div>
                 <div className="min-w-56 flex-1 p-3 pr-16">
                   <h3 className="font-medium">
