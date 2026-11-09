@@ -123,7 +123,7 @@ export function ItemMainFields({
       <Field label="Status do custo" className="sm:col-span-1">
         <StatusSelect name="costStatus" defaultValue={item?.costStatus ?? "ESTIMADO"} />
       </Field>
-      <Field label="Categoria do custo" className="sm:col-span-1">
+      <Field label="Categoria do custo" className="sm:col-span-2">
         <select name="costCategory" defaultValue={item?.costCategory ?? ""} className={inputCls}>
           <CategoryOptions categories={categories} />
         </select>
@@ -628,49 +628,68 @@ export function TicketFields({
   travelers,
   currencies,
   categories,
+  ticket,
+  travelerName,
+  attachment,
 }: {
   trip: { baseCurrency: string };
   travelers: { id: string | null; name: string }[];
   currencies: string[];
   categories: Category[];
+  ticket?: { provider: string | null; ticketNumber: string | null; price: string | null; currency: string | null; status: string; category: string | null; details: string | null } | null;
+  travelerName?: string;
+  attachment?: { name: string; href: string } | null;
 }) {
   return (
     <>
-      <Field label="Viajante" className="sm:col-span-6">
-        <select name="travelerId" required className={inputCls}>
-          <option value="">Selecione…</option>
-          {travelers.map((tr) => (
-            <option key={tr.id ?? "owner"} value={tr.id ?? "owner"}>
-              {tr.name}
-            </option>
-          ))}
-        </select>
-      </Field>
+      {ticket ? (
+        <Field label="Viajante" className="sm:col-span-6">
+          <input value={travelerName ?? ""} disabled className={inputCls} />
+        </Field>
+      ) : (
+        <Field label="Viajante" className="sm:col-span-6">
+          <select name="travelerId" required className={inputCls}>
+            <option value="">Selecione…</option>
+            {travelers.map((tr) => (
+              <option key={tr.id ?? "owner"} value={tr.id ?? "owner"}>
+                {tr.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       <Field label="Fornecedor" className="sm:col-span-3">
-        <input name="provider" className={inputCls} />
+        <input name="provider" defaultValue={ticket?.provider ?? ""} className={inputCls} />
       </Field>
       <Field label="Número do ticket" className="sm:col-span-3">
-        <input name="ticketNumber" className={inputCls} />
+        <input name="ticketNumber" defaultValue={ticket?.ticketNumber ?? ""} className={inputCls} />
       </Field>
       <Field label="Valor" className="sm:col-span-2">
-        <input name="price" inputMode="decimal" placeholder="0,00" className={inputCls} />
+        <input name="price" inputMode="decimal" defaultValue={dec(ticket?.price)} placeholder="0,00" className={inputCls} />
       </Field>
       <Field label="Moeda" className="sm:col-span-1">
-        <select name="currency" defaultValue={trip.baseCurrency} className={inputCls}>
+        <select name="currency" defaultValue={ticket?.currency ?? trip.baseCurrency} className={inputCls}>
           <CurrencyOptions currencies={currencies} />
         </select>
       </Field>
       <Field label="Status do valor" className="sm:col-span-1">
-        <StatusSelect name="status" />
+        <StatusSelect name="status" defaultValue={ticket?.status ?? "ESTIMADO"} />
       </Field>
       <Field label="Categoria" className="sm:col-span-1">
-        <select name="category" defaultValue="" className={inputCls}>
+        <select name="category" defaultValue={ticket?.category ?? ""} className={inputCls}>
           <CategoryOptions categories={categories} />
         </select>
       </Field>
-      <AttachmentField label="Voucher (PDF ou imagem)" name="voucher" removeName="removeVoucher" className="sm:col-span-3" />
+      <AttachmentField
+        label="Voucher (PDF ou imagem)"
+        name="voucher"
+        removeName="removeVoucher"
+        current={attachment?.name}
+        href={attachment?.href}
+        className="sm:col-span-3"
+      />
       <Field label="Detalhes" className="sm:col-span-6">
-        <textarea name="details" rows={2} className={inputCls} />
+        <textarea name="details" rows={2} defaultValue={ticket?.details ?? ""} className={inputCls} />
       </Field>
     </>
   );
@@ -680,41 +699,53 @@ export function PassFields({
   trip,
   currencies,
   categories,
+  pass,
 }: {
   trip: { baseCurrency: string };
   currencies: string[];
   categories: Category[];
+  pass?: {
+    name: string;
+    provider: string | null;
+    validityDays: number | null;
+    maxUses: number | null;
+    passNumber: string | null;
+    price: string | null;
+    currency: string | null;
+    status: string;
+    category: string | null;
+  } | null;
 }) {
   return (
     <>
       <Field label="Nome do passe" className="sm:col-span-4">
-        <input name="name" required placeholder="Ex.: New York Explorer Pass" className={inputCls} />
+        <input name="name" required defaultValue={pass?.name ?? ""} placeholder="Ex.: New York Explorer Pass" className={inputCls} />
       </Field>
       <Field label="Fornecedor" className="sm:col-span-2">
-        <input name="provider" className={inputCls} />
+        <input name="provider" defaultValue={pass?.provider ?? ""} className={inputCls} />
       </Field>
       <Field label="Validade em dias" hint="A partir do primeiro uso." className="sm:col-span-2">
-        <input name="validityDays" inputMode="numeric" className={inputCls} />
+        <input name="validityDays" inputMode="numeric" defaultValue={pass?.validityDays ?? ""} className={inputCls} />
       </Field>
       <Field label="Número de atrações" hint="Máximo de entradas permitidas." className="sm:col-span-2">
-        <input name="maxUses" inputMode="numeric" className={inputCls} />
+        <input name="maxUses" inputMode="numeric" defaultValue={pass?.maxUses ?? ""} className={inputCls} />
       </Field>
       <Field label="Número do passe" className="sm:col-span-2">
-        <input name="passNumber" className={inputCls} />
+        <input name="passNumber" defaultValue={pass?.passNumber ?? ""} className={inputCls} />
       </Field>
       <Field label="Valor" className="sm:col-span-2">
-        <input name="price" inputMode="decimal" placeholder="0,00" className={inputCls} />
+        <input name="price" inputMode="decimal" defaultValue={dec(pass?.price)} placeholder="0,00" className={inputCls} />
       </Field>
       <Field label="Moeda" className="sm:col-span-2">
-        <select name="currency" defaultValue={trip.baseCurrency} className={inputCls}>
+        <select name="currency" defaultValue={pass?.currency ?? trip.baseCurrency} className={inputCls}>
           <CurrencyOptions currencies={currencies} />
         </select>
       </Field>
       <Field label="Status do valor" className="sm:col-span-2">
-        <StatusSelect name="status" />
+        <StatusSelect name="status" defaultValue={pass?.status ?? "ESTIMADO"} />
       </Field>
       <Field label="Categoria" className="sm:col-span-2">
-        <select name="category" defaultValue="" className={inputCls}>
+        <select name="category" defaultValue={pass?.category ?? ""} className={inputCls}>
           <CategoryOptions categories={categories} />
         </select>
       </Field>

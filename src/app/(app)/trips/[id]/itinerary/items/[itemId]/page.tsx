@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { ArrowLeft } from "lucide-react";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
@@ -19,7 +19,7 @@ import {
   deleteActivityPointAction,
   deleteActivityRegionAction,
 } from "@/app/actions/activity-points";
-import { addTicketAction, deleteTicketAction } from "@/app/actions/tickets";
+import { addTicketAction, deleteTicketAction, updateTicketAction } from "@/app/actions/tickets";
 import { removeItemPassUsageAction, useItemPassAction } from "@/app/actions/passes";
 import { ItemMainFields, ReservationFields, TicketFields } from "@/components/TripFields";
 import { ActivityPointCard } from "@/components/ActivityPointCard";
@@ -74,6 +74,11 @@ export default async function EditItemPage({
     listAvailablePassesForItem(trip.id, itemId),
     getItemPassUsages(itemId),
   ]);
+  const ticketVoucherIds = tickets.map((ti) => ti.voucherDocumentId).filter((docId): docId is string => !!docId);
+  const ticketVouchers = ticketVoucherIds.length
+    ? await db.select({ id: t.documents.id, fileName: t.documents.fileName }).from(t.documents).where(inArray(t.documents.id, ticketVoucherIds))
+    : [];
+  const ticketVoucherById = new Map(ticketVouchers.map((v) => [v.id, v.fileName]));
   const attachment = doc[0]
     ? { name: doc[0].fileName, href: `/api/files/${trip.id}/${item.ticketDocumentId}` }
     : null;
@@ -169,30 +174,53 @@ export default async function EditItemPage({
               {tickets.length > 0 && (
                 <ul className="mb-4 space-y-2">
                   {tickets.map((ti) => (
-                    <li key={ti.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 p-3 text-sm">
-                      <div className="min-w-0">
-                        <p className="font-medium">{ti.travelerName}</p>
-                        <p className="text-xs text-slate-500">
-                          {[ti.provider, ti.ticketNumber && `nº ${ti.ticketNumber}`, ti.price ? formatMoney(ti.price, ti.currency ?? "BRL") : null]
-                            .filter(Boolean)
-                            .join(" · ") || "Sem detalhes"}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Tag tone={VALUE_STATUS_TONE[ti.status]}>{VALUE_STATUS_LABEL[ti.status]}</Tag>
-                        {ti.voucherDocumentId && (
-                          <a href={`/api/files/${trip.id}/${ti.voucherDocumentId}`} target="_blank" rel="noreferrer" className="text-xs text-brand-700 hover:underline">
-                            📎 voucher
-                          </a>
-                        )}
-                        <ConfirmDeleteButton
-                          label="Excluir"
-                          confirmTitle="Excluir este ingresso?"
-                          confirmDescription="Isso remove o ingresso deste viajante nesta atividade."
-                          deleteAction={deleteTicketAction.bind(null, trip.id, itemId, ti.id)}
-                          size="sm"
-                        />
-                      </div>
+                    <li key={ti.id} className="rounded-lg border border-slate-200">
+                      <details className="group">
+                        <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 p-3 text-sm">
+                          <div className="min-w-0">
+                            <p className="font-medium">{ti.travelerName}</p>
+                            <p className="text-xs text-slate-500">
+                              {[ti.provider, ti.ticketNumber && `nº ${ti.ticketNumber}`, ti.price ? formatMoney(ti.price, ti.currency ?? "BRL") : null]
+                                .filter(Boolean)
+                                .join(" · ") || "Sem detalhes"}
+                            </p>
+                          </div>
+                          <span className="flex items-center gap-3">
+                            <Tag tone={VALUE_STATUS_TONE[ti.status]}>{VALUE_STATUS_LABEL[ti.status]}</Tag>
+                            <span className="text-xs text-brand-700 group-open:hidden">editar</span>
+                            <span className="hidden text-xs text-brand-700 group-open:inline">fechar</span>
+                          </span>
+                        </summary>
+                        <div className="border-t border-slate-100 p-3">
+                          <div className="mb-3 flex items-center justify-end">
+                            <ConfirmDeleteButton
+                              label="Excluir"
+                              confirmTitle="Excluir este ingresso?"
+                              confirmDescription="Isso remove o ingresso deste viajante nesta atividade."
+                              deleteAction={deleteTicketAction.bind(null, trip.id, itemId, ti.id)}
+                              size="sm"
+                            />
+                          </div>
+                          <form action={updateTicketAction.bind(null, trip.id, itemId, ti.id)} className="grid gap-3 sm:grid-cols-6">
+                            <TicketFields
+                              trip={trip}
+                              travelers={travelerOptions}
+                              currencies={currencies}
+                              categories={categories}
+                              ticket={ti}
+                              travelerName={ti.travelerName}
+                              attachment={
+                                ti.voucherDocumentId
+                                  ? { name: ticketVoucherById.get(ti.voucherDocumentId) ?? "voucher", href: `/api/files/${trip.id}/${ti.voucherDocumentId}` }
+                                  : null
+                              }
+                            />
+                            <div className="sm:col-span-6">
+                              <button className={btnPrimary}>Salvar ingresso</button>
+                            </div>
+                          </form>
+                        </div>
+                      </details>
                     </li>
                   ))}
                 </ul>

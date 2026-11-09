@@ -10,7 +10,7 @@ import { listClientCurrencyCodes } from "@/services/currencies";
 import { listExpenseCategories } from "@/services/catalogs";
 import { VALUE_STATUS_LABEL, VALUE_STATUS_TONE } from "@/lib/labels";
 import { deleteOwnerChipAction, upsertOwnerChipAction } from "@/app/actions/chips";
-import { addPassAction, deletePassAction } from "@/app/actions/passes";
+import { addPassAction, deletePassAction, updatePassAction } from "@/app/actions/passes";
 import { deleteOwnerInsuranceAction, upsertOwnerInsuranceAction } from "@/app/actions/travel-insurance";
 import { getTravelerInsurance } from "@/services/travel-insurance";
 import { ChipFields, InsuranceFields, PassFields } from "@/components/TripFields";
@@ -130,25 +130,45 @@ export default async function OwnerTravelerHubPage({
             {passes.length > 0 && (
               <ul className="mb-4 space-y-2 text-sm">
                 {passes.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 p-3">
-                    <div className="min-w-0">
-                      <p className="font-medium">{p.name}</p>
-                      <p className="text-xs text-slate-500">
-                        {[p.provider, `uso ${p.usedCount} de ${p.maxUses ?? "∞"}`, p.firstUsedAt ? `1º uso ${formatDate(p.firstUsedAt)}` : null]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </p>
-                      <Tag tone={VALUE_STATUS_TONE[p.status]}>{VALUE_STATUS_LABEL[p.status]}</Tag>
-                    </div>
-                    {canWrite && p.usedCount === 0 && (
-                      <ConfirmDeleteButton
-                        label="Excluir"
-                        confirmTitle="Excluir este passe?"
-                        confirmDescription="Isso remove o passe do dono da viagem."
-                        deleteAction={deletePassAction.bind(null, trip.id, "owner", p.id)}
-                        size="sm"
-                      />
-                    )}
+                  <li key={p.id} className="rounded-lg border border-slate-200">
+                    <details className="group">
+                      <summary className="flex cursor-pointer items-center justify-between gap-2 p-3">
+                        <div className="min-w-0">
+                          <p className="font-medium">{p.name}</p>
+                          <p className="text-xs text-slate-500">
+                            {[p.provider, `uso ${p.usedCount} de ${p.maxUses ?? "∞"}`, p.firstUsedAt ? `1º uso ${formatDate(p.firstUsedAt)}` : null]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
+                          <Tag tone={VALUE_STATUS_TONE[p.status]}>{VALUE_STATUS_LABEL[p.status]}</Tag>
+                        </div>
+                        <span className="flex shrink-0 items-center gap-3">
+                          <span className="text-xs text-brand-700 group-open:hidden">editar</span>
+                          <span className="hidden text-xs text-brand-700 group-open:inline">fechar</span>
+                        </span>
+                      </summary>
+                      {canWrite && (
+                        <div className="border-t border-slate-100 p-3">
+                          {p.usedCount === 0 && (
+                            <div className="mb-3 flex items-center justify-end">
+                              <ConfirmDeleteButton
+                                label="Excluir"
+                                confirmTitle="Excluir este passe?"
+                                confirmDescription="Isso remove o passe do dono da viagem."
+                                deleteAction={deletePassAction.bind(null, trip.id, "owner", p.id)}
+                                size="sm"
+                              />
+                            </div>
+                          )}
+                          <form action={updatePassAction.bind(null, trip.id, "owner", p.id)} className="grid gap-3 sm:grid-cols-6">
+                            <PassFields trip={trip} currencies={currencies} categories={categories} pass={p} />
+                            <div className="sm:col-span-6">
+                              <button className={btnPrimary}>Salvar passe</button>
+                            </div>
+                          </form>
+                        </div>
+                      )}
+                    </details>
                   </li>
                 ))}
               </ul>
@@ -163,30 +183,33 @@ export default async function OwnerTravelerHubPage({
             )}
           </AddPanel>
 
-          <AddPanel title="Seguro viagem">
-            {insurance && (
-              <div className="mb-3 flex items-center justify-end">
-                <ConfirmDeleteButton
-                  label="Remover seguro"
-                  confirmTitle="Remover este seguro?"
-                  confirmDescription="Isso remove a apólice de seguro viagem do dono da viagem."
-                  deleteAction={deleteOwnerInsuranceAction.bind(null, trip.id)}
-                  size="sm"
-                />
-              </div>
-            )}
-            {canWrite ? (
-              <form action={upsertOwnerInsuranceAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-6">
-                <InsuranceFields trip={trip} insurance={insurance} attachment={policyAttachment} currencies={currencies} categories={categories} />
-                <div className="sm:col-span-6">
-                  <button className={btnPrimary}>Salvar</button>
-                </div>
-              </form>
-            ) : (
-              <p className="text-sm text-slate-500">Você não tem permissão para editar esta viagem.</p>
-            )}
-          </AddPanel>
         </div>
+      </div>
+
+      <div className="mt-6">
+        <AddPanel title="Seguro viagem">
+          {insurance && (
+            <div className="mb-3 flex items-center justify-end">
+              <ConfirmDeleteButton
+                label="Remover seguro"
+                confirmTitle="Remover este seguro?"
+                confirmDescription="Isso remove a apólice de seguro viagem do dono da viagem."
+                deleteAction={deleteOwnerInsuranceAction.bind(null, trip.id)}
+                size="sm"
+              />
+            </div>
+          )}
+          {canWrite ? (
+            <form action={upsertOwnerInsuranceAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-6">
+              <InsuranceFields trip={trip} insurance={insurance} attachment={policyAttachment} currencies={currencies} categories={categories} />
+              <div className="sm:col-span-6">
+                <button className={btnPrimary}>Salvar</button>
+              </div>
+            </form>
+          ) : (
+            <p className="text-sm text-slate-500">Você não tem permissão para editar esta viagem.</p>
+          )}
+        </AddPanel>
       </div>
     </div>
   );

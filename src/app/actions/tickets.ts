@@ -83,6 +83,53 @@ export async function addTicketAction(tripId: string, itemId: string, formData: 
   redirect(back);
 }
 
+export async function updateTicketAction(tripId: string, itemId: string, ticketId: string, formData: FormData) {
+  const { trip } = await requireTripAccess(tripId, { write: true });
+  const back = itemEditPath(tripId, itemId);
+  if (!(await ownItem(tripId, itemId))) redirect(`/trips/${tripId}/itinerary`);
+
+  const [current] = await db
+    .select()
+    .from(t.activityTickets)
+    .where(and(eq(t.activityTickets.id, ticketId), eq(t.activityTickets.itemId, itemId)))
+    .limit(1);
+  if (!current) fail(back, "Ingresso não encontrado.");
+
+  const currency = str(formData, "currency");
+  if (currency) {
+    const validCurrencies = await listClientCurrencyCodes(trip.ownerId);
+    if (!validCurrencies.includes(currency)) fail(back, "Moeda inválida.");
+  }
+  const priceRaw = str(formData, "price");
+  const price = parseDecimal(priceRaw, { positive: true });
+  if (priceRaw && price === null) fail(back, "Valor do ingresso inválido.");
+
+  const voucherDocumentId = await attachmentFromForm({
+    tripId,
+    formData,
+    fileField: "voucher",
+    removeField: "removeVoucher",
+    doc: { type: "TICKET", title: "Ingresso" },
+    back,
+    current: current!.voucherDocumentId,
+  });
+
+  await db
+    .update(t.activityTickets)
+    .set({
+      provider: str(formData, "provider"),
+      ticketNumber: str(formData, "ticketNumber"),
+      price,
+      currency: price ? (currency ?? "BRL") : null,
+      status: parseStatus(str(formData, "status")),
+      category: await parseOptionalCategory(str(formData, "category")),
+      voucherDocumentId,
+      details: str(formData, "details"),
+    })
+    .where(eq(t.activityTickets.id, ticketId));
+  redirect(back);
+}
+
 export async function deleteTicketAction(tripId: string, itemId: string, ticketId: string) {
   await requireTripAccess(tripId, { write: true });
   await db
