@@ -77,6 +77,32 @@ export default async function OwnerTravelerHubPage({
             <h2 className="mb-1 text-lg font-medium">{owner?.name ?? "Dono da viagem"}</h2>
             <p className="text-sm text-slate-500">{owner?.email}</p>
           </Card>
+
+          <div className="mt-6">
+            <AddPanel title="Seguro viagem">
+              {insurance && (
+                <div className="mb-3 flex items-center justify-end">
+                  <ConfirmDeleteButton
+                    label="Remover seguro"
+                    confirmTitle="Remover este seguro?"
+                    confirmDescription="Isso remove a apólice de seguro viagem do dono da viagem."
+                    deleteAction={deleteOwnerInsuranceAction.bind(null, trip.id)}
+                    size="sm"
+                  />
+                </div>
+              )}
+              {canWrite ? (
+                <form action={upsertOwnerInsuranceAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-6">
+                  <InsuranceFields trip={trip} insurance={insurance} attachment={policyAttachment} currencies={currencies} categories={categories} />
+                  <div className="sm:col-span-6">
+                    <button className={btnPrimary}>Salvar</button>
+                  </div>
+                </form>
+              ) : (
+                <p className="text-sm text-slate-500">Você não tem permissão para editar esta viagem.</p>
+              )}
+            </AddPanel>
+          </div>
         </div>
 
         <div className="space-y-4">
@@ -184,32 +210,6 @@ export default async function OwnerTravelerHubPage({
           </AddPanel>
 
         </div>
-      </div>
-
-      <div className="mt-6">
-        <AddPanel title="Seguro viagem">
-          {insurance && (
-            <div className="mb-3 flex items-center justify-end">
-              <ConfirmDeleteButton
-                label="Remover seguro"
-                confirmTitle="Remover este seguro?"
-                confirmDescription="Isso remove a apólice de seguro viagem do dono da viagem."
-                deleteAction={deleteOwnerInsuranceAction.bind(null, trip.id)}
-                size="sm"
-              />
-            </div>
-          )}
-          {canWrite ? (
-            <form action={upsertOwnerInsuranceAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-6">
-              <InsuranceFields trip={trip} insurance={insurance} attachment={policyAttachment} currencies={currencies} categories={categories} />
-              <div className="sm:col-span-6">
-                <button className={btnPrimary}>Salvar</button>
-              </div>
-            </form>
-          ) : (
-            <p className="text-sm text-slate-500">Você não tem permissão para editar esta viagem.</p>
-          )}
-        </AddPanel>
       </div>
     </div>
   );

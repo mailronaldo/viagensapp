@@ -8,7 +8,7 @@ import { attachmentFromForm } from "@/lib/attachment";
 import { fail, parseDecimal, parseStatus, str } from "@/lib/form";
 import { isInTripGroup } from "@/services/trip-travelers";
 import { listClientCurrencyCodes } from "@/services/currencies";
-import { parseOptionalCategory } from "@/services/catalogs";
+import { getTicketCategoryId } from "@/services/catalogs";
 
 function itemEditPath(tripId: string, itemId: string) {
   return `/trips/${tripId}/itinerary/items/${itemId}`;
@@ -73,7 +73,7 @@ export async function addTicketAction(tripId: string, itemId: string, formData: 
       price,
       currency: price ? (currency ?? "BRL") : null,
       status: parseStatus(str(formData, "status")),
-      category: await parseOptionalCategory(str(formData, "category")),
+      category: await getTicketCategoryId(),
       voucherDocumentId,
       details: str(formData, "details"),
     });
@@ -122,7 +122,7 @@ export async function updateTicketAction(tripId: string, itemId: string, ticketI
       price,
       currency: price ? (currency ?? "BRL") : null,
       status: parseStatus(str(formData, "status")),
-      category: await parseOptionalCategory(str(formData, "category")),
+      category: await getTicketCategoryId(),
       voucherDocumentId,
       details: str(formData, "details"),
     })

@@ -66,6 +66,15 @@ export async function parseOptionalCategory(categoryId: string | null) {
   return cat ? categoryId : null;
 }
 
+/** Categorias reservadas pro sistema: não aparecem pra excluir no gestor da agência. */
+export const RESERVED_EXPENSE_CATEGORY_NAMES = ["Ingressos"];
+
+/** Categoria fixa de todo ingresso — criada pela migração, buscada pelo nome (não pelo id). */
+export async function getTicketCategoryId() {
+  const [cat] = await db.select({ id: t.expenseCategories.id }).from(t.expenseCategories).where(eq(t.expenseCategories.name, "Ingressos")).limit(1);
+  return cat?.id ?? null;
+}
+
 /** Monta um mapa id → nome, pra exibir o rótulo salvo sem repetir a busca. */
 export function toNameMap(rows: { id: string; name: string }[]) {
   return Object.fromEntries(rows.map((r) => [r.id, r.name]));

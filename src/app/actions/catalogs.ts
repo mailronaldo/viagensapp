@@ -5,7 +5,7 @@ import { eq, sql } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireMaster } from "@/lib/auth";
 import { fail, str } from "@/lib/form";
-import { RESERVED_ACTIVITY_TYPE_NAMES } from "@/services/catalogs";
+import { RESERVED_ACTIVITY_TYPE_NAMES, RESERVED_EXPENSE_CATEGORY_NAMES } from "@/services/catalogs";
 
 export async function addDocumentTypeAction(formData: FormData) {
   await requireMaster();
@@ -42,6 +42,10 @@ export async function addExpenseCategoryAction(formData: FormData) {
 export async function deleteExpenseCategoryAction(id: string) {
   await requireMaster();
   const back = "/agency/system/expense-categories";
+  const [category] = await db.select({ name: t.expenseCategories.name }).from(t.expenseCategories).where(eq(t.expenseCategories.id, id)).limit(1);
+  if (category && RESERVED_EXPENSE_CATEGORY_NAMES.includes(category.name)) {
+    fail(back, "Essa categoria é reservada pelo sistema (usada automaticamente em ingressos) e não pode ser excluída.");
+  }
   const [{ count }] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(t.expenses)

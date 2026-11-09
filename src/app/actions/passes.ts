@@ -71,11 +71,7 @@ export async function addPassAction(tripId: string, travelerId: string, formData
   redirect(back);
 }
 
-export async function updatePassAction(tripId: string, travelerId: string, passId: string, formData: FormData) {
-  const { trip } = await requireTripAccess(tripId, { write: true });
-  const realTravelerId = travelerId === "owner" ? null : travelerId;
-  const back = travelerHubPath(tripId, realTravelerId);
-
+async function updatePass(tripId: string, ownerId: string, passId: string, formData: FormData, back: string) {
   const [pass] = await db.select().from(t.passes).where(and(eq(t.passes.id, passId), eq(t.passes.tripId, tripId))).limit(1);
   if (!pass) fail(back, "Passe não encontrado.");
 
@@ -84,7 +80,7 @@ export async function updatePassAction(tripId: string, travelerId: string, passI
 
   const currency = str(formData, "currency");
   if (currency) {
-    const validCurrencies = await listClientCurrencyCodes(trip.ownerId);
+    const validCurrencies = await listClientCurrencyCodes(ownerId);
     if (!validCurrencies.includes(currency)) fail(back, "Moeda inválida.");
   }
   const priceRaw = str(formData, "price");
@@ -123,6 +119,21 @@ export async function updatePassAction(tripId: string, travelerId: string, passI
       passNumber: str(formData, "passNumber"),
     })
     .where(eq(t.passes.id, passId));
+}
+
+export async function updatePassAction(tripId: string, travelerId: string, passId: string, formData: FormData) {
+  const { trip } = await requireTripAccess(tripId, { write: true });
+  const realTravelerId = travelerId === "owner" ? null : travelerId;
+  const back = travelerHubPath(tripId, realTravelerId);
+  await updatePass(tripId, trip.ownerId, passId, formData, back);
+  redirect(back);
+}
+
+/** Edita o passe a partir do painel "Passe" de uma atividade (onde ele está sendo usado). */
+export async function updatePassFromItemAction(tripId: string, itemId: string, passId: string, formData: FormData) {
+  const { trip } = await requireTripAccess(tripId, { write: true });
+  const back = itemEditPath(tripId, itemId);
+  await updatePass(tripId, trip.ownerId, passId, formData, back);
   redirect(back);
 }
 

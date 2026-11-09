@@ -765,7 +765,6 @@ export function TicketFields({
   trip,
   travelers,
   currencies,
-  categories,
   ticket,
   travelerName,
   attachment,
@@ -773,8 +772,7 @@ export function TicketFields({
   trip: { baseCurrency: string };
   travelers: { id: string | null; name: string }[];
   currencies: string[];
-  categories: Category[];
-  ticket?: { provider: string | null; ticketNumber: string | null; price: string | null; currency: string | null; status: string; category: string | null; details: string | null } | null;
+  ticket?: { provider: string | null; ticketNumber: string | null; price: string | null; currency: string | null; status: string; details: string | null } | null;
   travelerName?: string;
   attachment?: { name: string; href: string } | null;
 }) {
@@ -810,13 +808,8 @@ export function TicketFields({
           <CurrencyOptions currencies={currencies} />
         </select>
       </Field>
-      <Field label="Status do valor" className="sm:col-span-1">
+      <Field label="Status do valor" className="sm:col-span-2">
         <StatusSelect name="status" defaultValue={ticket?.status ?? "ESTIMADO"} />
-      </Field>
-      <Field label="Categoria" className="sm:col-span-1">
-        <select name="category" defaultValue={ticket?.category ?? ""} className={inputCls}>
-          <CategoryOptions categories={categories} />
-        </select>
       </Field>
       <AttachmentField
         label="Voucher (PDF ou imagem)"

@@ -1,8 +1,8 @@
 import { requireMaster } from "@/lib/auth";
-import { listExpenseCategories } from "@/services/catalogs";
+import { RESERVED_EXPENSE_CATEGORY_NAMES, listExpenseCategories } from "@/services/catalogs";
 import { addExpenseCategoryAction, deleteExpenseCategoryAction } from "@/app/actions/catalogs";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
-import { AddPanel, Card, EmptyState, ErrorBanner, Field, btnPrimary, inputCls } from "@/components/ui";
+import { AddPanel, Card, EmptyState, ErrorBanner, Field, Tag, btnPrimary, inputCls } from "@/components/ui";
 
 export const metadata = { title: "Agência · Categorias de custo" };
 
@@ -39,20 +39,27 @@ export default async function ExpenseCategoriesPage({
         <EmptyState>Nenhuma categoria de custo cadastrada ainda.</EmptyState>
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
-          {categories.map((c) => (
-            <li key={c.id}>
-              <Card className="flex items-center justify-between gap-3 !p-3">
-                <p className="truncate font-medium">{c.name}</p>
-                <ConfirmDeleteButton
-                  label="Excluir categoria de custo"
-                  confirmTitle="Excluir esta categoria de custo?"
-                  confirmDescription="Só é possível excluir se nenhum custo estiver usando essa categoria."
-                  deleteAction={deleteExpenseCategoryAction.bind(null, c.id)}
-                  size="sm"
-                />
-              </Card>
-            </li>
-          ))}
+          {categories.map((c) => {
+            const reserved = RESERVED_EXPENSE_CATEGORY_NAMES.includes(c.name);
+            return (
+              <li key={c.id}>
+                <Card className="flex items-center justify-between gap-3 !p-3">
+                  <p className="truncate font-medium">{c.name}</p>
+                  {reserved ? (
+                    <Tag tone="neutral">Reservada pelo sistema</Tag>
+                  ) : (
+                    <ConfirmDeleteButton
+                      label="Excluir categoria de custo"
+                      confirmTitle="Excluir esta categoria de custo?"
+                      confirmDescription="Só é possível excluir se nenhum custo estiver usando essa categoria."
+                      deleteAction={deleteExpenseCategoryAction.bind(null, c.id)}
+                      size="sm"
+                    />
+                  )}
+                </Card>
+              </li>
+            );
+          })}
         </ul>
       )}
     </>

@@ -129,6 +129,32 @@ export default async function TravelerHubPage({
               </p>
             )}
           </Card>
+
+          <div className="mt-6">
+            <AddPanel title="Seguro viagem">
+              {insurance && (
+                <div className="mb-3 flex items-center justify-end">
+                  <ConfirmDeleteButton
+                    label="Remover seguro"
+                    confirmTitle="Remover este seguro?"
+                    confirmDescription="Isso remove a apólice de seguro viagem deste viajante nesta viagem."
+                    deleteAction={deleteInsuranceAction.bind(null, trip.id, travelerId)}
+                    size="sm"
+                  />
+                </div>
+              )}
+              {canWrite ? (
+                <form action={upsertInsuranceAction.bind(null, trip.id, travelerId)} className="grid gap-3 sm:grid-cols-6">
+                  <InsuranceFields trip={trip} insurance={insurance} attachment={policyAttachment} currencies={currencies} categories={categories} />
+                  <div className="sm:col-span-6">
+                    <button className={btnPrimary}>Salvar</button>
+                  </div>
+                </form>
+              ) : (
+                <p className="text-sm text-slate-500">Você não tem permissão para editar esta viagem.</p>
+              )}
+            </AddPanel>
+          </div>
         </div>
 
         <div className="space-y-4">
@@ -280,32 +306,6 @@ export default async function TravelerHubPage({
             </AddPanel>
           )}
         </div>
-      </div>
-
-      <div className="mt-6">
-        <AddPanel title="Seguro viagem">
-          {insurance && (
-            <div className="mb-3 flex items-center justify-end">
-              <ConfirmDeleteButton
-                label="Remover seguro"
-                confirmTitle="Remover este seguro?"
-                confirmDescription="Isso remove a apólice de seguro viagem deste viajante nesta viagem."
-                deleteAction={deleteInsuranceAction.bind(null, trip.id, travelerId)}
-                size="sm"
-              />
-            </div>
-          )}
-          {canWrite ? (
-            <form action={upsertInsuranceAction.bind(null, trip.id, travelerId)} className="grid gap-3 sm:grid-cols-6">
-              <InsuranceFields trip={trip} insurance={insurance} attachment={policyAttachment} currencies={currencies} categories={categories} />
-              <div className="sm:col-span-6">
-                <button className={btnPrimary}>Salvar</button>
-              </div>
-            </form>
-          ) : (
-            <p className="text-sm text-slate-500">Você não tem permissão para editar esta viagem.</p>
-          )}
-        </AddPanel>
       </div>
     </div>
   );

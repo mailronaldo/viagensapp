@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { and, eq, inArray } from "drizzle-orm";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Pencil } from "lucide-react";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { formatMoney } from "@/lib/format";
@@ -20,14 +20,13 @@ import {
   deleteActivityRegionAction,
 } from "@/app/actions/activity-points";
 import { addTicketAction, deleteTicketAction, updateTicketAction } from "@/app/actions/tickets";
-import { removeItemPassUsageAction, useItemPassAction } from "@/app/actions/passes";
-import { ItemMainFields, ReservationFields, TicketFields } from "@/components/TripFields";
+import { removeItemPassUsageAction, updatePassFromItemAction, useItemPassAction } from "@/app/actions/passes";
+import { ItemMainFields, PassFields, ReservationFields, TicketFields } from "@/components/TripFields";
 import { ActivityPointCard } from "@/components/ActivityPointCard";
 import { ActivityRegionCard } from "@/components/ActivityRegionCard";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
 import { SavedModal } from "@/components/SavedModal";
-import { AddPanel, Card, EmptyState, ErrorBanner, Tag, btnGhost, btnPrimary } from "@/components/ui";
-import { VALUE_STATUS_LABEL, VALUE_STATUS_TONE } from "@/lib/labels";
+import { AddPanel, Card, EmptyState, ErrorBanner, btnGhost, btnPrimary } from "@/components/ui";
 
 export const metadata = { title: "Editar atividade" };
 
@@ -185,14 +184,8 @@ export default async function EditItemPage({
                                 .join(" · ") || "Sem detalhes"}
                             </p>
                           </div>
-                          <span className="flex items-center gap-3">
-                            <Tag tone={VALUE_STATUS_TONE[ti.status]}>{VALUE_STATUS_LABEL[ti.status]}</Tag>
-                            <span className="text-xs text-brand-700 group-open:hidden">editar</span>
-                            <span className="hidden text-xs text-brand-700 group-open:inline">fechar</span>
-                          </span>
-                        </summary>
-                        <div className="border-t border-slate-100 p-3">
-                          <div className="mb-3 flex items-center justify-end">
+                          <span className="flex shrink-0 items-center gap-1">
+                            <Pencil className="size-4 text-slate-400" aria-hidden />
                             <ConfirmDeleteButton
                               label="Excluir"
                               confirmTitle="Excluir este ingresso?"
@@ -200,13 +193,14 @@ export default async function EditItemPage({
                               deleteAction={deleteTicketAction.bind(null, trip.id, itemId, ti.id)}
                               size="sm"
                             />
-                          </div>
+                          </span>
+                        </summary>
+                        <div className="border-t border-slate-100 p-3">
                           <form action={updateTicketAction.bind(null, trip.id, itemId, ti.id)} className="grid gap-3 sm:grid-cols-6">
                             <TicketFields
                               trip={trip}
                               travelers={travelerOptions}
                               currencies={currencies}
-                              categories={categories}
                               ticket={ti}
                               travelerName={ti.travelerName}
                               attachment={
@@ -229,7 +223,7 @@ export default async function EditItemPage({
                 <EmptyState>Todos os viajantes do grupo já têm ingresso nesta atividade.</EmptyState>
               ) : (
                 <form action={addTicketAction.bind(null, trip.id, itemId)} className="grid gap-3 sm:grid-cols-6">
-                  <TicketFields trip={trip} travelers={travelersWithoutTicket} currencies={currencies} categories={categories} />
+                  <TicketFields trip={trip} travelers={travelersWithoutTicket} currencies={currencies} />
                   <div className="sm:col-span-6">
                     <button className={btnPrimary}>Adicionar ingresso</button>
                   </div>
@@ -243,20 +237,35 @@ export default async function EditItemPage({
               {passUsages.length > 0 && (
                 <ul className="mb-4 space-y-2">
                   {passUsages.map((u) => (
-                    <li key={u.usage.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 p-3 text-sm">
-                      <div className="min-w-0">
-                        <p className="font-medium">{u.pass.name}</p>
-                        <p className="text-xs text-slate-500">
-                          {u.travelerName ?? "Dono da viagem"} · uso {u.usedCount} de {u.pass.maxUses ?? "∞"}
-                        </p>
-                      </div>
-                      <ConfirmDeleteButton
-                        label="Remover uso"
-                        confirmTitle="Remover este uso do passe?"
-                        confirmDescription="O passe volta a ter essa vaga disponível."
-                        deleteAction={removeItemPassUsageAction.bind(null, trip.id, itemId, u.usage.id)}
-                        size="sm"
-                      />
+                    <li key={u.usage.id} className="rounded-lg border border-slate-200">
+                      <details className="group">
+                        <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 p-3 text-sm">
+                          <div className="min-w-0">
+                            <p className="font-medium">{u.pass.name}</p>
+                            <p className="text-xs text-slate-500">
+                              {u.travelerName ?? "Dono da viagem"} · uso {u.usedCount} de {u.pass.maxUses ?? "∞"}
+                            </p>
+                          </div>
+                          <span className="flex shrink-0 items-center gap-1">
+                            <Pencil className="size-4 text-slate-400" aria-hidden />
+                            <ConfirmDeleteButton
+                              label="Remover uso"
+                              confirmTitle="Remover este uso do passe?"
+                              confirmDescription="O passe volta a ter essa vaga disponível."
+                              deleteAction={removeItemPassUsageAction.bind(null, trip.id, itemId, u.usage.id)}
+                              size="sm"
+                            />
+                          </span>
+                        </summary>
+                        <div className="border-t border-slate-100 p-3">
+                          <form action={updatePassFromItemAction.bind(null, trip.id, itemId, u.pass.id)} className="grid gap-3 sm:grid-cols-6">
+                            <PassFields trip={trip} currencies={currencies} categories={categories} pass={u.pass} />
+                            <div className="sm:col-span-6">
+                              <button className={btnPrimary}>Salvar passe</button>
+                            </div>
+                          </form>
+                        </div>
+                      </details>
                     </li>
                   ))}
                 </ul>
