@@ -107,20 +107,7 @@ export default async function LodgingsPage({
                   <p className="text-xs text-slate-500">
                     {[typeName[l.type], cityName, l.provider ? methodName[l.provider] : null].filter(Boolean).join(" · ")}
                   </p>
-                  <div className="mt-1.5">
-                    {l.documentId ? (
-                      <a
-                        href={`/api/files/${trip.id}/${l.documentId}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className={`${tagCls("ok")} hover:bg-emerald-200`}
-                      >
-                        📎 {fileName ?? "Voucher"}
-                      </a>
-                    ) : (
-                      <Tag tone="warn">Falta o voucher</Tag>
-                    )}
-                  </div>
+                  <div className="mt-1.5">{n && <Tag tone="info">{`${n} noite${n > 1 ? "s" : ""}`}</Tag>}</div>
                   <p className="mt-1.5 text-sm text-slate-600">
                     {l.checkInDate ? formatDate(l.checkInDate) : "Check-in a definir"}
                     {l.checkInTime ? ` · ${l.checkInTime}` : ""}
@@ -136,8 +123,21 @@ export default async function LodgingsPage({
                   )}
                   {l.notes && <p className="mt-1 text-xs text-slate-500">{l.notes}</p>}
                 </div>
-                <div className="flex w-full flex-col items-end justify-between gap-2 p-3 text-right sm:w-auto sm:min-w-32">
-                  <div className="flex items-center gap-1.5">{n && <Tag tone="info">{`${n} noite${n > 1 ? "s" : ""}`}</Tag>}</div>
+                <div className="flex w-full flex-col items-end justify-end gap-2 p-3 text-right sm:w-auto sm:min-w-32">
+                  <div>
+                    {l.documentId ? (
+                      <a
+                        href={`/api/files/${trip.id}/${l.documentId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={`${tagCls("ok")} hover:bg-emerald-200`}
+                      >
+                        📎 {fileName ?? "Voucher"}
+                      </a>
+                    ) : (
+                      <Tag tone="warn">Falta o voucher</Tag>
+                    )}
+                  </div>
                   <div className="flex flex-col items-end gap-1">
                     {(vouchersByLodging.get(l.id) ?? []).length === 0 ? (
                       <span className="text-xs text-slate-400">Sem voucher cadastrado</span>
