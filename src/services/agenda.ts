@@ -17,6 +17,8 @@ const destinationCity = alias(t.cities, "destination_city");
 export type AgendaEntry = {
   id: string;
   kind: "item" | "booking" | "lodging";
+  /** Só pra "booking": id do trecho específico que gerou esta entrada (um transporte pode aparecer mais de uma vez, um por trecho). */
+  legId: string | null;
   time: string | null; // "HH:MM"
   /** Só para atividades com horário de término preenchido. */
   endTime: string | null;
@@ -76,46 +78,50 @@ export async function getAgenda(
       asc(t.itineraryItems.title),
     );
 
-  // Transportes que começam nesse dia (voos, transfers, trens...)
+  // Trechos de transporte que partem nesse dia (voos, transfers, trens...)
   const dayStart = `${day} 00:00:00`;
   const dayEnd = `${day} 23:59:59`;
-  const bookings = await db
+  const legRows = await db
     .select({
+      leg: t.bookingLegs,
       booking: t.bookings,
       originCityName: originCity.name,
       destinationCityName: destinationCity.name,
     })
-    .from(t.bookings)
-    .leftJoin(originCity, eq(originCity.id, t.bookings.originCityId))
-    .leftJoin(destinationCity, eq(destinationCity.id, t.bookings.destinationCityId))
+    .from(t.bookingLegs)
+    .innerJoin(t.bookings, eq(t.bookings.id, t.bookingLegs.bookingId))
+    .leftJoin(originCity, eq(originCity.id, t.bookingLegs.originCityId))
+    .leftJoin(destinationCity, eq(destinationCity.id, t.bookingLegs.destinationCityId))
     .where(
       and(
         eq(t.bookings.tripId, trip.id),
-        gte(t.bookings.originAt, dayStart),
-        lte(t.bookings.originAt, dayEnd),
+        gte(t.bookingLegs.originAt, dayStart),
+        lte(t.bookingLegs.originAt, dayEnd),
       ),
     );
 
-  // Transporte que chega num dia diferente de quando partiu (ex.: voo noturno):
+  // Trecho que chega num dia diferente de quando partiu (ex.: voo noturno):
   // também entra na agenda do dia da chegada, como "Chegada: …".
   const arrivalRows = await db
     .select({
+      leg: t.bookingLegs,
       booking: t.bookings,
       originCityName: originCity.name,
       destinationCityName: destinationCity.name,
     })
-    .from(t.bookings)
-    .leftJoin(originCity, eq(originCity.id, t.bookings.originCityId))
-    .leftJoin(destinationCity, eq(destinationCity.id, t.bookings.destinationCityId))
+    .from(t.bookingLegs)
+    .innerJoin(t.bookings, eq(t.bookings.id, t.bookingLegs.bookingId))
+    .leftJoin(originCity, eq(originCity.id, t.bookingLegs.originCityId))
+    .leftJoin(destinationCity, eq(destinationCity.id, t.bookingLegs.destinationCityId))
     .where(
       and(
         eq(t.bookings.tripId, trip.id),
-        gte(t.bookings.destinationAt, dayStart),
-        lte(t.bookings.destinationAt, dayEnd),
+        gte(t.bookingLegs.destinationAt, dayStart),
+        lte(t.bookingLegs.destinationAt, dayEnd),
       ),
     );
   const arrivals = arrivalRows.filter(
-    ({ booking: b }) => !b.originAt || b.originAt.slice(0, 10) !== b.destinationAt!.slice(0, 10),
+    ({ leg }) => !leg.originAt || leg.originAt.slice(0, 10) !== leg.destinationAt!.slice(0, 10),
   );
 
   // Hospedagens: check-in e check-out caem no dia como entradas da agenda.
@@ -132,6 +138,7 @@ export async function getAgenda(
     const base = {
       id: l.id,
       kind: "lodging" as const,
+      legId: null,
       endTime: null,
       type: l.type,
       location: null,
@@ -156,6 +163,7 @@ export async function getAgenda(
     ...items.map((i) => ({
       id: i.id,
       kind: "item" as const,
+      legId: null,
       time: i.startTime,
       endTime: i.endTime,
       title: i.title,
@@ -181,20 +189,21 @@ export async function getAgenda(
             }
           : null,
     })),
-    ...bookings.map(({ booking: b, originCityName, destinationCityName }) => {
-      const origin = [b.originLocation, originCityName].filter(Boolean).join(" · ");
-      const destination = [b.destinationLocation, destinationCityName].filter(Boolean).join(" · ");
+    ...legRows.map(({ leg, booking: b, originCityName, destinationCityName }) => {
+      const origin = [leg.originLocation, originCityName].filter(Boolean).join(" · ");
+      const destination = [leg.destinationLocation, destinationCityName].filter(Boolean).join(" · ");
       // Transfer/trecho dentro do mesmo dia: mostra o horário de chegada como
       // "fim", igual a uma atividade comum. Quando a chegada cai noutro dia,
       // ela já aparece separada como "Chegada: …" (ver `arrivals` abaixo).
       const sameDayArrival =
-        b.originAt && b.destinationAt && b.originAt.slice(0, 10) === b.destinationAt.slice(0, 10)
-          ? b.destinationAt.slice(11, 16)
+        leg.originAt && leg.destinationAt && leg.originAt.slice(0, 10) === leg.destinationAt.slice(0, 10)
+          ? leg.destinationAt.slice(11, 16)
           : null;
       return {
         id: b.id,
         kind: "booking" as const,
-        time: b.originAt ? b.originAt.slice(11, 16) : null,
+        legId: leg.id,
+        time: leg.originAt ? leg.originAt.slice(11, 16) : null,
         endTime: sameDayArrival,
         title: b.title,
         type: b.type,
@@ -207,13 +216,14 @@ export async function getAgenda(
         reservation: null,
       };
     }),
-    ...arrivals.map(({ booking: b, originCityName, destinationCityName }) => {
-      const origin = [b.originLocation, originCityName].filter(Boolean).join(" · ");
-      const destination = [b.destinationLocation, destinationCityName].filter(Boolean).join(" · ");
+    ...arrivals.map(({ leg, booking: b, originCityName, destinationCityName }) => {
+      const origin = [leg.originLocation, originCityName].filter(Boolean).join(" · ");
+      const destination = [leg.destinationLocation, destinationCityName].filter(Boolean).join(" · ");
       return {
         id: b.id,
         kind: "booking" as const,
-        time: b.destinationAt ? b.destinationAt.slice(11, 16) : null,
+        legId: leg.id,
+        time: leg.destinationAt ? leg.destinationAt.slice(11, 16) : null,
         endTime: null,
         title: `Chegada: ${b.title}`,
         type: b.type,

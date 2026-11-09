@@ -30,21 +30,23 @@ export async function getItinerarySummary(trip: {
       .where(eq(t.itineraryItems.tripId, trip.id))
       .groupBy(t.itineraryItems.date),
     db
-      .select({ date: sql<string>`to_char(${t.bookings.originAt}, 'YYYY-MM-DD')`, n: sql<number>`count(*)::int` })
-      .from(t.bookings)
-      .where(and(eq(t.bookings.tripId, trip.id), isNotNull(t.bookings.originAt)))
-      .groupBy(sql`to_char(${t.bookings.originAt}, 'YYYY-MM-DD')`),
+      .select({ date: sql<string>`to_char(${t.bookingLegs.originAt}, 'YYYY-MM-DD')`, n: sql<number>`count(*)::int` })
+      .from(t.bookingLegs)
+      .innerJoin(t.bookings, eq(t.bookings.id, t.bookingLegs.bookingId))
+      .where(and(eq(t.bookings.tripId, trip.id), isNotNull(t.bookingLegs.originAt)))
+      .groupBy(sql`to_char(${t.bookingLegs.originAt}, 'YYYY-MM-DD')`),
     db
-      .select({ date: sql<string>`to_char(${t.bookings.destinationAt}, 'YYYY-MM-DD')`, n: sql<number>`count(*)::int` })
-      .from(t.bookings)
+      .select({ date: sql<string>`to_char(${t.bookingLegs.destinationAt}, 'YYYY-MM-DD')`, n: sql<number>`count(*)::int` })
+      .from(t.bookingLegs)
+      .innerJoin(t.bookings, eq(t.bookings.id, t.bookingLegs.bookingId))
       .where(
         and(
           eq(t.bookings.tripId, trip.id),
-          isNotNull(t.bookings.destinationAt),
-          sql`(${t.bookings.originAt} IS NULL OR to_char(${t.bookings.originAt}, 'YYYY-MM-DD') <> to_char(${t.bookings.destinationAt}, 'YYYY-MM-DD'))`,
+          isNotNull(t.bookingLegs.destinationAt),
+          sql`(${t.bookingLegs.originAt} IS NULL OR to_char(${t.bookingLegs.originAt}, 'YYYY-MM-DD') <> to_char(${t.bookingLegs.destinationAt}, 'YYYY-MM-DD'))`,
         ),
       )
-      .groupBy(sql`to_char(${t.bookings.destinationAt}, 'YYYY-MM-DD')`),
+      .groupBy(sql`to_char(${t.bookingLegs.destinationAt}, 'YYYY-MM-DD')`),
     db
       .select({ date: t.lodgings.checkInDate, n: sql<number>`count(*)::int` })
       .from(t.lodgings)

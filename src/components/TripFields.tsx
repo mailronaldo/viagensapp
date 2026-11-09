@@ -1,5 +1,6 @@
 import type { Booking, Chip, Expense, ItineraryItem, Lodging, TravelInsurance } from "@/db/schema";
 import { AddPanel, CategoryOptions, Field, StatusSelect, inputCls } from "@/components/ui";
+import { TripTypeToggle } from "@/components/TripTypeToggle";
 
 type Category = { id: string; name: string };
 
@@ -422,33 +423,49 @@ export function LodgingVoucherFields({
 }
 
 /** Um dos dois lados (origem/destino) do trecho de transporte. */
-function BookingLegFields({
+type LegValue = {
+  originAt: string | null;
+  originLocation: string | null;
+  originCityId: string | null;
+  destinationAt: string | null;
+  destinationLocation: string | null;
+  destinationCityId: string | null;
+};
+
+/**
+ * Origem OU destino de um trecho — meio trecho por chamada (uma pra origem,
+ * outra pra destino), reaproveitado tanto no transporte (ida, volta) quanto
+ * no painel de Trechos (múltiplos trechos).
+ */
+export function LegHalfFields({
   legLabel,
-  prefix,
+  kind,
+  namePrefix,
   cities,
-  booking,
+  leg,
   defaultDateTime,
 }: {
   legLabel: string;
-  prefix: "origin" | "destination";
+  kind: "origin" | "destination";
+  namePrefix: string;
   cities: { id: string; name: string }[];
-  booking?: Booking;
+  leg?: LegValue | null;
   defaultDateTime?: string;
 }) {
-  const at = prefix === "origin" ? booking?.originAt : booking?.destinationAt;
-  const loc = prefix === "origin" ? booking?.originLocation : booking?.destinationLocation;
-  const cityId = prefix === "origin" ? booking?.originCityId : booking?.destinationCityId;
+  const at = kind === "origin" ? leg?.originAt : leg?.destinationAt;
+  const loc = kind === "origin" ? leg?.originLocation : leg?.destinationLocation;
+  const cityId = kind === "origin" ? leg?.originCityId : leg?.destinationCityId;
   return (
     <fieldset className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:col-span-6 sm:grid-cols-6">
       <legend className="px-1 text-xs font-medium text-slate-600">{legLabel}</legend>
       <Field label="Data/hora" className="sm:col-span-2">
-        <input name={`${prefix}At`} type="datetime-local" defaultValue={local(at) || defaultDateTime || ""} className={inputCls} />
+        <input name={`${namePrefix}At`} type="datetime-local" defaultValue={local(at) || defaultDateTime || ""} className={inputCls} />
       </Field>
       <Field label="Local" className="sm:col-span-2">
-        <input name={`${prefix}Location`} defaultValue={loc ?? ""} className={inputCls} />
+        <input name={`${namePrefix}Location`} defaultValue={loc ?? ""} className={inputCls} />
       </Field>
       <Field label="Cidade" className="sm:col-span-2">
-        <select name={`${prefix}CityId`} defaultValue={cityId ?? ""} className={inputCls}>
+        <select name={`${namePrefix}CityId`} defaultValue={cityId ?? ""} className={inputCls}>
           <option value="">—</option>
           {cities.map((c) => (
             <option key={c.id} value={c.id}>
@@ -461,19 +478,43 @@ function BookingLegFields({
   );
 }
 
+/** Origem + destino de um trecho completo — usado no painel de Trechos (múltiplos trechos). */
+export function LegFields({
+  cities,
+  leg,
+  defaultDateTime,
+}: {
+  cities: { id: string; name: string }[];
+  leg?: LegValue | null;
+  defaultDateTime?: string;
+}) {
+  return (
+    <>
+      <LegHalfFields legLabel="Origem" kind="origin" namePrefix="origin" cities={cities} leg={leg} defaultDateTime={defaultDateTime} />
+      <LegHalfFields legLabel="Destino" kind="destination" namePrefix="destination" cities={cities} leg={leg} />
+    </>
+  );
+}
+
 export function BookingFields({
   cities,
   types,
   booking,
+  legs,
   defaultDate,
   attachment,
 }: {
   cities: { id: string; name: string }[];
   types: { id: string; name: string }[];
   booking?: Booking;
+  /** Trechos já cadastrados (modo edição): legs[0] = ida, legs[1] = volta. */
+  legs?: LegValue[];
   defaultDate?: string;
   attachment?: { name: string; href: string } | null;
 }) {
+  const outbound = legs?.[0];
+  const inbound = legs?.[1];
+  const defaultDateTime = defaultDate ? `${defaultDate}T09:00` : undefined;
   return (
     <>
       <Field label="Tipo" className="sm:col-span-2">
@@ -494,14 +535,30 @@ export function BookingFields({
       <Field label="Número do pedido" className="sm:col-span-3">
         <input name="orderNumber" defaultValue={booking?.orderNumber ?? ""} className={inputCls} />
       </Field>
-      <BookingLegFields
-        legLabel="Origem"
-        prefix="origin"
-        cities={cities}
-        booking={booking}
-        defaultDateTime={defaultDate ? `${defaultDate}T09:00` : undefined}
+      <TripTypeToggle
+        initialTripType={booking?.tripType}
+        oneWay={
+          <>
+            <LegHalfFields legLabel="Origem" kind="origin" namePrefix="origin" cities={cities} leg={outbound} defaultDateTime={defaultDateTime} />
+            <LegHalfFields legLabel="Destino" kind="destination" namePrefix="destination" cities={cities} leg={outbound} />
+          </>
+        }
+        roundTrip={
+          <>
+            <LegHalfFields legLabel="Origem (ida)" kind="origin" namePrefix="origin" cities={cities} leg={outbound} defaultDateTime={defaultDateTime} />
+            <LegHalfFields legLabel="Destino (ida)" kind="destination" namePrefix="destination" cities={cities} leg={outbound} />
+            <LegHalfFields legLabel="Origem (volta)" kind="origin" namePrefix="returnOrigin" cities={cities} leg={inbound} />
+            <LegHalfFields legLabel="Destino (volta)" kind="destination" namePrefix="returnDestination" cities={cities} leg={inbound} />
+          </>
+        }
+        multiLeg={
+          <p className="rounded-lg border border-dashed border-slate-300 p-3 text-sm text-slate-500 sm:col-span-6">
+            {booking
+              ? "Os trechos deste transporte ficam no painel “Trechos”, logo abaixo."
+              : "Depois de salvar, você adiciona cada trecho (origem, destino, data) no painel “Trechos”."}
+          </p>
+        }
       />
-      <BookingLegFields legLabel="Destino" prefix="destination" cities={cities} booking={booking} />
       <fieldset
         id="reserva"
         className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:col-span-6 sm:grid-cols-6"
@@ -522,6 +579,58 @@ export function BookingFields({
         />
         <Field label="Detalhes" className="sm:col-span-6">
           <textarea name="details" rows={2} defaultValue={booking?.details ?? ""} className={inputCls} />
+        </Field>
+      </fieldset>
+    </>
+  );
+}
+
+/** Versão enxuta do cadastro de transporte pro "Adicionar transporte" rápido da agenda do dia — só somente ida. */
+export function QuickBookingFields({
+  cities,
+  types,
+  defaultDate,
+}: {
+  cities: { id: string; name: string }[];
+  types: { id: string; name: string }[];
+  defaultDate?: string;
+}) {
+  return (
+    <>
+      <input type="hidden" name="tripType" value="ONE_WAY" />
+      <Field label="Tipo" className="sm:col-span-2">
+        <select name="type" className={inputCls} defaultValue="FLIGHT">
+          {types.map((ty) => (
+            <option key={ty.id} value={ty.id}>
+              {ty.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Título" className="sm:col-span-4">
+        <input name="title" required placeholder="Ex.: Voo GRU → LIS" className={inputCls} />
+      </Field>
+      <Field label="Companhia / fornecedor" className="sm:col-span-3">
+        <input name="provider" className={inputCls} />
+      </Field>
+      <Field label="Número do pedido" className="sm:col-span-3">
+        <input name="orderNumber" className={inputCls} />
+      </Field>
+      <LegHalfFields legLabel="Origem" kind="origin" namePrefix="origin" cities={cities} defaultDateTime={defaultDate ? `${defaultDate}T09:00` : undefined} />
+      <LegHalfFields legLabel="Destino" kind="destination" namePrefix="destination" cities={cities} />
+      <fieldset
+        id="reserva"
+        className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:col-span-6 sm:grid-cols-6"
+      >
+        <legend className="px-1 text-xs font-medium text-slate-600">
+          Reserva deste transporte (opcional — preencha se já reservou)
+        </legend>
+        <Field label="Código de confirmação" className="sm:col-span-3">
+          <input name="confirmationCode" className={inputCls} />
+        </Field>
+        <AttachmentField label="Voucher / e-ticket (PDF ou imagem)" name="voucher" removeName="removeVoucher" className="sm:col-span-6" />
+        <Field label="Detalhes" className="sm:col-span-6">
+          <textarea name="details" rows={2} className={inputCls} />
         </Field>
       </fieldset>
     </>

@@ -22,6 +22,12 @@ export const VALUE_STATUS_TONE = {
   PAGO: "ok",
 } as const;
 
+export const TRIP_TYPE_LABEL = {
+  ONE_WAY: "Somente ida",
+  ROUND_TRIP: "Ida e volta",
+  MULTI_LEG: "Múltiplos trechos",
+} as const;
+
 export const TIMEZONES = [
   "America/Sao_Paulo",
   "America/Argentina/Buenos_Aires",

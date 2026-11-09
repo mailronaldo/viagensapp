@@ -169,6 +169,20 @@
       "when": 1794232319142,
       "tag": "0023_seed_more_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794236073497,
+      "tag": "0024_funny_gateway",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1794236094549,
+      "tag": "0025_panoramic_salo",
+      "breakpoints": true
     }
   ]
 }

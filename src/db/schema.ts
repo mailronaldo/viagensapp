@@ -25,6 +25,9 @@ export const chipType = pgEnum("chip_type", ["CHIP", "ESIM"]);
 // Status de um valor lançado: estimado (ainda sem compromisso), a pagar
 // (já certo, pendente) ou pago (liquidado).
 export const valueStatus = pgEnum("value_status", ["ESTIMADO", "A_PAGAR", "PAGO"]);
+// Somente ida (1 trecho), ida e volta (2 trechos) ou múltiplos trechos
+// (N trechos, ex.: pacote com várias pernas) — ver tabela `booking_legs`.
+export const bookingTripType = pgEnum("booking_trip_type", ["ONE_WAY", "ROUND_TRIP", "MULTI_LEG"]);
 
 // ---------- Contas e acesso ----------
 
@@ -328,18 +331,39 @@ export const bookings = pgTable(
     // código de confirmação do fornecedor.
     orderNumber: text("order_number"),
     confirmationCode: text("confirmation_code"),
+    tripType: bookingTripType("trip_type").notNull().default("ONE_WAY"),
+    details: text("details"),
+    documentId: text("document_id").references(() => documents.id, {
+      onDelete: "set null",
+    }),
+  },
+  (t) => [index("bookings_trip_idx").on(t.tripId)],
+);
+
+// Trechos do transporte: 1 pra somente ida, 2 (ida/volta) pra ida e volta, ou
+// N pra múltiplos trechos (pacote com várias pernas, ex.: SP→Roma→Paris→SP).
+// `legOrder` define a ordem de exibição/edição; cada trecho aparece na
+// agenda do seu próprio dia (ver services/agenda.ts).
+export const bookingLegs = pgTable(
+  "booking_legs",
+  {
+    id: id(),
+    bookingId: text("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "cascade" }),
+    legOrder: integer("leg_order").notNull(),
     originAt: timestamp("origin_at", { mode: "string" }),
     destinationAt: timestamp("destination_at", { mode: "string" }),
     originLocation: text("origin_location"),
     destinationLocation: text("destination_location"),
     originCityId: text("origin_city_id").references(() => cities.id, { onDelete: "set null" }),
     destinationCityId: text("destination_city_id").references(() => cities.id, { onDelete: "set null" }),
-    details: text("details"),
-    documentId: text("document_id").references(() => documents.id, {
-      onDelete: "set null",
-    }),
   },
-  (t) => [index("bookings_trip_start_idx").on(t.tripId, t.originAt)],
+  (t) => [
+    index("booking_legs_booking_idx").on(t.bookingId, t.legOrder),
+    index("booking_legs_origin_idx").on(t.originAt),
+    index("booking_legs_destination_idx").on(t.destinationAt),
+  ],
 );
 
 // Custo do transporte, lançado por partes: um voucher do grupo (custo
@@ -752,6 +776,7 @@ export type Lodging = typeof lodgings.$inferSelect;
 export type LodgingVoucher = typeof lodgingVouchers.$inferSelect;
 export type LodgingTypeSubcategory = typeof lodgingTypeSubcategories.$inferSelect;
 export type Booking = typeof bookings.$inferSelect;
+export type BookingLeg = typeof bookingLegs.$inferSelect;
 export type TransportVoucher = typeof transportVouchers.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type Document = typeof documents.$inferSelect;

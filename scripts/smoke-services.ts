@@ -51,12 +51,19 @@ async function main() {
       { tripId: trip.id, date: "2026-11-10", title: "Passear sem pressa" },
       { tripId: trip.id, date: "2026-11-11", title: "Outro dia" },
     ]);
-    await db.insert(t.bookings).values({
-      tripId: trip.id,
-      type: "FLIGHT",
-      title: "Voo GRU→LIS",
+    const [flightBooking] = await db
+      .insert(t.bookings)
+      .values({
+        tripId: trip.id,
+        type: "FLIGHT",
+        title: "Voo GRU→LIS",
+        confirmationCode: "ABC123",
+      })
+      .returning({ id: t.bookings.id });
+    await db.insert(t.bookingLegs).values({
+      bookingId: flightBooking.id,
+      legOrder: 1,
       originAt: "2026-11-10 07:15:00",
-      confirmationCode: "ABC123",
     });
     const agenda = await getAgenda(trip, "2026-11-10");
     assert.deepEqual(

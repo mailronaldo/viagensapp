@@ -32,7 +32,7 @@ export function TravelerAgenda({
   return (
     <ol className="space-y-2">
       {entries.map((e) => (
-        <li key={`${e.kind}-${e.id}`} className="flex gap-3">
+        <li key={`${e.kind}-${e.id}-${e.legId ?? ""}`} className="flex gap-3">
           <span className="w-12 shrink-0 pt-3 text-sm font-medium tabular-nums">
             {e.time ?? "—"}
             {e.endTime && <span className="block text-xs font-normal text-slate-400">–{e.endTime}</span>}

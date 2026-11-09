@@ -1,15 +1,12 @@
 import Link from "next/link";
-import { and, asc, eq, or, sql } from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
+import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requirePanelAccess } from "@/lib/traveler-access";
 import { formatDate, formatDateTime, formatWeekday, todayIn } from "@/lib/format";
 import { getAgenda } from "@/services/agenda";
 import { getItinerarySummary } from "@/services/itinerary";
 import { listActivityTypes, listBookingTypes, listDocumentTypes, listLodgingTypes, toNameMap } from "@/services/catalogs";
-
-const originCity = alias(t.cities, "origin_city");
-const destinationCity = alias(t.cities, "destination_city");
+import { listLegsForBookings } from "@/services/booking-legs";
 import { TravelerAgenda } from "@/components/TravelerAgenda";
 import { Card, EmptyState, Hero } from "@/components/ui";
 
@@ -38,17 +35,7 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
   const [days, agenda, transports, lodgings, group, docs, allDocs, documentTypes, bookingTypes, activityTypes, lodgingTypes] = await Promise.all([
     getItinerarySummary(trip),
     getAgenda(trip, agendaDay),
-    db
-      .select({
-        booking: t.bookings,
-        originCityName: originCity.name,
-        destinationCityName: destinationCity.name,
-      })
-      .from(t.bookings)
-      .leftJoin(originCity, eq(originCity.id, t.bookings.originCityId))
-      .leftJoin(destinationCity, eq(destinationCity.id, t.bookings.destinationCityId))
-      .where(eq(t.bookings.tripId, trip.id))
-      .orderBy(sql`${t.bookings.originAt} asc nulls last`),
+    db.select().from(t.bookings).where(eq(t.bookings.tripId, trip.id)).orderBy(asc(t.bookings.title)),
     db.select().from(t.lodgings).where(eq(t.lodgings.tripId, trip.id)).orderBy(sql`${t.lodgings.checkInDate} asc nulls last`),
     db
       .select({ name: t.travelers.name })
@@ -69,6 +56,10 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
   const activityTypeName = toNameMap(activityTypes);
   const lodgingTypeName = toNameMap(lodgingTypes);
   const base = `/traveler/trips/${trip.id}`;
+  const legsByBooking = await listLegsForBookings(transports.map((b) => b.id));
+  const legCityIds = [...legsByBooking.values()].flat().flatMap((leg) => [leg.originCityId, leg.destinationCityId]).filter((v): v is string => !!v);
+  const legCities = legCityIds.length ? await db.select().from(t.cities).where(inArray(t.cities.id, legCityIds)) : [];
+  const legCityName = toNameMap(legCities);
 
   return (
     <>
@@ -161,37 +152,48 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
             <p className="text-sm text-slate-500">Nenhum transporte cadastrado.</p>
           ) : (
             <ul className="space-y-2">
-              {transports.map(({ booking: b, originCityName, destinationCityName }) => (
-                <li key={b.id}>
-                  <Card className="p-4">
-                    <p className="text-sm font-medium">
-                      {b.title}{" "}
-                      <span className="text-xs font-normal text-slate-500">{bookingTypeName[b.type]}</span>
-                    </p>
-                    <p className="text-xs text-slate-600">
-                      {b.originAt ? formatDateTime(b.originAt) : "Sem data"}
-                      {b.destinationAt ? ` → ${formatDateTime(b.destinationAt)}` : ""}
-                    </p>
-                    {(b.originLocation || originCityName || b.destinationLocation || destinationCityName) && (
-                      <p className="text-xs text-slate-600">
-                        {[b.originLocation, originCityName].filter(Boolean).join(" · ")}
-                        {" → "}
-                        {[b.destinationLocation, destinationCityName].filter(Boolean).join(" · ")}
+              {transports.map((b) => {
+                const legs = legsByBooking.get(b.id) ?? [];
+                return (
+                  <li key={b.id}>
+                    <Card className="p-4">
+                      <p className="text-sm font-medium">
+                        {b.title}{" "}
+                        <span className="text-xs font-normal text-slate-500">{bookingTypeName[b.type]}</span>
                       </p>
-                    )}
-                    {b.confirmationCode && (
-                      <p className="text-xs text-slate-500">
-                        Confirmação: <span className="font-mono">{b.confirmationCode}</span>
-                      </p>
-                    )}
-                    {b.documentId && (
-                      <a href={`/api/files/${trip.id}/${b.documentId}`} target="_blank" rel="noreferrer" className="text-xs text-brand-700 hover:underline">
-                        📎 {docName.get(b.documentId) ?? "Voucher"}
-                      </a>
-                    )}
-                  </Card>
-                </li>
-              ))}
+                      {legs.length === 0 ? (
+                        <p className="text-xs text-slate-600">Sem data</p>
+                      ) : (
+                        legs.map((leg) => (
+                          <div key={leg.id}>
+                            <p className="text-xs text-slate-600">
+                              {leg.originAt ? formatDateTime(leg.originAt) : "Sem data"}
+                              {leg.destinationAt ? ` → ${formatDateTime(leg.destinationAt)}` : ""}
+                            </p>
+                            {(leg.originLocation || leg.originCityId || leg.destinationLocation || leg.destinationCityId) && (
+                              <p className="text-xs text-slate-600">
+                                {[leg.originLocation, leg.originCityId ? legCityName[leg.originCityId] : null].filter(Boolean).join(" · ")}
+                                {" → "}
+                                {[leg.destinationLocation, leg.destinationCityId ? legCityName[leg.destinationCityId] : null].filter(Boolean).join(" · ")}
+                              </p>
+                            )}
+                          </div>
+                        ))
+                      )}
+                      {b.confirmationCode && (
+                        <p className="text-xs text-slate-500">
+                          Confirmação: <span className="font-mono">{b.confirmationCode}</span>
+                        </p>
+                      )}
+                      {b.documentId && (
+                        <a href={`/api/files/${trip.id}/${b.documentId}`} target="_blank" rel="noreferrer" className="text-xs text-brand-700 hover:underline">
+                          📎 {docName.get(b.documentId) ?? "Voucher"}
+                        </a>
+                      )}
+                    </Card>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>

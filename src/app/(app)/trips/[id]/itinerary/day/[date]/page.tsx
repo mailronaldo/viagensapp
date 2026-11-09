@@ -24,7 +24,7 @@ import { addItemAction, deleteItemAction, removeReservationAction } from "@/app/
 import { addBookingAction } from "@/app/actions/bookings";
 import { addLodgingAction } from "@/app/actions/lodgings";
 import { DayStrip } from "@/components/DayStrip";
-import { BookingFields, ItemFields, LodgingFields } from "@/components/TripFields";
+import { ItemFields, LodgingFields, QuickBookingFields } from "@/components/TripFields";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
 import { EditDaySummaryButton } from "@/components/EditDaySummaryButton";
 import {
@@ -132,7 +132,7 @@ export default async function ItineraryDayPage({
         ) : (
           <ol className="space-y-2">
             {agenda.entries.map((e) => (
-              <li key={`${e.kind}-${e.id}`} className="flex gap-3">
+              <li key={`${e.kind}-${e.id}-${e.legId ?? ""}`} className="flex gap-3">
                 <span className="w-12 shrink-0 pt-3 text-sm font-medium tabular-nums">
                   {e.time ?? "—"}
                   {e.endTime && <span className="block text-xs font-normal text-slate-400">–{e.endTime}</span>}
@@ -270,7 +270,7 @@ export default async function ItineraryDayPage({
           <AddPanel title="Adicionar transporte">
             <form action={addBookingAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-6">
               <input type="hidden" name="day" value={date} />
-              <BookingFields
+              <QuickBookingFields
                 cities={cities}
                 types={bookingTypes.filter((ty) => !LEGACY_BOOKING_TYPE_IDS.includes(ty.id))}
                 defaultDate={date}

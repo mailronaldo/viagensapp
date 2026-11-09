@@ -24,15 +24,11 @@ export default async function TripDashboardPage({
     getExpenseSummary(trip.id, trip.baseCurrency),
     listBookingTypes(),
     db
-      .select()
-      .from(t.bookings)
-      .where(
-        and(
-          eq(t.bookings.tripId, trip.id),
-          gte(t.bookings.originAt, `${today} 00:00:00`),
-        ),
-      )
-      .orderBy(asc(t.bookings.originAt))
+      .select({ leg: t.bookingLegs, booking: t.bookings })
+      .from(t.bookingLegs)
+      .innerJoin(t.bookings, eq(t.bookings.id, t.bookingLegs.bookingId))
+      .where(and(eq(t.bookings.tripId, trip.id), gte(t.bookingLegs.originAt, `${today} 00:00:00`)))
+      .orderBy(asc(t.bookingLegs.originAt))
       .limit(4),
     db
       .select({ id: t.travelers.id, name: t.travelers.name })
@@ -124,11 +120,11 @@ export default async function TripDashboardPage({
             <p className="text-sm text-slate-500">Nenhum transporte futuro cadastrado.</p>
           ) : (
             <ul className="space-y-2">
-              {upcoming.map((b) => (
-                <li key={b.id} className="text-sm">
+              {upcoming.map(({ leg, booking: b }) => (
+                <li key={leg.id} className="text-sm">
                   <p className="font-medium">{b.title}</p>
                   <p className="text-xs text-slate-500">
-                    {bookingTypeName[b.type]}{b.originAt ? ` · ${formatDateTime(b.originAt)}` : ""}
+                    {bookingTypeName[b.type]}{leg.originAt ? ` · ${formatDateTime(leg.originAt)}` : ""}
                   </p>
                 </li>
               ))}

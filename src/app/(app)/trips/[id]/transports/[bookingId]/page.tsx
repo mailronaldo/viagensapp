@@ -1,18 +1,20 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { and, eq, inArray } from "drizzle-orm";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Pencil } from "lucide-react";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
-import { formatMoney } from "@/lib/format";
+import { formatDateTime, formatMoney } from "@/lib/format";
 import { getTripCities } from "@/services/cities";
 import { listBookingTypes } from "@/services/catalogs";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import { listTripTravelerOptions } from "@/services/trip-travelers";
 import { listBookingVouchers } from "@/services/transport-vouchers";
+import { listBookingLegs } from "@/services/booking-legs";
 import { deleteBookingAction, updateBookingAction } from "@/app/actions/bookings";
 import { addVoucherAction, deleteVoucherAction, updateVoucherAction } from "@/app/actions/transport-vouchers";
-import { BookingFields, TransportVoucherFields } from "@/components/TripFields";
+import { addLegAction, deleteLegAction, updateLegAction } from "@/app/actions/booking-legs";
+import { BookingFields, LegFields, TransportVoucherFields } from "@/components/TripFields";
 import { SavedModal } from "@/components/SavedModal";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
 import { AddPanel, Card, EmptyState, ErrorBanner, Tag, btnGhost, btnPrimary } from "@/components/ui";
@@ -51,6 +53,7 @@ export default async function EditBookingPage({
     db.select({ name: t.users.name }).from(t.users).where(eq(t.users.id, trip.ownerId)).limit(1),
   ]);
   const attachment = doc ? { name: doc.fileName, href: `/api/files/${trip.id}/${booking.documentId}` } : null;
+  const legs = await listBookingLegs(bookingId);
   const vouchers = await listBookingVouchers(bookingId, owner?.name ?? "Dono");
   const voucherDocIds = vouchers.map((v) => v.voucherDocumentId).filter((docId): docId is string => !!docId);
   const voucherDocs = voucherDocIds.length
@@ -95,7 +98,7 @@ export default async function EditBookingPage({
         <ErrorBanner message={error} />
         <form action={updateBookingAction.bind(null, trip.id, booking.id)} className="grid gap-3 sm:grid-cols-6">
           <input type="hidden" name="day" value={day ?? ""} />
-          <BookingFields cities={cities} types={types} booking={booking} attachment={attachment} />
+          <BookingFields cities={cities} types={types} booking={booking} legs={legs} attachment={attachment} />
           <div className="flex gap-2 sm:col-span-6">
             <button className={btnPrimary}>Salvar alterações</button>
             <Link href={cancelHref} className={btnGhost}>
@@ -104,6 +107,58 @@ export default async function EditBookingPage({
           </div>
         </form>
       </Card>
+
+      {booking.tripType === "MULTI_LEG" && (
+        <div className="mt-6">
+          <AddPanel title={`Trechos${legs.length > 0 ? ` (${legs.length})` : ""}`} defaultOpen={legs.length === 0}>
+            {legs.length > 0 && (
+              <ul className="mb-4 space-y-2">
+                {legs.map((leg, i) => (
+                  <li key={leg.id} className="rounded-lg border border-slate-200">
+                    <details className="group">
+                      <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 p-3 text-sm">
+                        <div className="min-w-0">
+                          <p className="font-medium">Trecho {i + 1}</p>
+                          <p className="text-xs text-slate-500">
+                            {[leg.originLocation, leg.originAt ? formatDateTime(leg.originAt) : null].filter(Boolean).join(" · ") || "Origem não definida"}
+                            {" → "}
+                            {[leg.destinationLocation, leg.destinationAt ? formatDateTime(leg.destinationAt) : null].filter(Boolean).join(" · ") ||
+                              "Destino não definido"}
+                          </p>
+                        </div>
+                        <span className="flex shrink-0 items-center gap-1">
+                          <Pencil className="size-4 text-slate-400" aria-hidden />
+                          <ConfirmDeleteButton
+                            label="Excluir"
+                            confirmTitle="Excluir este trecho?"
+                            confirmDescription="Isso remove este trecho do transporte."
+                            deleteAction={deleteLegAction.bind(null, trip.id, booking.id, leg.id)}
+                            size="sm"
+                          />
+                        </span>
+                      </summary>
+                      <div className="border-t border-slate-100 p-3">
+                        <form action={updateLegAction.bind(null, trip.id, booking.id, leg.id)} className="grid gap-3 sm:grid-cols-6">
+                          <LegFields cities={cities} leg={leg} />
+                          <div className="sm:col-span-6">
+                            <button className={btnPrimary}>Salvar trecho</button>
+                          </div>
+                        </form>
+                      </div>
+                    </details>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <form action={addLegAction.bind(null, trip.id, booking.id)} className="grid gap-3 sm:grid-cols-6">
+              <LegFields cities={cities} />
+              <div className="sm:col-span-6">
+                <button className={btnPrimary}>Adicionar trecho</button>
+              </div>
+            </form>
+          </AddPanel>
+        </div>
+      )}
 
       <div className="mt-6">
         <AddPanel title={`Voucher${vouchers.length > 0 ? ` (${vouchers.length})` : ""}`} defaultOpen={vouchers.length === 0}>
