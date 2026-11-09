@@ -7,7 +7,7 @@ import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
 import { ISO_DATE, fail, parseDecimal, parseStatus, str } from "@/lib/form";
 import { listClientCurrencyCodes } from "@/services/currencies";
-import { parseOptionalCategory } from "@/services/catalogs";
+import { getChipCategoryId } from "@/services/catalogs";
 
 const EID = /^\d{32}$/;
 const IMEI2 = /^\d{15}$/;
@@ -51,7 +51,7 @@ async function parseChip(ownerId: string, formData: FormData, back: string) {
     cost,
     currency: cost ? (currency ?? "BRL") : null,
     status: parseStatus(str(formData, "status")),
-    category: await parseOptionalCategory(str(formData, "category")),
+    category: await getChipCategoryId(),
     startDate,
     endDate,
     type: type as "CHIP" | "ESIM",

@@ -8,7 +8,7 @@ import { attachmentFromForm } from "@/lib/attachment";
 import { fail, parseDecimal, parseStatus, str } from "@/lib/form";
 import { isInTripGroup } from "@/services/trip-travelers";
 import { listClientCurrencyCodes } from "@/services/currencies";
-import { parseOptionalCategory } from "@/services/catalogs";
+import { getLodgingCategoryId } from "@/services/catalogs";
 
 function lodgingEditPath(tripId: string, lodgingId: string) {
   return `/trips/${tripId}/lodgings/${lodgingId}`;
@@ -70,7 +70,7 @@ async function parseVoucherValues(
     price,
     currency: price ? (currency ?? "BRL") : null,
     status: parseStatus(str(formData, "status")),
-    category: await parseOptionalCategory(str(formData, "category")),
+    category: await getLodgingCategoryId(),
     notes: str(formData, "notes"),
   };
 }

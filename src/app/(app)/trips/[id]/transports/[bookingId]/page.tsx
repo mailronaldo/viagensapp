@@ -6,7 +6,7 @@ import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { formatMoney } from "@/lib/format";
 import { getTripCities } from "@/services/cities";
-import { listBookingTypes, listExpenseCategories } from "@/services/catalogs";
+import { listBookingTypes } from "@/services/catalogs";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import { listTripTravelerOptions } from "@/services/trip-travelers";
 import { listBookingVouchers } from "@/services/transport-vouchers";
@@ -40,13 +40,12 @@ export default async function EditBookingPage({
     .limit(1);
   if (!booking) notFound();
 
-  const [[doc], cities, types, categories, currencies, travelerOptions, [owner]] = await Promise.all([
+  const [[doc], cities, types, currencies, travelerOptions, [owner]] = await Promise.all([
     booking.documentId
       ? db.select({ fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.id, booking.documentId)).limit(1)
       : Promise.resolve([]),
     getTripCities(trip.id),
     listBookingTypes(),
-    listExpenseCategories(),
     listClientCurrencyCodes(trip.ownerId),
     listTripTravelerOptions(trip),
     db.select({ name: t.users.name }).from(t.users).where(eq(t.users.id, trip.ownerId)).limit(1),
@@ -143,7 +142,6 @@ export default async function EditBookingPage({
                           trip={trip}
                           travelers={travelerOptions}
                           currencies={currencies}
-                          categories={categories}
                           voucher={v}
                           scopeLabel={v.scopeLabel}
                           attachment={
@@ -168,7 +166,6 @@ export default async function EditBookingPage({
                 trip={trip}
                 travelers={availableTravelerOptions}
                 currencies={currencies}
-                categories={categories}
                 allowGroup={!groupVoucherExists}
               />
               <div className="sm:col-span-6">

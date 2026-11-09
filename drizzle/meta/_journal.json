@@ -162,6 +162,13 @@
       "when": 1794229745343,
       "tag": "0022_seed_ticket_category",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794232319142,
+      "tag": "0023_seed_more_categories",
+      "breakpoints": true
     }
   ]
 }

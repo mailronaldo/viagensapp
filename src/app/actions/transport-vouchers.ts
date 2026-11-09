@@ -8,7 +8,7 @@ import { attachmentFromForm } from "@/lib/attachment";
 import { fail, parseDecimal, parseStatus, str } from "@/lib/form";
 import { isInTripGroup } from "@/services/trip-travelers";
 import { listClientCurrencyCodes } from "@/services/currencies";
-import { parseOptionalCategory } from "@/services/catalogs";
+import { getTransportCategoryId } from "@/services/catalogs";
 
 function bookingEditPath(tripId: string, bookingId: string) {
   return `/trips/${tripId}/transports/${bookingId}`;
@@ -39,7 +39,7 @@ async function parseVoucherValues(ownerId: string, formData: FormData, back: str
     price,
     currency: price ? (currency ?? "BRL") : null,
     status: parseStatus(str(formData, "status")),
-    category: await parseOptionalCategory(str(formData, "category")),
+    category: await getTransportCategoryId(),
     notes: str(formData, "notes"),
   };
 }

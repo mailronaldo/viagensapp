@@ -145,7 +145,7 @@ export default async function TravelerHubPage({
               )}
               {canWrite ? (
                 <form action={upsertInsuranceAction.bind(null, trip.id, travelerId)} className="grid gap-3 sm:grid-cols-6">
-                  <InsuranceFields trip={trip} insurance={insurance} attachment={policyAttachment} currencies={currencies} categories={categories} />
+                  <InsuranceFields trip={trip} insurance={insurance} attachment={policyAttachment} currencies={currencies} />
                   <div className="sm:col-span-6">
                     <button className={btnPrimary}>Salvar</button>
                   </div>
@@ -189,7 +189,7 @@ export default async function TravelerHubPage({
             )}
             {canWrite ? (
               <form action={upsertChipAction.bind(null, trip.id, travelerId)} className="grid gap-3 sm:grid-cols-6">
-                <ChipFields trip={trip} chip={chip} attachment={attachment} currencies={currencies} categories={categories} />
+                <ChipFields trip={trip} chip={chip} attachment={attachment} currencies={currencies} />
                 <div className="sm:col-span-6">
                   <button className={btnPrimary}>Salvar</button>
                 </div>

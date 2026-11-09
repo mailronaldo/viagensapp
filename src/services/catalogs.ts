@@ -67,13 +67,19 @@ export async function parseOptionalCategory(categoryId: string | null) {
 }
 
 /** Categorias reservadas pro sistema: não aparecem pra excluir no gestor da agência. */
-export const RESERVED_EXPENSE_CATEGORY_NAMES = ["Ingressos"];
+export const RESERVED_EXPENSE_CATEGORY_NAMES = ["Ingressos", "Transporte", "Hospedagem", "Telefonia", "Seguro"];
 
-/** Categoria fixa de todo ingresso — criada pela migração, buscada pelo nome (não pelo id). */
-export async function getTicketCategoryId() {
-  const [cat] = await db.select({ id: t.expenseCategories.id }).from(t.expenseCategories).where(eq(t.expenseCategories.name, "Ingressos")).limit(1);
+async function getCategoryIdByName(name: string) {
+  const [cat] = await db.select({ id: t.expenseCategories.id }).from(t.expenseCategories).where(eq(t.expenseCategories.name, name)).limit(1);
   return cat?.id ?? null;
 }
+
+/** Categorias fixas de cada tipo de custo — criadas pela migração, buscadas pelo nome (não pelo id). */
+export const getTicketCategoryId = () => getCategoryIdByName("Ingressos");
+export const getTransportCategoryId = () => getCategoryIdByName("Transporte");
+export const getLodgingCategoryId = () => getCategoryIdByName("Hospedagem");
+export const getChipCategoryId = () => getCategoryIdByName("Telefonia");
+export const getInsuranceCategoryId = () => getCategoryIdByName("Seguro");
 
 /** Monta um mapa id → nome, pra exibir o rótulo salvo sem repetir a busca. */
 export function toNameMap(rows: { id: string; name: string }[]) {

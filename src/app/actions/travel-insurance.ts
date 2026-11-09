@@ -7,7 +7,7 @@ import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
 import { ISO_DATE, fail, parseDecimal, parseStatus, str } from "@/lib/form";
 import { listClientCurrencyCodes } from "@/services/currencies";
-import { parseOptionalCategory } from "@/services/catalogs";
+import { getInsuranceCategoryId } from "@/services/catalogs";
 
 async function requireLinkedTraveler(tripId: string, travelerId: string) {
   const [link] = await db
@@ -50,7 +50,7 @@ async function parseInsurance(ownerId: string, formData: FormData, back: string)
     price,
     currency: price ? (currency ?? "BRL") : null,
     status: parseStatus(str(formData, "status")),
-    category: await parseOptionalCategory(str(formData, "category")),
+    category: await getInsuranceCategoryId(),
     notes: str(formData, "notes"),
   };
 }

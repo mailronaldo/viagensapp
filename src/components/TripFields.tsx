@@ -336,7 +336,6 @@ export function LodgingVoucherFields({
   trip,
   travelers,
   currencies,
-  categories,
   subcategories,
   voucher,
   travelerIds,
@@ -345,7 +344,6 @@ export function LodgingVoucherFields({
   trip: { baseCurrency: string };
   travelers: { id: string | null; name: string }[];
   currencies: string[];
-  categories: Category[];
   subcategories: { id: string; name: string }[];
   voucher?: {
     name: string;
@@ -354,7 +352,6 @@ export function LodgingVoucherFields({
     price: string | null;
     currency: string | null;
     status: string;
-    category: string | null;
     notes: string | null;
   } | null;
   /** Viajantes já cobertos por este voucher (modo edição): "owner" ou o id do viajante. */
@@ -406,13 +403,8 @@ export function LodgingVoucherFields({
           <CurrencyOptions currencies={currencies} />
         </select>
       </Field>
-      <Field label="Status do valor" className="sm:col-span-1">
+      <Field label="Status do valor" className="sm:col-span-2">
         <StatusSelect name="status" defaultValue={voucher?.status ?? "ESTIMADO"} />
-      </Field>
-      <Field label="Categoria" className="sm:col-span-2">
-        <select name="category" defaultValue={voucher?.category ?? ""} className={inputCls}>
-          <CategoryOptions categories={categories} />
-        </select>
       </Field>
       <AttachmentField
         label="Comprovante (PDF ou imagem)"
@@ -540,7 +532,6 @@ export function TransportVoucherFields({
   trip,
   travelers,
   currencies,
-  categories,
   voucher,
   scopeLabel,
   attachment,
@@ -549,14 +540,12 @@ export function TransportVoucherFields({
   trip: { baseCurrency: string };
   travelers: { id: string | null; name: string }[];
   currencies: string[];
-  categories: Category[];
   voucher?: {
     provider: string | null;
     reservationCode: string | null;
     price: string | null;
     currency: string | null;
     status: string;
-    category: string | null;
     notes: string | null;
   } | null;
   /** No modo edição, o escopo (grupo / viajante) já está definido e não muda. */
@@ -598,13 +587,8 @@ export function TransportVoucherFields({
           <CurrencyOptions currencies={currencies} />
         </select>
       </Field>
-      <Field label="Status do valor" className="sm:col-span-1">
+      <Field label="Status do valor" className="sm:col-span-2">
         <StatusSelect name="status" defaultValue={voucher?.status ?? "ESTIMADO"} />
-      </Field>
-      <Field label="Categoria" className="sm:col-span-2">
-        <select name="category" defaultValue={voucher?.category ?? ""} className={inputCls}>
-          <CategoryOptions categories={categories} />
-        </select>
       </Field>
       <AttachmentField
         label="Comprovante (PDF ou imagem)"
@@ -626,13 +610,11 @@ export function ChipFields({
   chip,
   attachment,
   currencies,
-  categories,
 }: {
   trip: { baseCurrency: string };
   chip?: Chip;
   attachment?: { name: string; href: string } | null;
   currencies: string[];
-  categories: Category[];
 }) {
   return (
     <fieldset id="chip" className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:col-span-6 sm:grid-cols-6">
@@ -658,11 +640,6 @@ export function ChipFields({
       </Field>
       <Field label="Status do valor" className="sm:col-span-2">
         <StatusSelect name="status" defaultValue={chip?.status ?? "ESTIMADO"} />
-      </Field>
-      <Field label="Categoria" className="sm:col-span-2">
-        <select name="category" defaultValue={chip?.category ?? ""} className={inputCls}>
-          <CategoryOptions categories={categories} />
-        </select>
       </Field>
       <AttachmentField
         label="Recibo (PDF ou imagem)"
@@ -889,13 +866,11 @@ export function InsuranceFields({
   insurance,
   attachment,
   currencies,
-  categories,
 }: {
   trip: { baseCurrency: string };
   insurance?: TravelInsurance | null;
   attachment?: { name: string; href: string } | null;
   currencies: string[];
-  categories: Category[];
 }) {
   return (
     <>
@@ -929,11 +904,6 @@ export function InsuranceFields({
       </Field>
       <Field label="Status do valor" className="sm:col-span-1">
         <StatusSelect name="status" defaultValue={insurance?.status ?? "ESTIMADO"} />
-      </Field>
-      <Field label="Categoria" className="sm:col-span-2">
-        <select name="category" defaultValue={insurance?.category ?? ""} className={inputCls}>
-          <CategoryOptions categories={categories} />
-        </select>
       </Field>
       <AttachmentField
         label="Apólice (PDF ou imagem)"

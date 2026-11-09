@@ -6,7 +6,7 @@ import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { formatMoney } from "@/lib/format";
 import { getTripCities } from "@/services/cities";
-import { listExpenseCategories, listLodgingTypeSubcategories, listLodgingTypes, listReservationMethods } from "@/services/catalogs";
+import { listLodgingTypeSubcategories, listLodgingTypes, listReservationMethods } from "@/services/catalogs";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import { listTripTravelerOptions } from "@/services/trip-travelers";
 import { listLodgingVouchers } from "@/services/lodging-vouchers";
@@ -40,11 +40,10 @@ export default async function EditLodgingPage({
     .limit(1);
   if (!lodging) notFound();
 
-  const [cities, types, methods, categories, doc, currencies, travelerOptions, subcategories, owner] = await Promise.all([
+  const [cities, types, methods, doc, currencies, travelerOptions, subcategories, owner] = await Promise.all([
     getTripCities(trip.id),
     listLodgingTypes(),
     listReservationMethods(),
-    listExpenseCategories(),
     lodging.documentId
       ? db.select({ fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.id, lodging.documentId)).limit(1)
       : Promise.resolve([]),
@@ -142,7 +141,6 @@ export default async function EditLodgingPage({
                           trip={trip}
                           travelers={travelerOptions}
                           currencies={currencies}
-                          categories={categories}
                           subcategories={subcategories}
                           voucher={v}
                           travelerIds={v.travelerIds}
@@ -163,7 +161,7 @@ export default async function EditLodgingPage({
             </ul>
           )}
           <form action={addVoucherAction.bind(null, trip.id, lodging.id)} className="grid gap-3 sm:grid-cols-6">
-            <LodgingVoucherFields trip={trip} travelers={travelerOptions} currencies={currencies} categories={categories} subcategories={subcategories} />
+            <LodgingVoucherFields trip={trip} travelers={travelerOptions} currencies={currencies} subcategories={subcategories} />
             <div className="sm:col-span-6">
               <button className={btnPrimary}>Adicionar voucher</button>
             </div>
