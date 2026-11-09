@@ -254,18 +254,14 @@ export function ItemFields({
 export function LodgingFields({
   cities,
   types,
-  methods,
   lodging,
   defaultDate,
-  attachment,
   iconAttachment,
 }: {
   cities: { id: string; name: string }[];
   types: { id: string; name: string }[];
-  methods: { id: string; name: string }[];
   lodging?: Lodging;
   defaultDate?: string;
-  attachment?: { name: string; href: string } | null;
   iconAttachment?: { name: string; href: string } | null;
 }) {
   return (
@@ -318,33 +314,6 @@ export function LodgingFields({
       <Field label="Observações" className="sm:col-span-6">
         <textarea name="notes" rows={2} defaultValue={lodging?.notes ?? ""} className={inputCls} />
       </Field>
-      <fieldset className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:col-span-6 sm:grid-cols-6">
-        <legend className="px-1 text-xs font-medium text-slate-600">Voucher da reserva</legend>
-        <Field label="Método de reserva" className="sm:col-span-2">
-          <select name="provider" defaultValue={lodging?.provider ?? ""} className={inputCls}>
-            <option value="">—</option>
-            {methods.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Código de confirmação" className="sm:col-span-2">
-          <input name="confirmationCode" defaultValue={lodging?.confirmationCode ?? ""} className={inputCls} />
-        </Field>
-        <Field label="PIN" className="sm:col-span-2">
-          <input name="pin" defaultValue={lodging?.pin ?? ""} className={inputCls} />
-        </Field>
-        <AttachmentField
-          label="Confirmação da reserva (PDF ou imagem)"
-          name="voucher"
-          removeName="removeVoucher"
-          current={attachment?.name}
-          href={attachment?.href}
-          className="sm:col-span-6"
-        />
-      </fieldset>
     </>
   );
 }
@@ -353,6 +322,7 @@ export function LodgingVoucherFields({
   trip,
   travelers,
   currencies,
+  methods,
   subcategories,
   voucher,
   travelerIds,
@@ -361,11 +331,15 @@ export function LodgingVoucherFields({
   trip: { baseCurrency: string };
   travelers: { id: string | null; name: string }[];
   currencies: string[];
+  methods: { id: string; name: string }[];
   subcategories: { id: string; name: string }[];
   voucher?: {
     name: string;
     subcategoryId: string | null;
     isGroup: boolean;
+    provider: string | null;
+    confirmationCode: string | null;
+    pin: string | null;
     price: string | null;
     currency: string | null;
     status: string;
@@ -423,14 +397,33 @@ export function LodgingVoucherFields({
       <Field label="Status do valor" className="sm:col-span-2">
         <StatusSelect name="status" defaultValue={voucher?.status ?? "ESTIMADO"} />
       </Field>
-      <AttachmentField
-        label="Comprovante (PDF ou imagem)"
-        name="voucher"
-        removeName="removeVoucher"
-        current={attachment?.name}
-        href={attachment?.href}
-        className="sm:col-span-4"
-      />
+      <fieldset className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:col-span-6 sm:grid-cols-6">
+        <legend className="px-1 text-xs font-medium text-slate-600">Voucher da reserva</legend>
+        <Field label="Método de reserva" className="sm:col-span-2">
+          <select name="provider" defaultValue={voucher?.provider ?? ""} className={inputCls}>
+            <option value="">—</option>
+            {methods.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Código de confirmação" className="sm:col-span-2">
+          <input name="confirmationCode" defaultValue={voucher?.confirmationCode ?? ""} className={inputCls} />
+        </Field>
+        <Field label="PIN" className="sm:col-span-2">
+          <input name="pin" defaultValue={voucher?.pin ?? ""} className={inputCls} />
+        </Field>
+        <AttachmentField
+          label="Confirmação da reserva (PDF ou imagem)"
+          name="voucher"
+          removeName="removeVoucher"
+          current={attachment?.name}
+          href={attachment?.href}
+          className="sm:col-span-6"
+        />
+      </fieldset>
       <Field label="Observações" className="sm:col-span-6">
         <textarea name="notes" rows={2} defaultValue={voucher?.notes ?? ""} className={inputCls} />
       </Field>

@@ -175,10 +175,10 @@ export async function deleteReservationMethodAction(id: string) {
   const back = "/agency/system/reservation-methods";
   const [{ count }] = await db
     .select({ count: sql<number>`count(*)::int` })
-    .from(t.lodgings)
-    .where(eq(t.lodgings.provider, id));
+    .from(t.lodgingVouchers)
+    .where(eq(t.lodgingVouchers.provider, id));
   if (count > 0) {
-    fail(back, `Esse método está em uso em ${count === 1 ? "1 hospedagem" : `${count} hospedagens`}. Não dá pra excluir.`);
+    fail(back, `Esse método está em uso em ${count === 1 ? "1 voucher" : `${count} vouchers`}. Não dá pra excluir.`);
   }
   await db.delete(t.reservationMethods).where(eq(t.reservationMethods.id, id));
   redirect(back);

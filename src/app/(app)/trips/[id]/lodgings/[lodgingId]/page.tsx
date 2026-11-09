@@ -40,13 +40,10 @@ export default async function EditLodgingPage({
     .limit(1);
   if (!lodging) notFound();
 
-  const [cities, types, methods, doc, iconDoc, currencies, travelerOptions, subcategories, owner] = await Promise.all([
+  const [cities, types, methods, iconDoc, currencies, travelerOptions, subcategories, owner] = await Promise.all([
     getTripCities(trip.id),
     listLodgingTypes(),
     listReservationMethods(),
-    lodging.documentId
-      ? db.select({ fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.id, lodging.documentId)).limit(1)
-      : Promise.resolve([]),
     lodging.iconDocumentId
       ? db.select({ fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.id, lodging.iconDocumentId)).limit(1)
       : Promise.resolve([]),
@@ -55,7 +52,6 @@ export default async function EditLodgingPage({
     listLodgingTypeSubcategories(lodging.type),
     db.select({ name: t.users.name }).from(t.users).where(eq(t.users.id, trip.ownerId)).limit(1).then(([o]) => o),
   ]);
-  const attachment = doc[0] ? { name: doc[0].fileName, href: `/api/files/${trip.id}/${lodging.documentId}` } : null;
   const iconAttachment = iconDoc[0] ? { name: iconDoc[0].fileName, href: `/api/files/${trip.id}/${lodging.iconDocumentId}` } : null;
   const vouchers = await listLodgingVouchers(lodgingId, owner?.name ?? "Dono");
   const voucherDocIds = vouchers.map((v) => v.voucherDocumentId).filter((docId): docId is string => !!docId);
@@ -98,7 +94,7 @@ export default async function EditLodgingPage({
         <ErrorBanner message={error} />
         <form action={updateLodgingAction.bind(null, trip.id, lodging.id)} className="grid gap-3 sm:grid-cols-6">
           <input type="hidden" name="day" value={day ?? ""} />
-          <LodgingFields cities={cities} types={types} methods={methods} lodging={lodging} attachment={attachment} iconAttachment={iconAttachment} />
+          <LodgingFields cities={cities} types={types} lodging={lodging} iconAttachment={iconAttachment} />
           <div className="flex gap-2 sm:col-span-6">
             <button className={btnPrimary}>Salvar alterações</button>
             <Link href={cancelHref} className={btnGhost}>
@@ -145,6 +141,7 @@ export default async function EditLodgingPage({
                           trip={trip}
                           travelers={travelerOptions}
                           currencies={currencies}
+                          methods={methods}
                           subcategories={subcategories}
                           voucher={v}
                           travelerIds={v.travelerIds}
@@ -165,7 +162,7 @@ export default async function EditLodgingPage({
             </ul>
           )}
           <form action={addVoucherAction.bind(null, trip.id, lodging.id)} className="grid gap-3 sm:grid-cols-6">
-            <LodgingVoucherFields trip={trip} travelers={travelerOptions} currencies={currencies} subcategories={subcategories} />
+            <LodgingVoucherFields trip={trip} travelers={travelerOptions} currencies={currencies} methods={methods} subcategories={subcategories} />
             <div className="sm:col-span-6">
               <button className={btnPrimary}>Adicionar voucher</button>
             </div>

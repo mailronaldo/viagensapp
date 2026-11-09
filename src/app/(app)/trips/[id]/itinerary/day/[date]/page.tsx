@@ -17,7 +17,6 @@ import {
   listBookingTypes,
   listExpenseCategories,
   listLodgingTypes,
-  listReservationMethods,
   toNameMap,
 } from "@/services/catalogs";
 import { addItemAction, deleteItemAction, removeReservationAction } from "@/app/actions/items";
@@ -49,12 +48,11 @@ export default async function ItineraryDayPage({
   const { trip, canWrite } = await requireTripAccess(id);
   if (!ISO_DATE.test(date) || date < trip.startDate || date > trip.endDate) notFound();
 
-  const [cities, activityTypes, bookingTypes, lodgingTypes, reservationMethods, categories, agenda, plan, docs, currencies] = await Promise.all([
+  const [cities, activityTypes, bookingTypes, lodgingTypes, categories, agenda, plan, docs, currencies] = await Promise.all([
     getTripCities(trip.id),
     listActivityTypes(),
     listBookingTypes(),
     listLodgingTypes(),
-    listReservationMethods(),
     listExpenseCategories(),
     getAgenda(trip, date),
     getDayPlan(trip.id, date),
@@ -287,7 +285,6 @@ export default async function ItineraryDayPage({
               <LodgingFields
                 cities={cities}
                 types={lodgingTypes}
-                methods={reservationMethods}
                 defaultDate={date}
               />
               <div className="sm:col-span-6">

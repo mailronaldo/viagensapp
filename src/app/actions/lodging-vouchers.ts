@@ -42,6 +42,16 @@ async function parseVoucherValues(
     if (!sc) fail(back, "Subcategoria inválida para o tipo desta hospedagem.");
   }
 
+  const provider = str(formData, "provider");
+  if (provider) {
+    const [method] = await db
+      .select({ id: t.reservationMethods.id })
+      .from(t.reservationMethods)
+      .where(eq(t.reservationMethods.id, provider))
+      .limit(1);
+    if (!method) fail(back, "Método de reserva inválido.");
+  }
+
   const currency = str(formData, "currency");
   if (currency) {
     const validCurrencies = await listClientCurrencyCodes(trip.ownerId);
@@ -67,6 +77,9 @@ async function parseVoucherValues(
     subcategoryId,
     isGroup,
     travelerIds,
+    provider,
+    confirmationCode: str(formData, "confirmationCode"),
+    pin: str(formData, "pin"),
     price,
     currency: price ? (currency ?? "BRL") : null,
     status: parseStatus(str(formData, "status")),

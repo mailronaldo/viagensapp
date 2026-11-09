@@ -38,7 +38,18 @@ export async function listLodgingVouchers(lodgingId: string, ownerName: string) 
 
 /** Vouchers de várias hospedagens de uma vez (listagem), já resumidos. */
 export async function listVouchersForLodgings(lodgingIds: string[]) {
-  const byLodging = new Map<string, { scopeLabel: string; price: string | null; currency: string | null; status: string }[]>();
+  const byLodging = new Map<
+    string,
+    {
+      name: string;
+      scopeLabel: string;
+      price: string | null;
+      currency: string | null;
+      status: string;
+      confirmationCode: string | null;
+      voucherDocumentId: string | null;
+    }[]
+  >();
   if (lodgingIds.length === 0) return byLodging;
 
   const vouchers = await db
@@ -64,10 +75,13 @@ export async function listVouchersForLodgings(lodgingIds: string[]) {
   for (const { voucher: v } of vouchers) {
     const list = byLodging.get(v.lodgingId) ?? [];
     list.push({
+      name: v.name,
       scopeLabel: v.isGroup ? "Grupo" : (travelersByVoucher.get(v.id) ?? []).join(", ") || v.name,
       price: v.price,
       currency: v.currency,
       status: v.status,
+      confirmationCode: v.confirmationCode,
+      voucherDocumentId: v.voucherDocumentId,
     });
     byLodging.set(v.lodgingId, list);
   }

@@ -3,6 +3,7 @@ import { and, asc, eq, gte, lte, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db, t } from "@/db";
 import { todayIn } from "@/lib/format";
+import { listVouchersForLodgings } from "./lodging-vouchers";
 
 const originCity = alias(t.cities, "origin_city");
 const destinationCity = alias(t.cities, "destination_city");
@@ -134,7 +135,9 @@ export async function getAgenda(
         or(eq(t.lodgings.checkInDate, day), eq(t.lodgings.checkOutDate, day)),
       ),
     );
+  const lodgingVouchersByLodging = await listVouchersForLodgings(lodgingRows.map((l) => l.id));
   const lodgingEntries: AgendaEntry[] = lodgingRows.flatMap((l) => {
+    const firstVoucher = (lodgingVouchersByLodging.get(l.id) ?? [])[0] ?? null;
     const base = {
       id: l.id,
       kind: "lodging" as const,
@@ -143,10 +146,10 @@ export async function getAgenda(
       type: l.type,
       location: null,
       address: l.address,
-      notes: l.confirmationCode ? `Código: ${l.confirmationCode}` : null,
+      notes: firstVoucher?.confirmationCode ? `Código: ${firstVoucher.confirmationCode}` : null,
       cityName: null,
-      hasTicket: !!l.documentId,
-      ticketDocumentId: l.documentId,
+      hasTicket: !!firstVoucher?.voucherDocumentId,
+      ticketDocumentId: firstVoucher?.voucherDocumentId ?? null,
       reservation: null,
     };
     const out: AgendaEntry[] = [];

@@ -79,10 +79,11 @@ export async function travelerCanReadDocument(
     .limit(1);
   if (booking) return true;
 
-  const [lodging] = await db
-    .select({ id: t.lodgings.id })
-    .from(t.lodgings)
-    .where(and(eq(t.lodgings.tripId, tripId), eq(t.lodgings.documentId, doc.id)))
+  const [voucher] = await db
+    .select({ id: t.lodgingVouchers.id })
+    .from(t.lodgingVouchers)
+    .innerJoin(t.lodgings, eq(t.lodgings.id, t.lodgingVouchers.lodgingId))
+    .where(and(eq(t.lodgings.tripId, tripId), eq(t.lodgingVouchers.voucherDocumentId, doc.id)))
     .limit(1);
-  return !!lodging;
+  return !!voucher;
 }

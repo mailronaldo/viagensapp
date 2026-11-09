@@ -7,6 +7,7 @@ import { getAgenda } from "@/services/agenda";
 import { getItinerarySummary } from "@/services/itinerary";
 import { listActivityTypes, listBookingTypes, listDocumentTypes, listLodgingTypes, toNameMap } from "@/services/catalogs";
 import { listLegsForBookings } from "@/services/booking-legs";
+import { listVouchersForLodgings } from "@/services/lodging-vouchers";
 import { TravelerAgenda } from "@/components/TravelerAgenda";
 import { Card, EmptyState, Hero } from "@/components/ui";
 
@@ -57,6 +58,7 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
   const lodgingTypeName = toNameMap(lodgingTypes);
   const base = `/traveler/trips/${trip.id}`;
   const legsByBooking = await listLegsForBookings(transports.map((b) => b.id));
+  const vouchersByLodging = await listVouchersForLodgings(lodgings.map((l) => l.id));
   const legCityIds = [...legsByBooking.values()].flat().flatMap((leg) => [leg.originCityId, leg.destinationCityId]).filter((v): v is string => !!v);
   const legCities = legCityIds.length ? await db.select().from(t.cities).where(inArray(t.cities.id, legCityIds)) : [];
   const legCityName = toNameMap(legCities);
@@ -218,16 +220,25 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
                       {l.checkOutTime ? ` · ${l.checkOutTime}` : ""}
                     </p>
                     {l.address && <p className="text-xs text-slate-500">{l.address}</p>}
-                    {l.confirmationCode && (
-                      <p className="text-xs text-slate-500">
-                        Confirmação: <span className="font-mono">{l.confirmationCode}</span>
-                      </p>
-                    )}
-                    {l.documentId && (
-                      <a href={`/api/files/${trip.id}/${l.documentId}`} target="_blank" rel="noreferrer" className="text-xs text-brand-700 hover:underline">
-                        📎 {docName.get(l.documentId) ?? "Voucher"}
-                      </a>
-                    )}
+                    {(vouchersByLodging.get(l.id) ?? []).map((v, i) => (
+                      <div key={i} className="mt-1 text-xs text-slate-500">
+                        {v.confirmationCode && (
+                          <p>
+                            Confirmação ({v.name}): <span className="font-mono">{v.confirmationCode}</span>
+                          </p>
+                        )}
+                        {v.voucherDocumentId && (
+                          <a
+                            href={`/api/files/${trip.id}/${v.voucherDocumentId}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-brand-700 hover:underline"
+                          >
+                            📎 {docName.get(v.voucherDocumentId) ?? "Voucher"}
+                          </a>
+                        )}
+                      </div>
+                    ))}
                   </Card>
                 </li>
               ))}

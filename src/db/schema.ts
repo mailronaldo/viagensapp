@@ -412,18 +412,12 @@ export const lodgings = pgTable(
     cityId: text("city_id").references(() => cities.id, { onDelete: "set null" }),
     type: text("type").notNull().default("HOTEL").references(() => lodgingTypes.id),
     name: text("name").notNull(),
-    provider: text("provider").references(() => reservationMethods.id), // Booking, Airbnb, direto com o hotel…
     address: text("address"),
     checkInDate: date("check_in_date"),
     checkInTime: text("check_in_time"), // "HH:MM"
     checkOutDate: date("check_out_date"),
     checkOutTime: text("check_out_time"),
-    confirmationCode: text("confirmation_code"),
-    pin: text("pin"),
     notes: text("notes"),
-    documentId: text("document_id").references(() => documents.id, {
-      onDelete: "set null",
-    }),
     iconDocumentId: text("icon_document_id").references(() => documents.id, {
       onDelete: "set null",
     }),
@@ -458,6 +452,9 @@ export const lodgingVouchers = pgTable("lodging_vouchers", {
   name: text("name").notNull(),
   subcategoryId: text("subcategory_id").references(() => lodgingTypeSubcategories.id, { onDelete: "set null" }),
   isGroup: boolean("is_group").notNull().default(false),
+  provider: text("provider").references(() => reservationMethods.id), // Booking, Airbnb, direto com o hotel…
+  confirmationCode: text("confirmation_code"),
+  pin: text("pin"),
   price: numeric("price", { precision: 12, scale: 2 }),
   currency: text("currency"),
   status: valueStatus("status").notNull().default("ESTIMADO"),
