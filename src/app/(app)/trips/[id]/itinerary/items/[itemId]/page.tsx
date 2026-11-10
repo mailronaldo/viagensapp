@@ -291,6 +291,8 @@ export default async function EditItemPage({
             items={itemTips}
             existingTips={existingTips}
             categories={tipCategories}
+            hasCity={!!item.cityId}
+            hasNeighborhood={!!item.neighborhoodId}
             linkAction={linkExistingTipAction.bind(null, trip.id, itemId)}
             createAction={createAndLinkTipAction.bind(null, trip.id, itemId)}
             unlinkAction={unlinkTipAction.bind(null, trip.id, itemId)}

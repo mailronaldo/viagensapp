@@ -155,6 +155,8 @@ export function ActivityTipsCard({
   items,
   existingTips,
   categories,
+  hasCity,
+  hasNeighborhood,
   linkAction,
   createAction,
   unlinkAction,
@@ -165,6 +167,10 @@ export function ActivityTipsCard({
   /** Dicas já cadastradas na mesma cidade, pra reaproveitar em vez de criar de novo. */
   existingTips: Tip[];
   categories: { id: string; name: string }[];
+  /** Se a atividade tem Cidade definida (dica criada aqui herda isso). */
+  hasCity: boolean;
+  /** Se a atividade tem Bairro/Região definido (dica criada aqui herda isso). */
+  hasNeighborhood: boolean;
   /** Server action já vinculada a (tripId, itemId) — falta só o FormData (campo `tipId`). */
   linkAction: (formData: FormData) => void;
   /** Server action já vinculada a (tripId, itemId) — falta só o FormData do modal. */
@@ -273,6 +279,14 @@ export function ActivityTipsCard({
         </Dialog>
       </div>
       <p className="mb-2 text-xs text-slate-500">Pontos de interesse e dicas pra essa atividade — reaproveitadas do seu repositório de Dicas.</p>
+      {!hasCity ? (
+        <p className="mb-2 text-xs text-amber-700">
+          Esta atividade não tem Cidade definida. Defina a Cidade (no cadastro da atividade) pra que as dicas criadas aqui
+          apareçam de novo em outras atividades e viagens dessa cidade.
+        </p>
+      ) : !hasNeighborhood ? (
+        <p className="mb-2 text-xs text-amber-700">Recomendável definir também o Bairro/Região da atividade, pra uma busca de dicas mais precisa.</p>
+      ) : null}
       <AiSuggestions tripId={tripId} itemId={itemId} />
       {items.length === 0 ? (
         <p className="text-xs text-slate-400">Nada cadastrado ainda.</p>
