@@ -1,11 +1,20 @@
+import { X } from "lucide-react";
 import { asc, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
-import { createAndLinkCityAction, deleteCityAction, linkCityAction, unlinkCityAction } from "@/app/actions/cities";
+import {
+  addNeighborhoodAction,
+  createAndLinkCityAction,
+  deleteCityAction,
+  deleteNeighborhoodAction,
+  linkCityAction,
+  unlinkCityAction,
+} from "@/app/actions/cities";
+import { listCityNeighborhoods } from "@/services/cities";
 import { listCountries } from "@/lib/geo";
 import { CityGeoFields } from "@/components/CityGeoFields";
 import { CountryFlag } from "@/components/CountryFlag";
-import { AddPanel, EmptyState, ErrorBanner, btnPrimary } from "@/components/ui";
+import { AddPanel, Card, EmptyState, ErrorBanner, btnPrimary, inputCls } from "@/components/ui";
 
 export const metadata = { title: "Cidades da viagem" };
 
@@ -14,10 +23,10 @@ export default async function TripCitiesPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; cityId?: string }>;
 }) {
   const { id } = await params;
-  const { error } = await searchParams;
+  const { error, cityId } = await searchParams;
   const { trip, canWrite } = await requireTripAccess(id);
 
   const [linked, ownerCities] = await Promise.all([
@@ -33,6 +42,10 @@ export default async function TripCitiesPage({
   const linkedIds = new Set(linked.map((l) => l.city.id));
   const available = ownerCities.filter((c) => !linkedIds.has(c.id));
   const countries = listCountries();
+
+  const selectedCityId = cityId && linkedIds.has(cityId) ? cityId : linked[0]?.city.id;
+  const neighborhoods = selectedCityId ? await listCityNeighborhoods(selectedCityId) : [];
+  const backWithCity = selectedCityId ? `/trips/${trip.id}/cities?cityId=${selectedCityId}` : `/trips/${trip.id}/cities`;
 
   return (
     <>
@@ -110,6 +123,51 @@ export default async function TripCitiesPage({
               )}
             </span>
           ))}
+        </div>
+      )}
+
+      {linked.length > 0 && selectedCityId && (
+        <div className="mt-6">
+          <Card>
+            <h3 className="mb-2 font-medium">Bairros / Regiões</h3>
+            <p className="mb-3 text-xs text-slate-500">
+              Cadastrados por cidade — reaproveitados em qualquer viagem que use a mesma cidade (atividades, transportes e dicas).
+            </p>
+            <form method="get" className="mb-3 flex gap-2">
+              <select name="cityId" defaultValue={selectedCityId} className={`${inputCls} max-w-xs`}>
+                {linked.map(({ city: c }) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <button className={btnPrimary}>Ver</button>
+            </form>
+            {neighborhoods.length > 0 && (
+              <ul className="mb-3 flex flex-wrap gap-1.5">
+                {neighborhoods.map((n) => (
+                  <li key={n.id}>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 py-1 ps-3 pe-1.5 text-xs text-brand-900">
+                      {n.name}
+                      {canWrite && (
+                        <form action={deleteNeighborhoodAction.bind(null, backWithCity, n.id)}>
+                          <button aria-label={`Remover ${n.name}`} className="flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-brand-700 hover:bg-brand-200 hover:text-rose-700">
+                            <X className="size-3" />
+                          </button>
+                        </form>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {canWrite && (
+              <form action={addNeighborhoodAction.bind(null, backWithCity, selectedCityId)} className="flex gap-2">
+                <input name="name" placeholder="Ex.: Alfama" className={`${inputCls} text-sm`} />
+                <button className={`${btnPrimary} shrink-0 px-3`}>+</button>
+              </form>
+            )}
+          </Card>
         </div>
       )}
     </>

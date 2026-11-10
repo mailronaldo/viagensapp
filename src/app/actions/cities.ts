@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { and, eq, inArray } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireClient } from "@/lib/auth";
@@ -63,6 +64,16 @@ export async function deleteCityAction(back: string, cityId: string) {
 }
 
 // ---------- Cidades dentro de uma viagem ----------
+
+/**
+ * O App Router do Next, numa navegação disparada por Server Action que
+ * redireciona pra exatamente a mesma URL de onde o form foi enviado, às
+ * vezes não busca os dados de novo (fica com a página antiga até um reload
+ * manual). Um parâmetro só pra isso garante que a URL muda a cada envio.
+ */
+function bustCache(url: string) {
+  return `${url}${url.includes("?") ? "&" : "?"}_r=${Date.now()}`;
+}
 
 function citiesTab(tripId: string, error?: string) {
   return `/trips/${tripId}/cities${error ? `?error=${encodeURIComponent(error)}` : ""}`;
@@ -143,4 +154,41 @@ export async function createAndLinkCityAction(tripId: string, formData: FormData
     await tx.insert(t.tripCities).values({ tripId, cityId: created.id, position: existing.length });
   });
   redirect(citiesTab(tripId));
+}
+
+// ---------- Bairros/regiões da cidade ----------
+
+/** Cadastra um bairro/região numa cidade do cliente (back = pra onde redirecionar depois). */
+export async function addNeighborhoodAction(back: string, cityId: string, formData: FormData) {
+  const user = await requireClient();
+  const city = await ownCity(user.id, cityId);
+  if (!city) fail(back, "Cidade não encontrada.");
+  const name = str(formData, "name");
+  if (!name) fail(back, "Informe o nome do bairro/região.");
+
+  const [dup] = await db
+    .select({ id: t.cityNeighborhoods.id })
+    .from(t.cityNeighborhoods)
+    .where(and(eq(t.cityNeighborhoods.cityId, cityId), eq(t.cityNeighborhoods.name, name)))
+    .limit(1);
+  if (!dup) {
+    await db.insert(t.cityNeighborhoods).values({ cityId, name });
+  }
+  revalidatePath(back.split("?")[0]);
+  redirect(bustCache(back));
+}
+
+export async function deleteNeighborhoodAction(back: string, neighborhoodId: string) {
+  const user = await requireClient();
+  const [row] = await db
+    .select({ id: t.cityNeighborhoods.id, cityId: t.cityNeighborhoods.cityId })
+    .from(t.cityNeighborhoods)
+    .where(eq(t.cityNeighborhoods.id, neighborhoodId))
+    .limit(1);
+  if (row) {
+    const city = await ownCity(user.id, row.cityId);
+    if (city) await db.delete(t.cityNeighborhoods).where(eq(t.cityNeighborhoods.id, neighborhoodId));
+  }
+  revalidatePath(back.split("?")[0]);
+  redirect(bustCache(back));
 }

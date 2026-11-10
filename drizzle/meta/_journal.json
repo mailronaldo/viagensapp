@@ -211,6 +211,13 @@
       "when": 1794276070002,
       "tag": "0029_restaura_tipos_documento_sistema",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1794328704772,
+      "tag": "0030_curious_dragon_lord",
+      "breakpoints": true
     }
   ]
 }

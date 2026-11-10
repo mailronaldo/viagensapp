@@ -158,6 +158,24 @@ export const cities = pgTable(
   (t) => [index("cities_client_idx").on(t.clientId)],
 );
 
+// Bairro/região dentro de uma cidade — cadastro do cliente, reaproveitado
+// em qualquer viagem que use essa cidade (atividade, transporte, dicas).
+export const cityNeighborhoods = pgTable(
+  "city_neighborhoods",
+  {
+    id: id(),
+    cityId: text("city_id")
+      .notNull()
+      .references(() => cities.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("city_neighborhoods_city_idx").on(t.cityId),
+    uniqueIndex("city_neighborhoods_city_name_unique").on(t.cityId, t.name),
+  ],
+);
+
 // ---------- Cadastros da agência (tipos de documento, categorias de custo) ----------
 
 // Listas globais, mantidas pela agência (MASTER), usadas em todos os clientes/

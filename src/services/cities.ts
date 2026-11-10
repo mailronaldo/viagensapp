@@ -53,3 +53,22 @@ export async function getCountryCodesByTrip(tripIds: string[]): Promise<Map<stri
   }
   return byTrip;
 }
+
+/** Bairros/regiões cadastrados numa cidade. */
+export async function listCityNeighborhoods(cityId: string) {
+  return db
+    .select()
+    .from(t.cityNeighborhoods)
+    .where(eq(t.cityNeighborhoods.cityId, cityId))
+    .orderBy(asc(t.cityNeighborhoods.name));
+}
+
+/** Mesma coisa, pra várias cidades de uma vez (ex.: todas as cidades de uma viagem). */
+export async function listNeighborhoodsForCities(cityIds: string[]) {
+  if (cityIds.length === 0) return [];
+  return db
+    .select()
+    .from(t.cityNeighborhoods)
+    .where(inArray(t.cityNeighborhoods.cityId, cityIds))
+    .orderBy(asc(t.cityNeighborhoods.name));
+}
