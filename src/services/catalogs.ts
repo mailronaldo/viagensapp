@@ -19,6 +19,11 @@ export async function listExpenseCategories() {
   return db.select().from(t.expenseCategories).orderBy(asc(t.expenseCategories.name));
 }
 
+/** Categorias de dica cadastradas pela agência (lista única, usada em todos os clientes). */
+export async function listTipCategories() {
+  return db.select().from(t.tipCategories).orderBy(asc(t.tipCategories.name));
+}
+
 /**
  * Tipos de atividade do roteiro, cadastrados pela agência. "TRANSPORT" é
  * semeado como legado (preserva o rótulo de atividades antigas) e nunca deve
@@ -70,6 +75,13 @@ export async function listReservationMethods() {
 export async function parseOptionalCategory(categoryId: string | null) {
   if (!categoryId) return null;
   const [cat] = await db.select({ id: t.expenseCategories.id }).from(t.expenseCategories).where(eq(t.expenseCategories.id, categoryId)).limit(1);
+  return cat ? categoryId : null;
+}
+
+/** Idem, pra categoria de dica. */
+export async function parseOptionalTipCategory(categoryId: string | null) {
+  if (!categoryId) return null;
+  const [cat] = await db.select({ id: t.tipCategories.id }).from(t.tipCategories).where(eq(t.tipCategories.id, categoryId)).limit(1);
   return cat ? categoryId : null;
 }
 

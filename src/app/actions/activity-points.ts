@@ -5,10 +5,9 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { fail, str } from "@/lib/form";
+import { parseOptionalTipCategory } from "@/services/catalogs";
 
 type Kind = "POI" | "TIP";
-
-const TIP_CATEGORIES = ["COMIDA", "ARTE", "CULTURA", "ATRACOES", "LOJAS", "CURIOSIDADES", "OUTROS"];
 
 function itemEditPath(tripId: string, itemId: string) {
   return `/trips/${tripId}/itinerary/items/${itemId}`;
@@ -42,8 +41,7 @@ export async function addActivityPointAction(tripId: string, itemId: string, kin
     .from(t.itineraryItemPoints)
     .where(and(eq(t.itineraryItemPoints.itemId, itemId), eq(t.itineraryItemPoints.kind, kind)));
 
-  const categoryRaw = str(formData, "category");
-  const category = kind === "TIP" && categoryRaw && TIP_CATEGORIES.includes(categoryRaw) ? categoryRaw : null;
+  const category = kind === "TIP" ? await parseOptionalTipCategory(str(formData, "category")) : null;
 
   await db.insert(t.itineraryItemPoints).values({
     itemId,
@@ -51,7 +49,7 @@ export async function addActivityPointAction(tripId: string, itemId: string, kin
     name,
     description: str(formData, "description"),
     url: normalizeUrl(str(formData, "url")),
-    category: category as "COMIDA" | "ARTE" | "CULTURA" | "ATRACOES" | "LOJAS" | "CURIOSIDADES" | "OUTROS" | null,
+    category,
     position: existing.length,
   });
   redirect(back);

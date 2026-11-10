@@ -7,7 +7,7 @@ import { requireTripAccess } from "@/lib/access";
 import { formatMoney } from "@/lib/format";
 import { getTripCities, listNeighborhoodsForCities } from "@/services/cities";
 import { getActivityPoints } from "@/services/activity-points";
-import { listActivityTypes, listExpenseCategories } from "@/services/catalogs";
+import { listActivityTypes, listExpenseCategories, listTipCategories } from "@/services/catalogs";
 import { getActivityTickets } from "@/services/tickets";
 import { getItemPassUsages, listAvailablePassesForItem } from "@/services/passes";
 import { listTripTravelerOptions } from "@/services/trip-travelers";
@@ -45,10 +45,11 @@ export default async function EditItemPage({
     .limit(1);
   if (!item) notFound();
 
-  const [cities, activityTypes, categories, doc, resDoc, pois, tips, travelerOptions, [owner], currencies] = await Promise.all([
+  const [cities, activityTypes, categories, tipCategories, doc, resDoc, pois, tips, travelerOptions, [owner], currencies] = await Promise.all([
     getTripCities(trip.id),
     listActivityTypes(),
     listExpenseCategories(),
+    listTipCategories(),
     item.ticketDocumentId
       ? db.select({ fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.id, item.ticketDocumentId)).limit(1)
       : Promise.resolve([]),
@@ -299,7 +300,7 @@ export default async function EditItemPage({
             items={tips}
             addAction={addActivityPointAction.bind(null, trip.id, itemId, "TIP")}
             deleteAction={deleteActivityPointAction.bind(null, trip.id, itemId)}
-            showCategory
+            categories={tipCategories}
             ai={{ kind: "TIP", tripId: trip.id, itemId }}
           />
         </div>

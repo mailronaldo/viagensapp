@@ -1,4 +1,4 @@
-import { Bus, CreditCard, FileText, Hotel, ListChecks, Table2, Wallet } from "lucide-react";
+import { Bus, CreditCard, FileText, Hotel, ListChecks, Table2, Tag, Wallet } from "lucide-react";
 import type { SideNavItem } from "./trip-nav";
 
 // Menu 2 da área "Sistema" da agência: por enquanto só o grupo "Tabelas",
@@ -11,6 +11,7 @@ export const SYSTEM_NAV: SideNavItem[] = [
     children: [
       { href: "/document-types", label: "Tipos de documento", icon: FileText },
       { href: "/expense-categories", label: "Categorias de custo", icon: Wallet },
+      { href: "/tip-categories", label: "Categorias de dica", icon: Tag },
       { href: "/activity-types", label: "Tipos de atividade", icon: ListChecks },
       { href: "/booking-types", label: "Tipos de transporte", icon: Bus },
       { href: "/lodging-types", label: "Tipos de hospedagem", icon: Hotel },

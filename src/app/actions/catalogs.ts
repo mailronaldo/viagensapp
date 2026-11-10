@@ -64,6 +64,29 @@ export async function deleteExpenseCategoryAction(id: string) {
   redirect(back);
 }
 
+export async function addTipCategoryAction(formData: FormData) {
+  await requireMaster();
+  const back = "/agency/system/tip-categories";
+  const name = str(formData, "name");
+  if (!name) fail(back, "Informe o nome da categoria de dica.");
+  await db.insert(t.tipCategories).values({ name });
+  redirect(back);
+}
+
+export async function deleteTipCategoryAction(id: string) {
+  await requireMaster();
+  const back = "/agency/system/tip-categories";
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(t.itineraryItemPoints)
+    .where(eq(t.itineraryItemPoints.category, id));
+  if (count > 0) {
+    fail(back, `Essa categoria está em uso em ${count} dica${count > 1 ? "s" : ""}. Não dá pra excluir.`);
+  }
+  await db.delete(t.tipCategories).where(eq(t.tipCategories.id, id));
+  redirect(back);
+}
+
 export async function addActivityTypeAction(formData: FormData) {
   await requireMaster();
   const back = "/agency/system/activity-types";

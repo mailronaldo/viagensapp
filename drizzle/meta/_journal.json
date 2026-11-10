@@ -232,6 +232,20 @@
       "when": 1794332307867,
       "tag": "0032_opposite_angel",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1794333080018,
+      "tag": "0033_dapper_nehzno",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1794333094186,
+      "tag": "0034_seed_tip_categories",
+      "breakpoints": true
     }
   ]
 }

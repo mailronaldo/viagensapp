@@ -13,10 +13,10 @@ import {
 } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card, Field, btnGhost, btnPrimary, inputCls } from "@/components/ui";
-import { TIP_CATEGORY_LABEL } from "@/lib/labels";
 import { suggestPoiAction, suggestTipAction, saveSuggestedPointsAction, type AiPoint } from "@/app/actions/ai-suggestions";
 
 type Point = { id: string; name: string; description: string | null; url: string | null; category?: string | null };
+type TipCategoryOption = { id: string; name: string };
 
 function AiSuggestions({
   kind,
@@ -96,7 +96,7 @@ function AiSuggestions({
               />
               <span className="min-w-0">
                 <span className="font-medium">
-                  {s.category && <span className="mr-1 text-xs text-slate-500">[{TIP_CATEGORY_LABEL[s.category as keyof typeof TIP_CATEGORY_LABEL] ?? s.category}]</span>}
+                  {s.category && <span className="mr-1 text-xs text-slate-500">[{s.category}]</span>}
                   {s.name}
                 </span>
                 {s.description && <span className="block text-xs text-slate-500">{s.description}</span>}
@@ -147,7 +147,7 @@ export function ActivityPointCard({
   items,
   addAction,
   deleteAction,
-  showCategory,
+  categories,
   ai,
 }: {
   title: string;
@@ -157,12 +157,13 @@ export function ActivityPointCard({
   addAction: (formData: FormData) => void;
   /** Server action já vinculada a (tripId, itemId) — falta só o id do ponto. */
   deleteAction: (pointId: string) => void;
-  /** Mostra o seletor de categoria no diálogo de adicionar (usado nas Tips). */
-  showCategory?: boolean;
+  /** Presente = mostra o seletor de categoria no diálogo de adicionar (usado nas Tips). */
+  categories?: TipCategoryOption[];
   /** Presente = card ganha a seção de sugestões de IA. */
   ai?: { kind: "POI" | "TIP"; tripId: string; itemId: string };
 }) {
   const [open, setOpen] = useState(false);
+  const categoryName = new Map((categories ?? []).map((c) => [c.id, c.name]));
 
   return (
     <Card>
@@ -186,13 +187,13 @@ export function ActivityPointCard({
               <Field label="Nome">
                 <input name="name" required className={inputCls} />
               </Field>
-              {showCategory && (
+              {categories && (
                 <Field label="Categoria">
                   <select name="category" defaultValue="" className={inputCls}>
                     <option value="">—</option>
-                    {Object.entries(TIP_CATEGORY_LABEL).map(([v, l]) => (
-                      <option key={v} value={v}>
-                        {l}
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
                       </option>
                     ))}
                   </select>
@@ -225,7 +226,7 @@ export function ActivityPointCard({
               <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-brand-50 py-1 ps-3 pe-1.5 text-xs text-brand-900">
                 {p.category && (
                   <span className="text-[10px] uppercase text-brand-600">
-                    {TIP_CATEGORY_LABEL[p.category as keyof typeof TIP_CATEGORY_LABEL] ?? p.category}:
+                    {categoryName.get(p.category) ?? p.category}:
                   </span>
                 )}
                 {p.url ? (

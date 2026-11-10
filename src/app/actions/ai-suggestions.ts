@@ -4,18 +4,16 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { askAiForJsonArray, checkAiRateLimit } from "@/lib/ai";
-import { toNameMap } from "@/services/catalogs";
+import { listTipCategories, toNameMap } from "@/services/catalogs";
 import { formatDate } from "@/lib/format";
 
 export type AiPoint = {
   name: string;
   description: string | null;
   url: string | null;
+  /** Nome da categoria (não o id) — resolvido pro id do catálogo só ao salvar. */
   category?: string | null;
 };
-
-const TIP_CATEGORIES = ["COMIDA", "ARTE", "CULTURA", "ATRACOES", "LOJAS", "CURIOSIDADES", "OUTROS"] as const;
-type TipCategory = (typeof TIP_CATEGORIES)[number];
 
 type ItemContext = {
   title: string;
@@ -66,7 +64,7 @@ function placeDescription(ctx: ItemContext): string {
   return `${place}${regionPart}`;
 }
 
-function parsePoints(data: unknown, allowCategory: boolean): AiPoint[] {
+function parsePoints(data: unknown, categoryNames: string[] | null): AiPoint[] {
   if (!Array.isArray(data)) return [];
   const out: AiPoint[] = [];
   for (const row of data) {
@@ -75,9 +73,7 @@ function parsePoints(data: unknown, allowCategory: boolean): AiPoint[] {
     const name = typeof r.name === "string" ? r.name.trim() : "";
     if (!name) continue;
     const category =
-      allowCategory && typeof r.category === "string" && (TIP_CATEGORIES as readonly string[]).includes(r.category)
-        ? r.category
-        : null;
+      categoryNames && typeof r.category === "string" && categoryNames.includes(r.category) ? r.category : null;
     out.push({
       name,
       description: typeof r.description === "string" && r.description.trim() ? r.description.trim() : null,
@@ -104,7 +100,7 @@ Não invente lugares nem links.`;
 
   const result = await askAiForJsonArray(prompt);
   if ("error" in result) return result;
-  return { suggestions: parsePoints(result.data, false) };
+  return { suggestions: parsePoints(result.data, null) };
 }
 
 export async function suggestTipAction(
@@ -121,16 +117,19 @@ export async function suggestTipAction(
   const trimmedContext = context.trim();
   if (!trimmedContext) return { error: "Descreva o que você procura." };
 
+  const categories = await listTipCategories();
+  const categoryNames = categories.map((c) => c.name);
+
   const prompt = `Você ajuda viajantes a planejar roteiros. A atividade é "${ctx.title}" (${ctx.typeName}), no dia ${ctx.date}, em ${placeDescription(ctx)}.
 O viajante quer dicas sobre: "${trimmedContext}".
 Busque na web e sugira de 5 a 8 dicas reais e específicas (nomes de lugares, eventos ou recomendações), relevantes pro que ele descreveu.
 Responda em português, só com um array JSON, sem nenhum texto antes ou depois, no formato:
-[{"name": "...", "description": "uma frase curta explicando a dica", "url": "link oficial ou de informação, só se tiver certeza que existe, senão null", "category": "uma destas: ${TIP_CATEGORIES.join(", ")}"}]
+[{"name": "...", "description": "uma frase curta explicando a dica", "url": "link oficial ou de informação, só se tiver certeza que existe, senão null", "category": "uma destas: ${categoryNames.join(", ")}"}]
 Não invente lugares nem links.`;
 
   const result = await askAiForJsonArray(prompt);
   if ("error" in result) return result;
-  return { suggestions: parsePoints(result.data, true) };
+  return { suggestions: parsePoints(result.data, categoryNames) };
 }
 
 export async function saveSuggestedPointsAction(
@@ -148,10 +147,14 @@ export async function saveSuggestedPointsAction(
   if (!owned) return { error: "Atividade não encontrada." };
   if (items.length === 0) return { ok: true };
 
-  const existing = await db
-    .select({ id: t.itineraryItemPoints.id })
-    .from(t.itineraryItemPoints)
-    .where(and(eq(t.itineraryItemPoints.itemId, itemId), eq(t.itineraryItemPoints.kind, kind)));
+  const [existing, categories] = await Promise.all([
+    db
+      .select({ id: t.itineraryItemPoints.id })
+      .from(t.itineraryItemPoints)
+      .where(and(eq(t.itineraryItemPoints.itemId, itemId), eq(t.itineraryItemPoints.kind, kind))),
+    kind === "TIP" ? listTipCategories() : Promise.resolve([]),
+  ]);
+  const categoryIdByName = new Map(categories.map((c) => [c.name, c.id]));
 
   await db.insert(t.itineraryItemPoints).values(
     items.map((item, i) => ({
@@ -160,7 +163,7 @@ export async function saveSuggestedPointsAction(
       name: item.name,
       description: item.description,
       url: item.url,
-      category: kind === "TIP" ? ((item.category as TipCategory | null) ?? null) : null,
+      category: item.category ? (categoryIdByName.get(item.category) ?? null) : null,
       position: existing.length + i,
     })),
   );

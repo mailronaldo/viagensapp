@@ -1,15 +1,5 @@
 // Rótulos em português para os enums do banco.
 
-export const TIP_CATEGORY_LABEL = {
-  COMIDA: "Comida",
-  ARTE: "Arte",
-  CULTURA: "Cultura",
-  ATRACOES: "Atrações",
-  LOJAS: "Lojas",
-  CURIOSIDADES: "Curiosidades",
-  OUTROS: "Outros",
-} as const;
-
 export const VALUE_STATUS_LABEL = {
   ESTIMADO: "Estimado",
   A_PAGAR: "A pagar",

@@ -559,19 +559,17 @@ export const itineraryItems = pgTable(
   (t) => [index("items_trip_date_idx").on(t.tripId, t.date)],
 );
 
+/** Categorias de dica, cadastradas pela agência (lista única, usada em todos os clientes). */
+export const tipCategories = pgTable("tip_categories", {
+  id: id(),
+  name: text("name").notNull().unique(),
+  createdAt: createdAt(),
+});
+
 // Pontos de apoio de uma atividade: POI (lugares pra visitar na atividade ou
 // nas redondezas) e Tips (opções alternativas, pra quando não há reserva/
 // certeza do que fazer). Mesmo formato pros dois — só muda o rótulo na tela.
 export const activityPointKind = pgEnum("activity_point_kind", ["POI", "TIP"]);
-export const tipCategory = pgEnum("tip_category", [
-  "COMIDA",
-  "ARTE",
-  "CULTURA",
-  "ATRACOES",
-  "LOJAS",
-  "CURIOSIDADES",
-  "OUTROS",
-]);
 
 export const itineraryItemPoints = pgTable(
   "itinerary_item_points",
@@ -585,7 +583,7 @@ export const itineraryItemPoints = pgTable(
     description: text("description"),
     url: text("url"),
     // Só usado em kind = "TIP".
-    category: tipCategory("category"),
+    category: text("category").references(() => tipCategories.id, { onDelete: "set null" }),
     position: integer("position").notNull().default(0),
     createdAt: createdAt(),
   },
