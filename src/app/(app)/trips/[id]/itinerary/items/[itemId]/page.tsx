@@ -6,18 +6,18 @@ import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { formatMoney } from "@/lib/format";
 import { getTripCities, listNeighborhoodsForCities } from "@/services/cities";
-import { getActivityPoints } from "@/services/activity-points";
+import { listItemTips, searchTipsForCity } from "@/services/tips";
 import { listActivityTypes, listExpenseCategories, listTipCategories } from "@/services/catalogs";
 import { getActivityTickets } from "@/services/tickets";
 import { getItemPassUsages, listAvailablePassesForItem } from "@/services/passes";
 import { listTripTravelerOptions } from "@/services/trip-travelers";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import { deleteItemAction, removeReservationAction, updateItemAction } from "@/app/actions/items";
-import { addActivityPointAction, deleteActivityPointAction } from "@/app/actions/activity-points";
+import { createAndLinkTipAction, linkExistingTipAction, unlinkTipAction } from "@/app/actions/tips";
 import { addTicketAction, deleteTicketAction, updateTicketAction } from "@/app/actions/tickets";
 import { removeItemPassUsageAction, updatePassFromItemAction, useItemPassAction } from "@/app/actions/passes";
 import { ItemMainFields, PassFields, ReservationFields, TicketFields } from "@/components/TripFields";
-import { ActivityPointCard } from "@/components/ActivityPointCard";
+import { ActivityTipsCard } from "@/components/ActivityTipsCard";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
 import { SavedModal } from "@/components/SavedModal";
 import { AddPanel, Card, EmptyState, ErrorBanner, btnGhost, btnPrimary } from "@/components/ui";
@@ -45,7 +45,7 @@ export default async function EditItemPage({
     .limit(1);
   if (!item) notFound();
 
-  const [cities, activityTypes, categories, tipCategories, doc, resDoc, pois, tips, travelerOptions, [owner], currencies] = await Promise.all([
+  const [cities, activityTypes, categories, tipCategories, doc, resDoc, itemTips, travelerOptions, [owner], currencies] = await Promise.all([
     getTripCities(trip.id),
     listActivityTypes(),
     listExpenseCategories(),
@@ -56,13 +56,13 @@ export default async function EditItemPage({
     item.reservationDocumentId
       ? db.select({ fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.id, item.reservationDocumentId)).limit(1)
       : Promise.resolve([]),
-    getActivityPoints(itemId, "POI"),
-    getActivityPoints(itemId, "TIP"),
+    listItemTips(itemId),
     listTripTravelerOptions(trip),
     db.select({ name: t.users.name }).from(t.users).where(eq(t.users.id, trip.ownerId)).limit(1),
     listClientCurrencyCodes(trip.ownerId),
   ]);
   const neighborhoods = await listNeighborhoodsForCities(cities.map((c) => c.id));
+  const existingTips = item.cityId ? await searchTipsForCity(trip.ownerId, item.cityId) : [];
   const [tickets, availablePasses, passUsages] = await Promise.all([
     getActivityTickets(itemId, owner?.name ?? "Dono"),
     listAvailablePassesForItem(trip.id, itemId),
@@ -120,7 +120,7 @@ export default async function EditItemPage({
                 <ConfirmDeleteButton
                   label="Excluir atividade"
                   confirmTitle="Excluir esta atividade?"
-                  confirmDescription="Isso remove a atividade, a reserva, os pontos de interesse, as tips e a região cadastrados nela. Não dá pra desfazer."
+                  confirmDescription="Isso remove a atividade, a reserva e os vínculos de Dicas dela (as dicas em si continuam no repositório). Não dá pra desfazer."
                   deleteAction={deleteItemAction.bind(null, trip.id, item.id, item.date)}
                 />
               </div>
@@ -285,23 +285,15 @@ export default async function EditItemPage({
         </div>
 
         <div className="space-y-4">
-          <ActivityPointCard
-            title="Pontos de interesse"
-            hint="Lugares pra visitar nesta atividade ou nas proximidades."
-            items={pois}
-            addAction={addActivityPointAction.bind(null, trip.id, itemId, "POI")}
-            deleteAction={deleteActivityPointAction.bind(null, trip.id, itemId)}
-            ai={{ kind: "POI", tripId: trip.id, itemId }}
-          />
-
-          <ActivityPointCard
-            title="Tips"
-            hint="Opções alternativas, caso ainda não tenha reserva ou certeza do que fazer."
-            items={tips}
-            addAction={addActivityPointAction.bind(null, trip.id, itemId, "TIP")}
-            deleteAction={deleteActivityPointAction.bind(null, trip.id, itemId)}
+          <ActivityTipsCard
+            tripId={trip.id}
+            itemId={itemId}
+            items={itemTips}
+            existingTips={existingTips}
             categories={tipCategories}
-            ai={{ kind: "TIP", tripId: trip.id, itemId }}
+            linkAction={linkExistingTipAction.bind(null, trip.id, itemId)}
+            createAction={createAndLinkTipAction.bind(null, trip.id, itemId)}
+            unlinkAction={unlinkTipAction.bind(null, trip.id, itemId)}
           />
         </div>
       </div>

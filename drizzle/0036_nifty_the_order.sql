@@ -1,0 +1,1 @@
+DROP TABLE "itinerary_item_points" CASCADE;

@@ -12,6 +12,13 @@ export const VALUE_STATUS_TONE = {
   PAGO: "ok",
 } as const;
 
+export const TIP_COST_LABEL = {
+  BAIXO: "$",
+  MEDIO: "$$",
+  ALTO: "$$$",
+  GRATIS: "Grátis",
+} as const;
+
 export const TRIP_TYPE_LABEL = {
   ONE_WAY: "Somente ida",
   ROUND_TRIP: "Ida e volta",

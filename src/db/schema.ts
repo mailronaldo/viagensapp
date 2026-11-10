@@ -566,28 +566,50 @@ export const tipCategories = pgTable("tip_categories", {
   createdAt: createdAt(),
 });
 
-// Pontos de apoio de uma atividade: POI (lugares pra visitar na atividade ou
-// nas redondezas) e Tips (opções alternativas, pra quando não há reserva/
-// certeza do que fazer). Mesmo formato pros dois — só muda o rótulo na tela.
-export const activityPointKind = pgEnum("activity_point_kind", ["POI", "TIP"]);
+// Custo aproximado de uma dica: $ / $$ / $$$ / Grátis.
+export const tipCost = pgEnum("tip_cost", ["BAIXO", "MEDIO", "ALTO", "GRATIS"]);
 
-export const itineraryItemPoints = pgTable(
-  "itinerary_item_points",
+// Repositório de Dicas do cliente: lugares por cidade/bairro (ex-"POI" e
+// ex-"Tips" da atividade viraram a mesma coisa aqui — só um lugar com nome,
+// categoria, custo e link, que pode ser reaproveitado em várias atividades).
+export const tips = pgTable(
+  "tips",
+  {
+    id: id(),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    cityId: text("city_id").references(() => cities.id, { onDelete: "set null" }),
+    neighborhoodId: text("neighborhood_id").references(() => cityNeighborhoods.id, { onDelete: "set null" }),
+    categoryId: text("category_id").references(() => tipCategories.id, { onDelete: "set null" }),
+    cost: tipCost("cost"),
+    url: text("url"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("tips_client_idx").on(t.clientId), index("tips_city_idx").on(t.cityId)],
+);
+
+// Vínculo N:N — a mesma dica pode ser usada em várias atividades (mesma
+// viagem ou viagens diferentes do cliente).
+export const itineraryItemTips = pgTable(
+  "itinerary_item_tips",
   {
     id: id(),
     itemId: text("item_id")
       .notNull()
       .references(() => itineraryItems.id, { onDelete: "cascade" }),
-    kind: activityPointKind("kind").notNull(),
-    name: text("name").notNull(),
-    description: text("description"),
-    url: text("url"),
-    // Só usado em kind = "TIP".
-    category: text("category").references(() => tipCategories.id, { onDelete: "set null" }),
+    tipId: text("tip_id")
+      .notNull()
+      .references(() => tips.id, { onDelete: "cascade" }),
     position: integer("position").notNull().default(0),
     createdAt: createdAt(),
   },
-  (t) => [index("itinerary_item_points_item_idx").on(t.itemId)],
+  (t) => [
+    uniqueIndex("itinerary_item_tips_unique").on(t.itemId, t.tipId),
+    index("itinerary_item_tips_item_idx").on(t.itemId),
+  ],
 );
 
 // ---------- Ingressos (1 atividade → N ingressos, 1 por viajante) ----------

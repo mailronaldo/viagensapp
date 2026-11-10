@@ -1,0 +1,1 @@
+DROP TYPE "public"."activity_point_kind";

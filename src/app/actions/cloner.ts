@@ -7,9 +7,11 @@ import { requireTripAccess } from "@/lib/access";
 import { fail, str, ISO_DATE, HH_MM } from "@/lib/form";
 
 /**
- * Clona uma atividade (com os pontos de interesse e tips dela) para outra
- * data/horário da mesma viagem. Ingressos e passes não são clonados — são
- * sempre específicos de uma compra, não faz sentido duplicá-los.
+ * Clona uma atividade (com os vínculos de Dicas dela) para outra data/horário
+ * da mesma viagem. As dicas em si não são duplicadas — só o vínculo, já que
+ * o repositório de Dicas é compartilhado entre atividades/viagens. Ingressos
+ * e passes não são clonados — são sempre específicos de uma compra, não faz
+ * sentido duplicá-los.
  */
 export async function cloneItemAction(tripId: string, formData: FormData) {
   const { trip } = await requireTripAccess(tripId, { write: true });
@@ -30,7 +32,7 @@ export async function cloneItemAction(tripId: string, formData: FormData) {
     .limit(1);
   if (!original) fail(back, "Atividade original não encontrada.");
 
-  const points = await db.select().from(t.itineraryItemPoints).where(eq(t.itineraryItemPoints.itemId, itemId));
+  const tipLinks = await db.select().from(t.itineraryItemTips).where(eq(t.itineraryItemTips.itemId, itemId));
 
   await db.transaction(async (tx) => {
     const [created] = await tx
@@ -60,17 +62,9 @@ export async function cloneItemAction(tripId: string, formData: FormData) {
       })
       .returning({ id: t.itineraryItems.id });
 
-    if (points.length > 0) {
-      await tx.insert(t.itineraryItemPoints).values(
-        points.map((p) => ({
-          itemId: created.id,
-          kind: p.kind,
-          name: p.name,
-          description: p.description,
-          url: p.url,
-          category: p.category,
-          position: p.position,
-        })),
+    if (tipLinks.length > 0) {
+      await tx.insert(t.itineraryItemTips).values(
+        tipLinks.map((l) => ({ itemId: created.id, tipId: l.tipId, position: l.position })),
       );
     }
 

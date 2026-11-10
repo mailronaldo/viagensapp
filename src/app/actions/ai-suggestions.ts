@@ -84,29 +84,16 @@ function parsePoints(data: unknown, categoryNames: string[] | null): AiPoint[] {
   return out;
 }
 
-export async function suggestPoiAction(tripId: string, itemId: string): Promise<{ suggestions: AiPoint[] } | { error: string }> {
-  await requireTripAccess(tripId, { write: true });
-  if (!checkAiRateLimit(tripId)) {
-    return { error: "Limite de sugestões de IA desta viagem atingido por hoje. Tente novamente mais tarde." };
-  }
-  const ctx = await loadItemContext(tripId, itemId);
-  if (!ctx) return { error: "Atividade não encontrada." };
-
-  const prompt = `Você ajuda viajantes a planejar roteiros. A atividade é "${ctx.title}" (${ctx.typeName}), no dia ${ctx.date}, em ${placeDescription(ctx)}.
-Busque na web e sugira de 5 a 8 pontos de interesse reais e próximos (monumentos, ruas, praças, mirantes, lugares bons pra foto) relevantes pra essa atividade.
-Responda em português, só com um array JSON, sem nenhum texto antes ou depois, no formato:
-[{"name": "...", "description": "uma frase curta explicando por que vale a pena", "url": "link oficial ou de informação, só se tiver certeza que existe, senão null"}]
-Não invente lugares nem links.`;
-
-  const result = await askAiForJsonArray(prompt);
-  if ("error" in result) return result;
-  return { suggestions: parsePoints(result.data, null) };
-}
-
-export async function suggestTipAction(
+/**
+ * Sugestões de IA pro card único de Dicas: "POI" busca pontos de interesse
+ * próximos (sem contexto do usuário, sem categoria); "TEMA" busca dicas sobre
+ * o que o viajante descreveu, com categoria (do catálogo do cliente).
+ */
+export async function suggestTipsAction(
   tripId: string,
   itemId: string,
-  context: string,
+  mode: "POI" | "TEMA",
+  context?: string,
 ): Promise<{ suggestions: AiPoint[] } | { error: string }> {
   await requireTripAccess(tripId, { write: true });
   if (!checkAiRateLimit(tripId)) {
@@ -114,7 +101,20 @@ export async function suggestTipAction(
   }
   const ctx = await loadItemContext(tripId, itemId);
   if (!ctx) return { error: "Atividade não encontrada." };
-  const trimmedContext = context.trim();
+
+  if (mode === "POI") {
+    const prompt = `Você ajuda viajantes a planejar roteiros. A atividade é "${ctx.title}" (${ctx.typeName}), no dia ${ctx.date}, em ${placeDescription(ctx)}.
+Busque na web e sugira de 5 a 8 pontos de interesse reais e próximos (monumentos, ruas, praças, mirantes, lugares bons pra foto) relevantes pra essa atividade.
+Responda em português, só com um array JSON, sem nenhum texto antes ou depois, no formato:
+[{"name": "...", "description": "uma frase curta explicando por que vale a pena", "url": "link oficial ou de informação, só se tiver certeza que existe, senão null"}]
+Não invente lugares nem links.`;
+
+    const result = await askAiForJsonArray(prompt);
+    if ("error" in result) return result;
+    return { suggestions: parsePoints(result.data, null) };
+  }
+
+  const trimmedContext = (context ?? "").trim();
   if (!trimmedContext) return { error: "Descreva o que você procura." };
 
   const categories = await listTipCategories();
@@ -132,40 +132,42 @@ Não invente lugares nem links.`;
   return { suggestions: parsePoints(result.data, categoryNames) };
 }
 
-export async function saveSuggestedPointsAction(
+export async function saveSuggestedTipsAction(
   tripId: string,
   itemId: string,
-  kind: "POI" | "TIP",
   items: AiPoint[],
 ): Promise<{ ok: true } | { error: string }> {
-  await requireTripAccess(tripId, { write: true });
+  const { trip } = await requireTripAccess(tripId, { write: true });
   const [owned] = await db
-    .select({ id: t.itineraryItems.id })
+    .select({ id: t.itineraryItems.id, cityId: t.itineraryItems.cityId, neighborhoodId: t.itineraryItems.neighborhoodId })
     .from(t.itineraryItems)
     .where(and(eq(t.itineraryItems.id, itemId), eq(t.itineraryItems.tripId, tripId)))
     .limit(1);
   if (!owned) return { error: "Atividade não encontrada." };
   if (items.length === 0) return { ok: true };
 
-  const [existing, categories] = await Promise.all([
-    db
-      .select({ id: t.itineraryItemPoints.id })
-      .from(t.itineraryItemPoints)
-      .where(and(eq(t.itineraryItemPoints.itemId, itemId), eq(t.itineraryItemPoints.kind, kind))),
-    kind === "TIP" ? listTipCategories() : Promise.resolve([]),
-  ]);
+  const categories = await listTipCategories();
   const categoryIdByName = new Map(categories.map((c) => [c.name, c.id]));
 
-  await db.insert(t.itineraryItemPoints).values(
-    items.map((item, i) => ({
-      itemId,
-      kind,
-      name: item.name,
-      description: item.description,
-      url: item.url,
-      category: item.category ? (categoryIdByName.get(item.category) ?? null) : null,
-      position: existing.length + i,
-    })),
-  );
+  await db.transaction(async (tx) => {
+    const existing = await tx.select({ id: t.itineraryItemTips.id }).from(t.itineraryItemTips).where(eq(t.itineraryItemTips.itemId, itemId));
+    let position = existing.length;
+    for (const item of items) {
+      const [created] = await tx
+        .insert(t.tips)
+        .values({
+          clientId: trip.ownerId,
+          name: item.name,
+          description: item.description,
+          url: item.url,
+          cityId: owned.cityId,
+          neighborhoodId: owned.neighborhoodId,
+          categoryId: item.category ? (categoryIdByName.get(item.category) ?? null) : null,
+        })
+        .returning({ id: t.tips.id });
+      await tx.insert(t.itineraryItemTips).values({ itemId, tipId: created.id, position });
+      position += 1;
+    }
+  });
   return { ok: true };
 }
