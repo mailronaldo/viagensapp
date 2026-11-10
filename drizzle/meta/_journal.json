@@ -218,6 +218,13 @@
       "when": 1794328704772,
       "tag": "0030_curious_dragon_lord",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1794330029644,
+      "tag": "0031_lucky_la_nuit",
+      "breakpoints": true
     }
   ]
 }

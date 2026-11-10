@@ -4,7 +4,6 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { askAiForJsonArray, checkAiRateLimit } from "@/lib/ai";
-import { getActivityRegions } from "@/services/activity-points";
 import { toNameMap } from "@/services/catalogs";
 import { formatDate } from "@/lib/format";
 
@@ -25,7 +24,7 @@ type ItemContext = {
   cityName: string | null;
   country: string | null;
   state: string | null;
-  regions: string[];
+  neighborhoodName: string | null;
 };
 
 async function loadItemContext(tripId: string, itemId: string): Promise<ItemContext | null> {
@@ -37,17 +36,16 @@ async function loadItemContext(tripId: string, itemId: string): Promise<ItemCont
       cityName: t.cities.name,
       country: t.cities.country,
       state: t.cities.state,
+      neighborhoodName: t.cityNeighborhoods.name,
     })
     .from(t.itineraryItems)
     .leftJoin(t.cities, eq(t.cities.id, t.itineraryItems.cityId))
+    .leftJoin(t.cityNeighborhoods, eq(t.cityNeighborhoods.id, t.itineraryItems.neighborhoodId))
     .where(and(eq(t.itineraryItems.id, itemId), eq(t.itineraryItems.tripId, tripId)))
     .limit(1);
   if (!row) return null;
 
-  const [activityTypes, regions] = await Promise.all([
-    db.select().from(t.activityTypes),
-    getActivityRegions(itemId),
-  ]);
+  const activityTypes = await db.select().from(t.activityTypes);
   const typeName = toNameMap(activityTypes)[row.typeId] ?? row.typeId;
 
   return {
@@ -57,14 +55,14 @@ async function loadItemContext(tripId: string, itemId: string): Promise<ItemCont
     cityName: row.cityName,
     country: row.country,
     state: row.state,
-    regions: regions.map((r) => r.name),
+    neighborhoodName: row.neighborhoodName,
   };
 }
 
 function placeDescription(ctx: ItemContext): string {
   const parts = [ctx.cityName, ctx.state, ctx.country].filter(Boolean);
   const place = parts.length > 0 ? parts.join(", ") : "um local não especificado — não invente a cidade";
-  const regionPart = ctx.regions.length > 0 ? ` na região de ${ctx.regions.join(", ")}` : "";
+  const regionPart = ctx.neighborhoodName ? ` na região de ${ctx.neighborhoodName}` : "";
   return `${place}${regionPart}`;
 }
 

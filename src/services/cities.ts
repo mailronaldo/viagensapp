@@ -63,12 +63,18 @@ export async function listCityNeighborhoods(cityId: string) {
     .orderBy(asc(t.cityNeighborhoods.name));
 }
 
-/** Mesma coisa, pra várias cidades de uma vez (ex.: todas as cidades de uma viagem). */
+/** Mesma coisa, pra várias cidades de uma vez (ex.: todas as cidades de uma viagem), já com o nome da cidade pra agrupar no select. */
 export async function listNeighborhoodsForCities(cityIds: string[]) {
   if (cityIds.length === 0) return [];
   return db
-    .select()
+    .select({
+      id: t.cityNeighborhoods.id,
+      name: t.cityNeighborhoods.name,
+      cityId: t.cityNeighborhoods.cityId,
+      cityName: t.cities.name,
+    })
     .from(t.cityNeighborhoods)
+    .innerJoin(t.cities, eq(t.cities.id, t.cityNeighborhoods.cityId))
     .where(inArray(t.cityNeighborhoods.cityId, cityIds))
-    .orderBy(asc(t.cityNeighborhoods.name));
+    .orderBy(asc(t.cities.name), asc(t.cityNeighborhoods.name));
 }

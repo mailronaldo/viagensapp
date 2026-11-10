@@ -64,35 +64,3 @@ export async function deleteActivityPointAction(tripId: string, itemId: string, 
     .where(and(eq(t.itineraryItemPoints.id, pointId), eq(t.itineraryItemPoints.itemId, itemId)));
   redirect(itemEditPath(tripId, itemId));
 }
-
-export async function addActivityRegionAction(tripId: string, itemId: string, formData: FormData) {
-  await requireTripAccess(tripId, { write: true });
-  const back = itemEditPath(tripId, itemId);
-  if (!(await ownItem(tripId, itemId))) redirect(`/trips/${tripId}/itinerary`);
-
-  const name = str(formData, "name");
-  if (!name) fail(back, "Informe o nome da região.");
-
-  const existing = await db
-    .select({ id: t.itineraryItemRegions.id })
-    .from(t.itineraryItemRegions)
-    .where(eq(t.itineraryItemRegions.itemId, itemId));
-  // Evita repetir a mesma tag (comparação simples, sem diferenciar maiúsculas).
-  const [dup] = await db
-    .select({ id: t.itineraryItemRegions.id })
-    .from(t.itineraryItemRegions)
-    .where(and(eq(t.itineraryItemRegions.itemId, itemId), eq(t.itineraryItemRegions.name, name)))
-    .limit(1);
-  if (!dup) {
-    await db.insert(t.itineraryItemRegions).values({ itemId, name, position: existing.length });
-  }
-  redirect(back);
-}
-
-export async function deleteActivityRegionAction(tripId: string, itemId: string, regionId: string) {
-  await requireTripAccess(tripId, { write: true });
-  await db
-    .delete(t.itineraryItemRegions)
-    .where(and(eq(t.itineraryItemRegions.id, regionId), eq(t.itineraryItemRegions.itemId, itemId)));
-  redirect(itemEditPath(tripId, itemId));
-}

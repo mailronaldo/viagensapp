@@ -9,11 +9,3 @@ export async function getActivityPoints(itemId: string, kind: "POI" | "TIP") {
     .where(and(eq(t.itineraryItemPoints.itemId, itemId), eq(t.itineraryItemPoints.kind, kind)))
     .orderBy(asc(t.itineraryItemPoints.position));
 }
-
-export async function getActivityRegions(itemId: string) {
-  return db
-    .select()
-    .from(t.itineraryItemRegions)
-    .where(eq(t.itineraryItemRegions.itemId, itemId))
-    .orderBy(asc(t.itineraryItemRegions.position));
-}

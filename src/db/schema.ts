@@ -526,6 +526,7 @@ export const itineraryItems = pgTable(
     title: text("title").notNull(),
     location: text("location"),
     address: text("address"),
+    neighborhoodId: text("neighborhood_id").references(() => cityNeighborhoods.id, { onDelete: "set null" }),
     latitude: doublePrecision("latitude"),
     longitude: doublePrecision("longitude"),
     notes: text("notes"),
@@ -587,20 +588,6 @@ export const itineraryItemPoints = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("itinerary_item_points_item_idx").on(t.itemId)],
-);
-
-/** Região/bairro/zona associado à atividade — nuvem de tags, só o nome por enquanto. */
-export const itineraryItemRegions = pgTable(
-  "itinerary_item_regions",
-  {
-    id: id(),
-    itemId: text("item_id")
-      .notNull()
-      .references(() => itineraryItems.id, { onDelete: "cascade" }),
-    name: text("name").notNull(),
-    position: integer("position").notNull().default(0),
-  },
-  (t) => [index("itinerary_item_regions_item_idx").on(t.itemId)],
 );
 
 // ---------- Ingressos (1 atividade → N ingressos, 1 por viajante) ----------

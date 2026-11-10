@@ -21,6 +21,7 @@ async function parseItem(
   const endTime = str(formData, "endTime");
   const type = str(formData, "type") ?? "ATTRACTION";
   const cityId = str(formData, "cityId");
+  const neighborhoodId = str(formData, "neighborhoodId");
 
   if (!title) fail(back, "Informe o título da atividade.");
   if (!date || !ISO_DATE.test(date)) fail(back, "Data inválida.");
@@ -48,6 +49,16 @@ async function parseItem(
     if (!city) fail(back, "Cidade inválida.");
   }
 
+  if (neighborhoodId) {
+    const [n] = await db
+      .select({ id: t.cityNeighborhoods.id })
+      .from(t.cityNeighborhoods)
+      .innerJoin(t.tripCities, eq(t.tripCities.cityId, t.cityNeighborhoods.cityId))
+      .where(and(eq(t.cityNeighborhoods.id, neighborhoodId), eq(t.tripCities.tripId, tripId)))
+      .limit(1);
+    if (!n) fail(back, "Bairro/região inválido.");
+  }
+
   const costRaw = str(formData, "costEstimate");
   const costEstimate = parseDecimal(costRaw);
   if (costRaw && costEstimate === null) fail(back, "Valor estimado inválido.");
@@ -71,6 +82,7 @@ async function parseItem(
     reservationCategory: await parseOptionalCategory(str(formData, "reservationCategory")),
     reservationDetails: str(formData, "reservationDetails"),
     cityId,
+    neighborhoodId,
     date,
     startTime,
     endTime,

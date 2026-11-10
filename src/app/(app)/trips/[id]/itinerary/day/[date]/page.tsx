@@ -8,7 +8,7 @@ import { ISO_DATE } from "@/lib/form";
 import { addDays, formatDate, formatMoney, formatWeekday } from "@/lib/format";
 import { getAgenda } from "@/services/agenda";
 import { getDayPlan } from "@/services/itinerary";
-import { getTripCities } from "@/services/cities";
+import { getTripCities, listNeighborhoodsForCities } from "@/services/cities";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import {
   LEGACY_ACTIVITY_TYPE_IDS,
@@ -59,6 +59,7 @@ export default async function ItineraryDayPage({
     db.select({ id: t.documents.id, fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.tripId, trip.id)),
     listClientCurrencyCodes(trip.ownerId),
   ]);
+  const neighborhoods = await listNeighborhoodsForCities(cities.map((c) => c.id));
   const docName = new Map(docs.map((d) => [d.id, d.fileName]));
   const activityTypeName = toNameMap(activityTypes);
   const bookingTypeName = toNameMap(bookingTypes);
@@ -256,6 +257,7 @@ export default async function ItineraryDayPage({
                 cities={cities}
                 types={activityTypes.filter((ty) => !LEGACY_ACTIVITY_TYPE_IDS.includes(ty.id))}
                 categories={categories}
+                neighborhoods={neighborhoods}
                 defaultDate={date}
                 currencies={currencies}
               />

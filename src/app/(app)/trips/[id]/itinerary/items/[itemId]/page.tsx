@@ -5,25 +5,19 @@ import { ArrowLeft, Pencil } from "lucide-react";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { formatMoney } from "@/lib/format";
-import { getTripCities } from "@/services/cities";
-import { getActivityPoints, getActivityRegions } from "@/services/activity-points";
+import { getTripCities, listNeighborhoodsForCities } from "@/services/cities";
+import { getActivityPoints } from "@/services/activity-points";
 import { listActivityTypes, listExpenseCategories } from "@/services/catalogs";
 import { getActivityTickets } from "@/services/tickets";
 import { getItemPassUsages, listAvailablePassesForItem } from "@/services/passes";
 import { listTripTravelerOptions } from "@/services/trip-travelers";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import { deleteItemAction, removeReservationAction, updateItemAction } from "@/app/actions/items";
-import {
-  addActivityPointAction,
-  addActivityRegionAction,
-  deleteActivityPointAction,
-  deleteActivityRegionAction,
-} from "@/app/actions/activity-points";
+import { addActivityPointAction, deleteActivityPointAction } from "@/app/actions/activity-points";
 import { addTicketAction, deleteTicketAction, updateTicketAction } from "@/app/actions/tickets";
 import { removeItemPassUsageAction, updatePassFromItemAction, useItemPassAction } from "@/app/actions/passes";
 import { ItemMainFields, PassFields, ReservationFields, TicketFields } from "@/components/TripFields";
 import { ActivityPointCard } from "@/components/ActivityPointCard";
-import { ActivityRegionCard } from "@/components/ActivityRegionCard";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
 import { SavedModal } from "@/components/SavedModal";
 import { AddPanel, Card, EmptyState, ErrorBanner, btnGhost, btnPrimary } from "@/components/ui";
@@ -51,7 +45,7 @@ export default async function EditItemPage({
     .limit(1);
   if (!item) notFound();
 
-  const [cities, activityTypes, categories, doc, resDoc, pois, tips, regions, travelerOptions, [owner], currencies] = await Promise.all([
+  const [cities, activityTypes, categories, doc, resDoc, pois, tips, travelerOptions, [owner], currencies] = await Promise.all([
     getTripCities(trip.id),
     listActivityTypes(),
     listExpenseCategories(),
@@ -63,11 +57,11 @@ export default async function EditItemPage({
       : Promise.resolve([]),
     getActivityPoints(itemId, "POI"),
     getActivityPoints(itemId, "TIP"),
-    getActivityRegions(itemId),
     listTripTravelerOptions(trip),
     db.select({ name: t.users.name }).from(t.users).where(eq(t.users.id, trip.ownerId)).limit(1),
     listClientCurrencyCodes(trip.ownerId),
   ]);
+  const neighborhoods = await listNeighborhoodsForCities(cities.map((c) => c.id));
   const [tickets, availablePasses, passUsages] = await Promise.all([
     getActivityTickets(itemId, owner?.name ?? "Dono"),
     listAvailablePassesForItem(trip.id, itemId),
@@ -131,7 +125,7 @@ export default async function EditItemPage({
               </div>
             </div>
             <form id={FORM_ID} action={updateItemAction.bind(null, trip.id, item.id)} className="grid gap-3 sm:grid-cols-6">
-              <ItemMainFields trip={trip} cities={cities} types={activityTypes} categories={categories} item={item} attachment={attachment} />
+              <ItemMainFields trip={trip} cities={cities} types={activityTypes} categories={categories} neighborhoods={neighborhoods} item={item} attachment={attachment} />
             </form>
           </Card>
           <div className="mt-4 flex gap-2">
@@ -307,12 +301,6 @@ export default async function EditItemPage({
             deleteAction={deleteActivityPointAction.bind(null, trip.id, itemId)}
             showCategory
             ai={{ kind: "TIP", tripId: trip.id, itemId }}
-          />
-
-          <ActivityRegionCard
-            items={regions}
-            addAction={addActivityRegionAction.bind(null, trip.id, itemId)}
-            deleteAction={deleteActivityRegionAction.bind(null, trip.id, itemId)}
           />
         </div>
       </div>

@@ -7,9 +7,9 @@ import { requireTripAccess } from "@/lib/access";
 import { fail, str, ISO_DATE, HH_MM } from "@/lib/form";
 
 /**
- * Clona uma atividade (com os pontos de interesse, tips e região dela) para
- * outra data/horário da mesma viagem. Ingressos e passes não são clonados —
- * são sempre específicos de uma compra, não faz sentido duplicá-los.
+ * Clona uma atividade (com os pontos de interesse e tips dela) para outra
+ * data/horário da mesma viagem. Ingressos e passes não são clonados — são
+ * sempre específicos de uma compra, não faz sentido duplicá-los.
  */
 export async function cloneItemAction(tripId: string, formData: FormData) {
   const { trip } = await requireTripAccess(tripId, { write: true });
@@ -30,10 +30,7 @@ export async function cloneItemAction(tripId: string, formData: FormData) {
     .limit(1);
   if (!original) fail(back, "Atividade original não encontrada.");
 
-  const [points, regions] = await Promise.all([
-    db.select().from(t.itineraryItemPoints).where(eq(t.itineraryItemPoints.itemId, itemId)),
-    db.select().from(t.itineraryItemRegions).where(eq(t.itineraryItemRegions.itemId, itemId)),
-  ]);
+  const points = await db.select().from(t.itineraryItemPoints).where(eq(t.itineraryItemPoints.itemId, itemId));
 
   await db.transaction(async (tx) => {
     const [created] = await tx
@@ -48,6 +45,7 @@ export async function cloneItemAction(tripId: string, formData: FormData) {
         title: original.title,
         location: original.location,
         address: original.address,
+        neighborhoodId: original.neighborhoodId,
         latitude: original.latitude,
         longitude: original.longitude,
         notes: original.notes,
@@ -73,11 +71,6 @@ export async function cloneItemAction(tripId: string, formData: FormData) {
           category: p.category,
           position: p.position,
         })),
-      );
-    }
-    if (regions.length > 0) {
-      await tx.insert(t.itineraryItemRegions).values(
-        regions.map((r) => ({ itemId: created.id, name: r.name, position: r.position })),
       );
     }
 

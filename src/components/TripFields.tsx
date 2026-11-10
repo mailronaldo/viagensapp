@@ -1,5 +1,5 @@
 import type { Booking, Chip, Expense, ItineraryItem, Lodging, TravelInsurance } from "@/db/schema";
-import { AddPanel, CategoryOptions, Field, StatusSelect, inputCls } from "@/components/ui";
+import { AddPanel, CategoryOptions, Field, NeighborhoodSelect, StatusSelect, inputCls } from "@/components/ui";
 import { TripTypeToggle } from "@/components/TripTypeToggle";
 
 type Category = { id: string; name: string };
@@ -59,6 +59,7 @@ export function ItemMainFields({
   cities,
   types,
   categories,
+  neighborhoods,
   item,
   defaultDate,
   attachment,
@@ -67,6 +68,7 @@ export function ItemMainFields({
   cities: { id: string; name: string }[];
   types: { id: string; name: string }[];
   categories: Category[];
+  neighborhoods: { id: string; name: string; cityId: string; cityName: string }[];
   item?: ItineraryItem;
   defaultDate?: string;
   attachment?: { name: string; href: string } | null;
@@ -117,6 +119,9 @@ export function ItemMainFields({
       </Field>
       <Field label="Endereço" className="sm:col-span-3">
         <input name="address" defaultValue={item?.address ?? ""} className={inputCls} />
+      </Field>
+      <Field label="Bairro/Região" className="sm:col-span-3">
+        <NeighborhoodSelect neighborhoods={neighborhoods} defaultValue={item?.neighborhoodId ?? ""} />
       </Field>
       <Field label="Custo estimado" className="sm:col-span-2">
         <input name="costEstimate" inputMode="decimal" defaultValue={dec(item?.costEstimate)} placeholder="0,00" className={inputCls} />
@@ -223,6 +228,7 @@ export function ItemFields({
   cities,
   types,
   categories,
+  neighborhoods,
   item,
   defaultDate,
   attachment,
@@ -233,6 +239,7 @@ export function ItemFields({
   cities: { id: string; name: string }[];
   types: { id: string; name: string }[];
   categories: Category[];
+  neighborhoods: { id: string; name: string; cityId: string; cityName: string }[];
   item?: ItineraryItem;
   defaultDate?: string;
   attachment?: { name: string; href: string } | null;
@@ -241,7 +248,7 @@ export function ItemFields({
 }) {
   return (
     <>
-      <ItemMainFields trip={trip} cities={cities} types={types} categories={categories} item={item} defaultDate={defaultDate} attachment={attachment} />
+      <ItemMainFields trip={trip} cities={cities} types={types} categories={categories} neighborhoods={neighborhoods} item={item} defaultDate={defaultDate} attachment={attachment} />
       <div id="reserva" className="sm:col-span-6">
         <AddPanel title="Reserva desta atividade (opcional — preencha se já reservou)" defaultOpen={false}>
           <ReservationFields trip={trip} item={item} reservationAttachment={reservationAttachment} currencies={currencies} categories={categories} />
