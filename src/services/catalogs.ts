@@ -1,5 +1,5 @@
 import "server-only";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import { db, t } from "@/db";
 
 /** Tipos de documento cadastrados pela agência (lista única, usada em todos os clientes). */
@@ -78,11 +78,12 @@ export async function parseOptionalCategory(categoryId: string | null) {
   return cat ? categoryId : null;
 }
 
-/** Idem, pra categoria de dica. */
-export async function parseOptionalTipCategory(categoryId: string | null) {
-  if (!categoryId) return null;
-  const [cat] = await db.select({ id: t.tipCategories.id }).from(t.tipCategories).where(eq(t.tipCategories.id, categoryId)).limit(1);
-  return cat ? categoryId : null;
+/** Nuvem de categorias de uma dica: valida os ids contra o catálogo e devolve só os que existem. */
+export async function parseTipCategoryIds(categoryIds: string[]) {
+  if (categoryIds.length === 0) return [];
+  const rows = await db.select({ id: t.tipCategories.id }).from(t.tipCategories).where(inArray(t.tipCategories.id, categoryIds));
+  const valid = new Set(rows.map((r) => r.id));
+  return categoryIds.filter((id) => valid.has(id));
 }
 
 /** Categorias reservadas pro sistema: não aparecem pra excluir no gestor da agência. */

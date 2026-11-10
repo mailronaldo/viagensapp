@@ -6,7 +6,7 @@ import { db, t } from "@/db";
 import { requireClient } from "@/lib/auth";
 import { requireTripAccess } from "@/lib/access";
 import { fail, str } from "@/lib/form";
-import { parseOptionalTipCategory } from "@/services/catalogs";
+import { parseTipCategoryIds } from "@/services/catalogs";
 
 const TIP_COSTS = ["BAIXO", "MEDIO", "ALTO", "GRATIS"];
 
@@ -29,39 +29,41 @@ function parseCost(raw: string | null) {
   return raw && TIP_COSTS.includes(raw) ? (raw as "BAIXO" | "MEDIO" | "ALTO" | "GRATIS") : null;
 }
 
-/** Confere que a cidade (e, se informado, o bairro) são do cliente informado. */
-async function parseCityAndNeighborhood(clientId: string, formData: FormData, back: string) {
-  const cityId = str(formData, "cityId");
+/** Bairro/Região é obrigatório numa dica — confere que é do cliente informado e resolve a cidade a partir dele. */
+async function parseNeighborhood(clientId: string, formData: FormData, back: string) {
   const neighborhoodId = str(formData, "neighborhoodId");
-  if (cityId) {
-    const [city] = await db.select({ id: t.cities.id }).from(t.cities).where(and(eq(t.cities.id, cityId), eq(t.cities.clientId, clientId))).limit(1);
-    if (!city) fail(back, "Cidade inválida.");
-  }
-  if (neighborhoodId) {
-    const [n] = await db
-      .select({ id: t.cityNeighborhoods.id })
-      .from(t.cityNeighborhoods)
-      .innerJoin(t.cities, eq(t.cities.id, t.cityNeighborhoods.cityId))
-      .where(and(eq(t.cityNeighborhoods.id, neighborhoodId), eq(t.cities.clientId, clientId)))
-      .limit(1);
-    if (!n) fail(back, "Bairro/região inválido.");
-  }
-  return { cityId, neighborhoodId };
+  if (!neighborhoodId) fail(back, "Selecione o Bairro/Região.");
+  const [n] = await db
+    .select({ id: t.cityNeighborhoods.id, cityId: t.cityNeighborhoods.cityId })
+    .from(t.cityNeighborhoods)
+    .innerJoin(t.cities, eq(t.cities.id, t.cityNeighborhoods.cityId))
+    .where(and(eq(t.cityNeighborhoods.id, neighborhoodId), eq(t.cities.clientId, clientId)))
+    .limit(1);
+  if (!n) fail(back, "Bairro/região inválido.");
+  return { cityId: n.cityId, neighborhoodId: n.id };
 }
 
 async function parseTip(clientId: string, formData: FormData, back: string) {
   const name = str(formData, "name");
   if (!name) fail(back, "Informe o nome da dica.");
-  const { cityId, neighborhoodId } = await parseCityAndNeighborhood(clientId, formData, back);
+  const { cityId, neighborhoodId } = await parseNeighborhood(clientId, formData, back);
+  const categoryIds = await parseTipCategoryIds(formData.getAll("categoryIds").map(String).filter(Boolean));
   return {
     name,
     description: str(formData, "description"),
     cityId,
     neighborhoodId,
-    categoryId: await parseOptionalTipCategory(str(formData, "categoryId")),
+    categoryIds,
     cost: parseCost(str(formData, "cost")),
     url: normalizeUrl(str(formData, "url")),
   };
+}
+
+async function setTipCategories(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], tipId: string, categoryIds: string[]) {
+  await tx.delete(t.tipCategoryLinks).where(eq(t.tipCategoryLinks.tipId, tipId));
+  if (categoryIds.length > 0) {
+    await tx.insert(t.tipCategoryLinks).values(categoryIds.map((categoryId) => ({ tipId, categoryId })));
+  }
 }
 
 // ---------- Gestor de Dicas (CRUD do repositório do cliente) ----------
@@ -69,8 +71,11 @@ async function parseTip(clientId: string, formData: FormData, back: string) {
 export async function addTipAction(formData: FormData) {
   const user = await requireClient();
   const back = "/tips";
-  const v = await parseTip(user.id, formData, back);
-  await db.insert(t.tips).values({ clientId: user.id, ...v });
+  const { categoryIds, ...v } = await parseTip(user.id, formData, back);
+  await db.transaction(async (tx) => {
+    const [created] = await tx.insert(t.tips).values({ clientId: user.id, ...v }).returning({ id: t.tips.id });
+    await setTipCategories(tx, created.id, categoryIds);
+  });
   redirect(bustCache(back));
 }
 
@@ -79,8 +84,11 @@ export async function updateTipAction(tipId: string, formData: FormData) {
   const back = "/tips";
   const [existing] = await db.select({ id: t.tips.id }).from(t.tips).where(and(eq(t.tips.id, tipId), eq(t.tips.clientId, user.id))).limit(1);
   if (!existing) fail(back, "Dica não encontrada.");
-  const v = await parseTip(user.id, formData, back);
-  await db.update(t.tips).set(v).where(eq(t.tips.id, tipId));
+  const { categoryIds, ...v } = await parseTip(user.id, formData, back);
+  await db.transaction(async (tx) => {
+    await tx.update(t.tips).set(v).where(eq(t.tips.id, tipId));
+    await setTipCategories(tx, tipId, categoryIds);
+  });
   redirect(bustCache(back));
 }
 
@@ -134,9 +142,13 @@ export async function createAndLinkTipAction(tripId: string, itemId: string, for
   const back = itemEditPath(tripId, itemId);
   const item = await ownItem(tripId, itemId);
   if (!item) redirect(`/trips/${tripId}/itinerary`);
+  if (!item.neighborhoodId) {
+    fail(back, "Defina o Bairro/Região da atividade antes de cadastrar uma dica manualmente.");
+  }
 
   const name = str(formData, "name");
   if (!name) fail(back, "Informe o nome da dica.");
+  const categoryIds = await parseTipCategoryIds(formData.getAll("categoryIds").map(String).filter(Boolean));
 
   await db.transaction(async (tx) => {
     const [created] = await tx
@@ -145,13 +157,15 @@ export async function createAndLinkTipAction(tripId: string, itemId: string, for
         clientId: trip.ownerId,
         name,
         description: str(formData, "description"),
-        cityId: item.cityId,
-        neighborhoodId: item.neighborhoodId,
-        categoryId: await parseOptionalTipCategory(str(formData, "categoryId")),
+        cityId: item.cityId!,
+        neighborhoodId: item.neighborhoodId!,
         cost: parseCost(str(formData, "cost")),
         url: normalizeUrl(str(formData, "url")),
       })
       .returning({ id: t.tips.id });
+    if (categoryIds.length > 0) {
+      await tx.insert(t.tipCategoryLinks).values(categoryIds.map((categoryId) => ({ tipId: created.id, categoryId })));
+    }
     const existing = await tx.select({ id: t.itineraryItemTips.id }).from(t.itineraryItemTips).where(eq(t.itineraryItemTips.itemId, itemId));
     await tx.insert(t.itineraryItemTips).values({ itemId, tipId: created.id, position: existing.length });
   });

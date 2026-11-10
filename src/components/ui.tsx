@@ -130,6 +130,35 @@ export function CategoryOptions({ categories }: { categories: { id: string; name
 }
 
 /**
+ * Nuvem de tags de categoria: uma dica pode se encaixar em várias (ex. um
+ * parque com food trucks é "Atrações" + "Comida"). Checkboxes estilizados
+ * como chips, sem precisar de JS.
+ */
+export function CategoryCheckboxes({
+  categories,
+  name = "categoryIds",
+  defaultSelected = [],
+}: {
+  categories: { id: string; name: string }[];
+  name?: string;
+  defaultSelected?: string[];
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {categories.map((c) => (
+        <label
+          key={c.id}
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 transition hover:bg-slate-50 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 has-[:checked]:text-brand-900"
+        >
+          <input type="checkbox" name={name} value={c.id} defaultChecked={defaultSelected.includes(c.id)} className="sr-only" />
+          {c.name}
+        </label>
+      ))}
+    </div>
+  );
+}
+
+/**
  * Select de bairro/região, agrupado por cidade (lista pequena — viagem tem
  * poucas cidades — então dispensa filtro dinâmico via JS).
  */
@@ -138,11 +167,13 @@ export function NeighborhoodSelect({
   defaultValue = "",
   name = "neighborhoodId",
   className = inputCls,
+  required = false,
 }: {
   neighborhoods: { id: string; name: string; cityId: string; cityName: string }[];
   defaultValue?: string;
   name?: string;
   className?: string;
+  required?: boolean;
 }) {
   const byCity = new Map<string, { id: string; name: string }[]>();
   for (const n of neighborhoods) {
@@ -151,8 +182,10 @@ export function NeighborhoodSelect({
     byCity.set(n.cityName, list);
   }
   return (
-    <select name={name} defaultValue={defaultValue} className={className}>
-      <option value="">—</option>
+    <select name={name} defaultValue={defaultValue} required={required} className={className}>
+      <option value="" disabled={required}>
+        {required ? "Selecione…" : "—"}
+      </option>
       {[...byCity.entries()].map(([cityLabel, items]) => (
         <optgroup key={cityLabel} label={cityLabel}>
           {items.map((n) => (

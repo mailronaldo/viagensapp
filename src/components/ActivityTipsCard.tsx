@@ -12,7 +12,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Card, CategoryOptions, Field, btnGhost, btnPrimary, inputCls } from "@/components/ui";
+import { Card, CategoryCheckboxes, Field, btnGhost, btnPrimary, inputCls } from "@/components/ui";
 import { TIP_COST_LABEL } from "@/lib/labels";
 import { suggestTipsAction, saveSuggestedTipsAction, type AiPoint } from "@/app/actions/ai-suggestions";
 
@@ -22,7 +22,7 @@ type Tip = {
   description: string | null;
   url: string | null;
   cost: string | null;
-  categoryName: string | null;
+  categories: { id: string; name: string }[];
 };
 
 function AiSuggestions({ tripId, itemId }: { tripId: string; itemId: string }) {
@@ -97,7 +97,7 @@ function AiSuggestions({ tripId, itemId }: { tripId: string; itemId: string }) {
               />
               <span className="min-w-0">
                 <span className="font-medium">
-                  {s.category && <span className="mr-1 text-xs text-slate-500">[{s.category}]</span>}
+                  {s.categories.length > 0 && <span className="mr-1 text-xs text-slate-500">[{s.categories.join(", ")}]</span>}
                   {s.name}
                 </span>
                 {s.description && <span className="block text-xs text-slate-500">{s.description}</span>}
@@ -228,7 +228,7 @@ export function ActivityTipsCard({
                       {availableExisting.map((e) => (
                         <option key={e.id} value={e.id}>
                           {e.name}
-                          {e.categoryName ? ` — ${e.categoryName}` : ""}
+                          {e.categories.length > 0 ? ` — ${e.categories.map((c) => c.name).join(", ")}` : ""}
                         </option>
                       ))}
                     </select>
@@ -241,15 +241,18 @@ export function ActivityTipsCard({
                   </DialogFooter>
                 </form>
               )
+            ) : !hasNeighborhood ? (
+              <p className="text-sm text-amber-700">
+                Defina o Bairro/Região da atividade (no cadastro da atividade) antes de cadastrar uma dica manualmente —
+                isso evita dicas genéricas demais pra cidades grandes.
+              </p>
             ) : (
               <form action={createAction} className="space-y-3">
                 <Field label="Nome">
                   <input name="name" required className={inputCls} />
                 </Field>
-                <Field label="Categoria">
-                  <select name="categoryId" defaultValue="" className={inputCls}>
-                    <CategoryOptions categories={categories} />
-                  </select>
+                <Field label="Categorias">
+                  <CategoryCheckboxes categories={categories} />
                 </Field>
                 <Field label="Custo">
                   <select name="cost" defaultValue="" className={inputCls}>
@@ -295,7 +298,9 @@ export function ActivityTipsCard({
           {items.map((p) => {
             const chip = (
               <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-brand-50 py-1 ps-3 pe-1.5 text-xs text-brand-900">
-                {p.categoryName && <span className="text-[10px] uppercase text-brand-600">{p.categoryName}:</span>}
+                {p.categories.length > 0 && (
+                  <span className="text-[10px] uppercase text-brand-600">{p.categories.map((c) => c.name).join(", ")}:</span>
+                )}
                 {p.url ? (
                   <a href={p.url} target="_blank" rel="noreferrer" className="truncate hover:underline">
                     {p.name}

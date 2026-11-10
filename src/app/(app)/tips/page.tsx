@@ -5,7 +5,7 @@ import { listClientTips } from "@/services/tips";
 import { addTipAction, deleteTipAction, updateTipAction } from "@/app/actions/tips";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
 import { TIP_COST_LABEL } from "@/lib/labels";
-import { AddPanel, Card, CategoryOptions, EmptyState, ErrorBanner, Field, NeighborhoodSelect, Tag, btnPrimary, inputCls } from "@/components/ui";
+import { AddPanel, Card, CategoryCheckboxes, EmptyState, ErrorBanner, Field, NeighborhoodSelect, Tag, btnPrimary, inputCls } from "@/components/ui";
 
 export const metadata = { title: "Dicas" };
 
@@ -23,46 +23,31 @@ function CostOptions() {
 }
 
 function TipFormFields({
-  cities,
   neighborhoods,
   categories,
   tip,
 }: {
-  cities: { id: string; name: string }[];
   neighborhoods: { id: string; name: string; cityId: string; cityName: string }[];
   categories: { id: string; name: string }[];
   tip?: {
     name: string;
     description: string | null;
-    cityId: string | null;
     neighborhoodId: string | null;
-    categoryId: string | null;
     cost: string | null;
     url: string | null;
+    categories?: { id: string; name: string }[];
   };
 }) {
   return (
     <>
-      <Field label="Nome" className="sm:col-span-3">
+      <Field label="Nome" className="sm:col-span-4">
         <input name="name" required defaultValue={tip?.name} className={inputCls} />
       </Field>
-      <Field label="Cidade" className="sm:col-span-3">
-        <select name="cityId" defaultValue={tip?.cityId ?? ""} className={inputCls}>
-          <option value="">—</option>
-          {cities.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </Field>
       <Field label="Bairro/Região" className="sm:col-span-2">
-        <NeighborhoodSelect neighborhoods={neighborhoods} defaultValue={tip?.neighborhoodId ?? ""} />
+        <NeighborhoodSelect neighborhoods={neighborhoods} defaultValue={tip?.neighborhoodId ?? ""} required />
       </Field>
-      <Field label="Categoria" className="sm:col-span-2">
-        <select name="categoryId" defaultValue={tip?.categoryId ?? ""} className={inputCls}>
-          <CategoryOptions categories={categories} />
-        </select>
+      <Field label="Categorias" className="sm:col-span-4">
+        <CategoryCheckboxes categories={categories} defaultSelected={tip?.categories?.map((c) => c.id)} />
       </Field>
       <Field label="Custo" className="sm:col-span-2">
         <select name="cost" defaultValue={tip?.cost ?? ""} className={inputCls}>
@@ -145,7 +130,7 @@ export default async function TipsPage({
 
       <AddPanel title="Nova dica" defaultOpen={tips.length === 0}>
         <form action={addTipAction} className="grid gap-3 sm:grid-cols-6">
-          <TipFormFields cities={cities} neighborhoods={neighborhoods} categories={categories} />
+          <TipFormFields neighborhoods={neighborhoods} categories={categories} />
           <div className="sm:col-span-6">
             <button className={btnPrimary}>Salvar dica</button>
           </div>
@@ -166,7 +151,11 @@ export default async function TipsPage({
                       {[tip.cityName, tip.neighborhoodName].filter(Boolean).join(" · ") || "Sem cidade"}
                     </p>
                     <div className="mt-1 flex flex-wrap gap-1">
-                      {tip.categoryName && <Tag tone="neutral">{tip.categoryName}</Tag>}
+                      {tip.categories.map((c) => (
+                        <Tag key={c.id} tone="neutral">
+                          {c.name}
+                        </Tag>
+                      ))}
                       {tip.cost && <Tag tone="neutral">{TIP_COST_LABEL[tip.cost as keyof typeof TIP_COST_LABEL]}</Tag>}
                     </div>
                   </div>
@@ -186,7 +175,7 @@ export default async function TipsPage({
                     />
                   </div>
                   <form action={updateTipAction.bind(null, tip.id)} className="grid gap-3 sm:grid-cols-6">
-                    <TipFormFields cities={cities} neighborhoods={neighborhoods} categories={categories} tip={tip} />
+                    <TipFormFields neighborhoods={neighborhoods} categories={categories} tip={tip} />
                     <div className="sm:col-span-6">
                       <button className={btnPrimary}>Salvar dica</button>
                     </div>

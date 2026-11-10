@@ -78,8 +78,8 @@ export async function deleteTipCategoryAction(id: string) {
   const back = "/agency/system/tip-categories";
   const [{ count }] = await db
     .select({ count: sql<number>`count(*)::int` })
-    .from(t.tips)
-    .where(eq(t.tips.categoryId, id));
+    .from(t.tipCategoryLinks)
+    .where(eq(t.tipCategoryLinks.categoryId, id));
   if (count > 0) {
     fail(back, `Essa categoria está em uso em ${count} dica${count > 1 ? "s" : ""}. Não dá pra excluir.`);
   }

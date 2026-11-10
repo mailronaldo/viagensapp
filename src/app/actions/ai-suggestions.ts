@@ -11,8 +11,8 @@ export type AiPoint = {
   name: string;
   description: string | null;
   url: string | null;
-  /** Nome da categoria (não o id) — resolvido pro id do catálogo só ao salvar. */
-  category?: string | null;
+  /** Nomes das categorias (não os ids) — resolvidos pros ids do catálogo só ao salvar. */
+  categories: string[];
 };
 
 type ItemContext = {
@@ -64,7 +64,7 @@ function placeDescription(ctx: ItemContext): string {
   return `${place}${regionPart}`;
 }
 
-function parsePoints(data: unknown, categoryNames: string[] | null): AiPoint[] {
+function parsePoints(data: unknown, categoryNames: string[]): AiPoint[] {
   if (!Array.isArray(data)) return [];
   const out: AiPoint[] = [];
   for (const row of data) {
@@ -72,13 +72,13 @@ function parsePoints(data: unknown, categoryNames: string[] | null): AiPoint[] {
     const r = row as Record<string, unknown>;
     const name = typeof r.name === "string" ? r.name.trim() : "";
     if (!name) continue;
-    const category =
-      categoryNames && typeof r.category === "string" && categoryNames.includes(r.category) ? r.category : null;
+    const rawCategories = Array.isArray(r.categories) ? r.categories : [];
+    const categories = rawCategories.filter((c): c is string => typeof c === "string" && categoryNames.includes(c));
     out.push({
       name,
       description: typeof r.description === "string" && r.description.trim() ? r.description.trim() : null,
       url: typeof r.url === "string" && /^https?:\/\//i.test(r.url) ? r.url : null,
-      category,
+      categories,
     });
   }
   return out;
@@ -102,29 +102,30 @@ export async function suggestTipsAction(
   const ctx = await loadItemContext(tripId, itemId);
   if (!ctx) return { error: "Atividade não encontrada." };
 
+  const categories = await listTipCategories();
+  const categoryNames = categories.map((c) => c.name);
+
   if (mode === "POI") {
     const prompt = `Você ajuda viajantes a planejar roteiros. A atividade é "${ctx.title}" (${ctx.typeName}), no dia ${ctx.date}, em ${placeDescription(ctx)}.
 Busque na web e sugira de 5 a 8 pontos de interesse reais e próximos (monumentos, ruas, praças, mirantes, lugares bons pra foto) relevantes pra essa atividade.
 Responda em português, só com um array JSON, sem nenhum texto antes ou depois, no formato:
-[{"name": "...", "description": "uma frase curta explicando por que vale a pena", "url": "link oficial ou de informação, só se tiver certeza que existe, senão null"}]
+[{"name": "...", "description": "uma frase curta explicando por que vale a pena", "url": "link oficial ou de informação, só se tiver certeza que existe, senão null", "categories": ["uma ou mais destas, as que fizerem sentido: ${categoryNames.join(", ")}"]}]
 Não invente lugares nem links.`;
 
     const result = await askAiForJsonArray(prompt);
     if ("error" in result) return result;
-    return { suggestions: parsePoints(result.data, null) };
+    return { suggestions: parsePoints(result.data, categoryNames) };
   }
 
   const trimmedContext = (context ?? "").trim();
   if (!trimmedContext) return { error: "Descreva o que você procura." };
 
-  const categories = await listTipCategories();
-  const categoryNames = categories.map((c) => c.name);
-
   const prompt = `Você ajuda viajantes a planejar roteiros. A atividade é "${ctx.title}" (${ctx.typeName}), no dia ${ctx.date}, em ${placeDescription(ctx)}.
 O viajante quer dicas sobre: "${trimmedContext}".
 Busque na web e sugira de 5 a 8 dicas reais e específicas (nomes de lugares, eventos ou recomendações), relevantes pro que ele descreveu.
 Responda em português, só com um array JSON, sem nenhum texto antes ou depois, no formato:
-[{"name": "...", "description": "uma frase curta explicando a dica", "url": "link oficial ou de informação, só se tiver certeza que existe, senão null", "category": "uma destas: ${categoryNames.join(", ")}"}]
+[{"name": "...", "description": "uma frase curta explicando a dica", "url": "link oficial ou de informação, só se tiver certeza que existe, senão null", "categories": ["uma ou mais destas, as que fizerem sentido: ${categoryNames.join(", ")}"]}]
+Um lugar pode se encaixar em mais de uma categoria (ex. um parque com food trucks pode ser Atrações e Comida ao mesmo tempo) — liste todas que se aplicarem.
 Não invente lugares nem links.`;
 
   const result = await askAiForJsonArray(prompt);
@@ -144,6 +145,10 @@ export async function saveSuggestedTipsAction(
     .where(and(eq(t.itineraryItems.id, itemId), eq(t.itineraryItems.tripId, tripId)))
     .limit(1);
   if (!owned) return { error: "Atividade não encontrada." };
+  const { cityId, neighborhoodId } = owned;
+  if (!cityId || !neighborhoodId) {
+    return { error: "Defina o Bairro/Região da atividade antes de salvar sugestões como dica." };
+  }
   if (items.length === 0) return { ok: true };
 
   const categories = await listTipCategories();
@@ -160,11 +165,14 @@ export async function saveSuggestedTipsAction(
           name: item.name,
           description: item.description,
           url: item.url,
-          cityId: owned.cityId,
-          neighborhoodId: owned.neighborhoodId,
-          categoryId: item.category ? (categoryIdByName.get(item.category) ?? null) : null,
+          cityId,
+          neighborhoodId,
         })
         .returning({ id: t.tips.id });
+      const categoryIds = item.categories.map((name) => categoryIdByName.get(name)).filter((id): id is string => !!id);
+      if (categoryIds.length > 0) {
+        await tx.insert(t.tipCategoryLinks).values(categoryIds.map((categoryId) => ({ tipId: created.id, categoryId })));
+      }
       await tx.insert(t.itineraryItemTips).values({ itemId, tipId: created.id, position });
       position += 1;
     }

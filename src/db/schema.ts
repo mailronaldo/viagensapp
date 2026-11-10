@@ -581,14 +581,38 @@ export const tips = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     description: text("description"),
-    cityId: text("city_id").references(() => cities.id, { onDelete: "set null" }),
-    neighborhoodId: text("neighborhood_id").references(() => cityNeighborhoods.id, { onDelete: "set null" }),
-    categoryId: text("category_id").references(() => tipCategories.id, { onDelete: "set null" }),
+    cityId: text("city_id")
+      .notNull()
+      .references(() => cities.id, { onDelete: "cascade" }),
+    neighborhoodId: text("neighborhood_id")
+      .notNull()
+      .references(() => cityNeighborhoods.id, { onDelete: "cascade" }),
     cost: tipCost("cost"),
     url: text("url"),
     createdAt: createdAt(),
   },
   (t) => [index("tips_client_idx").on(t.clientId), index("tips_city_idx").on(t.cityId)],
+);
+
+// Nuvem de tags: uma dica pode se encaixar em várias categorias (ex. um
+// parque pode ser "Atrações" + "Esportes" + "Comida" por ter um mercado).
+export const tipCategoryLinks = pgTable(
+  "tip_category_links",
+  {
+    id: id(),
+    tipId: text("tip_id")
+      .notNull()
+      .references(() => tips.id, { onDelete: "cascade" }),
+    categoryId: text("category_id")
+      .notNull()
+      .references(() => tipCategories.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("tip_category_links_unique").on(t.tipId, t.categoryId),
+    index("tip_category_links_tip_idx").on(t.tipId),
+    index("tip_category_links_category_idx").on(t.categoryId),
+  ],
 );
 
 // Vínculo N:N — a mesma dica pode ser usada em várias atividades (mesma
