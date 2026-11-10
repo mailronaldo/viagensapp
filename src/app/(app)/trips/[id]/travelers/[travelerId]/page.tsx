@@ -153,25 +153,8 @@ export default async function TravelerHubPage({
               )}
             </AddPanel>
           </div>
-        </div>
 
-        <div className="space-y-4">
-          {canWrite && (
-            <Card>
-              <h3 className="mb-2 text-sm font-medium">Permissão nesta viagem</h3>
-              <p className="mb-3 text-xs text-slate-500">
-                Total = vira administrador da viagem, como o cliente. Leitura = só vê o painel dele.
-              </p>
-              <form action={setTravelerPermissionFromTripAction.bind(null, trip.id, travelerId)} className="flex items-center gap-2">
-                <select name="permission" defaultValue={permission} className={inputCls}>
-                  <option value="READ">Apenas leitura</option>
-                  <option value="FULL">Permissão total</option>
-                </select>
-                <button className={btnPrimary}>Salvar</button>
-              </form>
-            </Card>
-          )}
-
+          <div className="mt-6 space-y-4">
           <AddPanel title="Internet / chip">
 
             {chip && (
@@ -275,6 +258,25 @@ export default async function TravelerHubPage({
               </form>
             )}
           </AddPanel>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {canWrite && (
+            <Card>
+              <h3 className="mb-2 text-sm font-medium">Permissão nesta viagem</h3>
+              <p className="mb-3 text-xs text-slate-500">
+                Total = vira administrador da viagem, como o cliente. Leitura = só vê o painel dele.
+              </p>
+              <form action={setTravelerPermissionFromTripAction.bind(null, trip.id, travelerId)} className="flex items-center gap-2">
+                <select name="permission" defaultValue={permission} className={inputCls}>
+                  <option value="READ">Apenas leitura</option>
+                  <option value="FULL">Permissão total</option>
+                </select>
+                <button className={btnPrimary}>Salvar</button>
+              </form>
+            </Card>
+          )}
 
           {role === "OWNER" && (
             <AddPanel title="Gestor de acesso" defaultOpen>
