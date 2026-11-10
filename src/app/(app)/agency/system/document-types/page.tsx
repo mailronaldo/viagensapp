@@ -1,8 +1,8 @@
 import { requireMaster } from "@/lib/auth";
-import { listDocumentTypes } from "@/services/catalogs";
+import { RESERVED_DOCUMENT_TYPE_IDS, listDocumentTypes } from "@/services/catalogs";
 import { addDocumentTypeAction, deleteDocumentTypeAction } from "@/app/actions/catalogs";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
-import { AddPanel, Card, EmptyState, ErrorBanner, Field, btnPrimary, inputCls } from "@/components/ui";
+import { AddPanel, Card, EmptyState, ErrorBanner, Field, Tag, btnPrimary, inputCls } from "@/components/ui";
 
 export const metadata = { title: "Agência · Tipos de documento" };
 
@@ -39,20 +39,27 @@ export default async function DocumentTypesPage({
         <EmptyState>Nenhum tipo de documento cadastrado ainda.</EmptyState>
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
-          {types.map((dt) => (
-            <li key={dt.id}>
-              <Card className="flex items-center justify-between gap-3 !p-3">
-                <p className="truncate font-medium">{dt.name}</p>
-                <ConfirmDeleteButton
-                  label="Excluir tipo de documento"
-                  confirmTitle="Excluir este tipo de documento?"
-                  confirmDescription="Só é possível excluir se nenhum documento estiver usando esse tipo."
-                  deleteAction={deleteDocumentTypeAction.bind(null, dt.id)}
-                  size="sm"
-                />
-              </Card>
-            </li>
-          ))}
+          {types.map((dt) => {
+            const reserved = RESERVED_DOCUMENT_TYPE_IDS.includes(dt.id);
+            return (
+              <li key={dt.id}>
+                <Card className="flex items-center justify-between gap-3 !p-3">
+                  <p className="truncate font-medium">{dt.name}</p>
+                  {reserved ? (
+                    <Tag tone="neutral">Reservado pelo sistema</Tag>
+                  ) : (
+                    <ConfirmDeleteButton
+                      label="Excluir tipo de documento"
+                      confirmTitle="Excluir este tipo de documento?"
+                      confirmDescription="Só é possível excluir se nenhum documento estiver usando esse tipo."
+                      deleteAction={deleteDocumentTypeAction.bind(null, dt.id)}
+                      size="sm"
+                    />
+                  )}
+                </Card>
+              </li>
+            );
+          })}
         </ul>
       )}
     </>

@@ -5,7 +5,11 @@ import { eq, sql } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireMaster } from "@/lib/auth";
 import { fail, str } from "@/lib/form";
-import { RESERVED_ACTIVITY_TYPE_NAMES, RESERVED_EXPENSE_CATEGORY_NAMES } from "@/services/catalogs";
+import {
+  RESERVED_ACTIVITY_TYPE_NAMES,
+  RESERVED_DOCUMENT_TYPE_IDS,
+  RESERVED_EXPENSE_CATEGORY_NAMES,
+} from "@/services/catalogs";
 
 export async function addDocumentTypeAction(formData: FormData) {
   await requireMaster();
@@ -19,6 +23,9 @@ export async function addDocumentTypeAction(formData: FormData) {
 export async function deleteDocumentTypeAction(id: string) {
   await requireMaster();
   const back = "/agency/system/document-types";
+  if (RESERVED_DOCUMENT_TYPE_IDS.includes(id)) {
+    fail(back, "Esse tipo é usado automaticamente pelo sistema (ícones, vouchers, ingressos, reservas, recibos) e não pode ser excluído.");
+  }
   const [{ count }] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(t.documents)

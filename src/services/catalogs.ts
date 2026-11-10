@@ -7,6 +7,13 @@ export async function listDocumentTypes() {
   return db.select().from(t.documentTypes).orderBy(asc(t.documentTypes.name));
 }
 
+/**
+ * Ids reservados pro sistema: usados por baixo dos panos (ícone de hospedagem,
+ * voucher, ingresso, reserva, recibo de custo avulso) mesmo quando não aparecem
+ * em nenhum documento ainda, então não podem ser excluídos.
+ */
+export const RESERVED_DOCUMENT_TYPE_IDS = ["TICKET", "RESERVATION", "RECEIPT", "OTHER"];
+
 /** Categorias de custo cadastradas pela agência (lista única, usada em todos os clientes). */
 export async function listExpenseCategories() {
   return db.select().from(t.expenseCategories).orderBy(asc(t.expenseCategories.name));

@@ -269,3 +269,14 @@ export async function withConvertedAmounts(entries: CostEntry[], baseCurrency: s
     return { ...e, amountBase };
   });
 }
+
+/** Total consolidado (todas as fontes de custo, não só custo avulso) pra cards de resumo, ex. dashboard. */
+export async function getCostTotal(tripId: string, baseCurrency: string) {
+  const entries = await listCostEntries(tripId);
+  const converted = await withConvertedAmounts(entries, baseCurrency);
+  const total = converted
+    .filter((e) => e.status === "A_PAGAR" || e.status === "PAGO")
+    .reduce((sum, e) => sum + (e.amountBase ?? 0), 0);
+  const unconvertedCount = converted.filter((e) => e.amount && e.amountBase === null).length;
+  return { total, unconvertedCount };
+}

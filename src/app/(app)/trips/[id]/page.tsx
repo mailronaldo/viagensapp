@@ -4,7 +4,7 @@ import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { formatDate, formatDateTime, formatMoney, formatWeekday, todayIn } from "@/lib/format";
 import { getItinerarySummary } from "@/services/itinerary";
-import { getExpenseSummary } from "@/services/expenses";
+import { getCostTotal } from "@/services/cost-center";
 import { listBookingTypes, toNameMap } from "@/services/catalogs";
 import { deleteTripAction } from "@/app/actions/trips";
 import { Card, btnDanger } from "@/components/ui";
@@ -19,9 +19,9 @@ export default async function TripDashboardPage({
 
   const today = todayIn(trip.timezone);
 
-  const [days, summary, bookingTypes, upcoming, linked, [owner]] = await Promise.all([
+  const [days, costSummary, bookingTypes, upcoming, linked, [owner]] = await Promise.all([
     getItinerarySummary(trip),
-    getExpenseSummary(trip.id, trip.baseCurrency),
+    getCostTotal(trip.id, trip.baseCurrency),
     listBookingTypes(),
     db
       .select({ leg: t.bookingLegs, booking: t.bookings })
@@ -99,15 +99,15 @@ export default async function TripDashboardPage({
         <Card>
           <h2 className="mb-2 font-medium">Custos</h2>
           <p className="text-2xl font-semibold tabular-nums">
-            {formatMoney(summary.totalBase, summary.baseCurrency)}
+            {formatMoney(costSummary.total, trip.baseCurrency)}
           </p>
-          {summary.unconvertedCount > 0 && (
+          {costSummary.unconvertedCount > 0 && (
             <p className="mt-1 text-xs text-amber-700">
-              {summary.unconvertedCount} lançamento(s) em outra moeda sem cotação ficaram fora do total.
+              {costSummary.unconvertedCount} lançamento(s) em outra moeda sem cotação ficaram fora do total.
             </p>
           )}
           <Link
-            href={`/trips/${trip.id}/expenses`}
+            href={`/trips/${trip.id}/costs`}
             className="mt-3 inline-block text-sm text-brand-700 hover:underline"
           >
             Abrir central de custos
