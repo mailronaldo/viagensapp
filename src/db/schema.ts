@@ -588,7 +588,6 @@ export const tips = pgTable(
       .notNull()
       .references(() => cityNeighborhoods.id, { onDelete: "cascade" }),
     cost: tipCost("cost"),
-    url: text("url"),
     createdAt: createdAt(),
   },
   (t) => [index("tips_client_idx").on(t.clientId), index("tips_city_idx").on(t.cityId)],

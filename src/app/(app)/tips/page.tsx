@@ -5,6 +5,7 @@ import { listClientTips } from "@/services/tips";
 import { addTipAction, deleteTipAction, updateTipAction } from "@/app/actions/tips";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
 import { TIP_COST_LABEL } from "@/lib/labels";
+import { googleMapsSearchUrl } from "@/lib/maps";
 import { AddPanel, Card, CategoryCheckboxes, EmptyState, ErrorBanner, Field, NeighborhoodSelect, Tag, btnPrimary, inputCls } from "@/components/ui";
 
 export const metadata = { title: "Dicas" };
@@ -34,7 +35,6 @@ function TipFormFields({
     description: string | null;
     neighborhoodId: string | null;
     cost: string | null;
-    url: string | null;
     categories?: { id: string; name: string }[];
   };
 }) {
@@ -56,9 +56,6 @@ function TipFormFields({
       </Field>
       <Field label="Descrição" className="sm:col-span-6">
         <textarea name="description" rows={2} defaultValue={tip?.description ?? ""} className={inputCls} />
-      </Field>
-      <Field label="Link (URL)" className="sm:col-span-6">
-        <input name="url" defaultValue={tip?.url ?? ""} placeholder="https://" className={inputCls} />
       </Field>
     </>
   );
@@ -146,7 +143,14 @@ export default async function TipsPage({
               <details className="group">
                 <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 p-3 text-sm">
                   <div className="min-w-0">
-                    <p className="font-medium">{tip.name}</p>
+                    <a
+                      href={googleMapsSearchUrl([tip.name, tip.neighborhoodName, tip.cityName])}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium hover:underline"
+                    >
+                      {tip.name}
+                    </a>
                     <p className="text-xs text-slate-500">
                       {[tip.cityName, tip.neighborhoodName].filter(Boolean).join(" · ") || "Sem cidade"}
                     </p>

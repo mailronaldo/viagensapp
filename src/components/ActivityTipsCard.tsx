@@ -14,13 +14,15 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card, CategoryCheckboxes, Field, btnGhost, btnPrimary, inputCls } from "@/components/ui";
 import { TIP_COST_LABEL } from "@/lib/labels";
+import { googleMapsSearchUrl } from "@/lib/maps";
 import { suggestTipsAction, saveSuggestedTipsAction, type AiPoint } from "@/app/actions/ai-suggestions";
 
 type Tip = {
   id: string;
   name: string;
   description: string | null;
-  url: string | null;
+  cityName: string | null;
+  neighborhoodName: string | null;
   cost: string | null;
   categories: { id: string; name: string }[];
 };
@@ -267,9 +269,6 @@ export function ActivityTipsCard({
                 <Field label="Descrição">
                   <textarea name="description" rows={2} className={inputCls} />
                 </Field>
-                <Field label="Link (URL)">
-                  <input name="url" type="text" placeholder="https://" className={inputCls} />
-                </Field>
                 <DialogFooter>
                   <button type="button" onClick={() => setOpen(false)} className={btnGhost}>
                     Cancelar
@@ -301,13 +300,14 @@ export function ActivityTipsCard({
                 {p.categories.length > 0 && (
                   <span className="text-[10px] uppercase text-brand-600">{p.categories.map((c) => c.name).join(", ")}:</span>
                 )}
-                {p.url ? (
-                  <a href={p.url} target="_blank" rel="noreferrer" className="truncate hover:underline">
-                    {p.name}
-                  </a>
-                ) : (
-                  <span className="truncate">{p.name}</span>
-                )}
+                <a
+                  href={googleMapsSearchUrl([p.name, p.neighborhoodName, p.cityName])}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="truncate hover:underline"
+                >
+                  {p.name}
+                </a>
                 {p.cost && <span className="text-[10px] text-brand-600">{TIP_COST_LABEL[p.cost as keyof typeof TIP_COST_LABEL]}</span>}
                 <form action={unlinkAction.bind(null, p.id)}>
                   <button aria-label={`Remover ${p.name}`} className="flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-brand-700 hover:bg-brand-200 hover:text-rose-700">

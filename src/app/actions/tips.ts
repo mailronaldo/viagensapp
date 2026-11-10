@@ -20,11 +20,6 @@ function bustCache(url: string) {
   return `${url}${url.includes("?") ? "&" : "?"}_r=${Date.now()}`;
 }
 
-function normalizeUrl(raw: string | null): string | null {
-  if (!raw) return null;
-  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-}
-
 function parseCost(raw: string | null) {
   return raw && TIP_COSTS.includes(raw) ? (raw as "BAIXO" | "MEDIO" | "ALTO" | "GRATIS") : null;
 }
@@ -55,7 +50,6 @@ async function parseTip(clientId: string, formData: FormData, back: string) {
     neighborhoodId,
     categoryIds,
     cost: parseCost(str(formData, "cost")),
-    url: normalizeUrl(str(formData, "url")),
   };
 }
 
@@ -160,7 +154,6 @@ export async function createAndLinkTipAction(tripId: string, itemId: string, for
         cityId: item.cityId!,
         neighborhoodId: item.neighborhoodId!,
         cost: parseCost(str(formData, "cost")),
-        url: normalizeUrl(str(formData, "url")),
       })
       .returning({ id: t.tips.id });
     if (categoryIds.length > 0) {

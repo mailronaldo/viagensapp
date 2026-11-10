@@ -1,0 +1,1 @@
+ALTER TABLE "tips" DROP COLUMN "url";

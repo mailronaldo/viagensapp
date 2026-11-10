@@ -10,7 +10,6 @@ import { formatDate } from "@/lib/format";
 export type AiPoint = {
   name: string;
   description: string | null;
-  url: string | null;
   /** Nomes das categorias (não os ids) — resolvidos pros ids do catálogo só ao salvar. */
   categories: string[];
 };
@@ -77,7 +76,6 @@ function parsePoints(data: unknown, categoryNames: string[]): AiPoint[] {
     out.push({
       name,
       description: typeof r.description === "string" && r.description.trim() ? r.description.trim() : null,
-      url: typeof r.url === "string" && /^https?:\/\//i.test(r.url) ? r.url : null,
       categories,
     });
   }
@@ -109,7 +107,7 @@ export async function suggestTipsAction(
     const prompt = `Você ajuda viajantes a planejar roteiros. A atividade é "${ctx.title}" (${ctx.typeName}), no dia ${ctx.date}, em ${placeDescription(ctx)}.
 Busque na web e sugira de 5 a 8 pontos de interesse reais e próximos (monumentos, ruas, praças, mirantes, lugares bons pra foto) relevantes pra essa atividade.
 Responda em português, só com um array JSON, sem nenhum texto antes ou depois, no formato:
-[{"name": "...", "description": "uma frase curta explicando por que vale a pena", "url": "link oficial ou de informação, só se tiver certeza que existe, senão null", "categories": ["uma ou mais destas, as que fizerem sentido: ${categoryNames.join(", ")}"]}]
+[{"name": "...", "description": "uma frase curta explicando por que vale a pena", "categories": ["uma ou mais destas, as que fizerem sentido: ${categoryNames.join(", ")}"]}]
 Não invente lugares nem links.`;
 
     const result = await askAiForJsonArray(prompt);
@@ -124,7 +122,7 @@ Não invente lugares nem links.`;
 O viajante quer dicas sobre: "${trimmedContext}".
 Busque na web e sugira de 5 a 8 dicas reais e específicas (nomes de lugares, eventos ou recomendações), relevantes pro que ele descreveu.
 Responda em português, só com um array JSON, sem nenhum texto antes ou depois, no formato:
-[{"name": "...", "description": "uma frase curta explicando a dica", "url": "link oficial ou de informação, só se tiver certeza que existe, senão null", "categories": ["uma ou mais destas, as que fizerem sentido: ${categoryNames.join(", ")}"]}]
+[{"name": "...", "description": "uma frase curta explicando a dica", "categories": ["uma ou mais destas, as que fizerem sentido: ${categoryNames.join(", ")}"]}]
 Um lugar pode se encaixar em mais de uma categoria (ex. um parque com food trucks pode ser Atrações e Comida ao mesmo tempo) — liste todas que se aplicarem.
 Não invente lugares nem links.`;
 
@@ -164,7 +162,6 @@ export async function saveSuggestedTipsAction(
           clientId: trip.ownerId,
           name: item.name,
           description: item.description,
-          url: item.url,
           cityId,
           neighborhoodId,
         })

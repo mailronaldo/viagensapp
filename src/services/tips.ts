@@ -14,7 +14,6 @@ function tipRow() {
     id: t.tips.id,
     name: t.tips.name,
     description: t.tips.description,
-    url: t.tips.url,
     cost: t.tips.cost,
     cityId: t.tips.cityId,
     cityName: t.cities.name,
