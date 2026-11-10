@@ -443,9 +443,11 @@ type LegValue = {
   originAt: string | null;
   originLocation: string | null;
   originCityId: string | null;
+  originNeighborhoodId: string | null;
   destinationAt: string | null;
   destinationLocation: string | null;
   destinationCityId: string | null;
+  destinationNeighborhoodId: string | null;
 };
 
 /**
@@ -458,6 +460,7 @@ export function LegHalfFields({
   kind,
   namePrefix,
   cities,
+  neighborhoods,
   leg,
   defaultDateTime,
 }: {
@@ -465,12 +468,14 @@ export function LegHalfFields({
   kind: "origin" | "destination";
   namePrefix: string;
   cities: { id: string; name: string }[];
+  neighborhoods: { id: string; name: string; cityId: string; cityName: string }[];
   leg?: LegValue | null;
   defaultDateTime?: string;
 }) {
   const at = kind === "origin" ? leg?.originAt : leg?.destinationAt;
   const loc = kind === "origin" ? leg?.originLocation : leg?.destinationLocation;
   const cityId = kind === "origin" ? leg?.originCityId : leg?.destinationCityId;
+  const neighborhoodId = kind === "origin" ? leg?.originNeighborhoodId : leg?.destinationNeighborhoodId;
   return (
     <fieldset className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:col-span-6 sm:grid-cols-6">
       <legend className="px-1 text-xs font-medium text-slate-600">{legLabel}</legend>
@@ -490,6 +495,9 @@ export function LegHalfFields({
           ))}
         </select>
       </Field>
+      <Field label="Bairro/Região" className="sm:col-span-2">
+        <NeighborhoodSelect neighborhoods={neighborhoods} name={`${namePrefix}NeighborhoodId`} defaultValue={neighborhoodId ?? ""} />
+      </Field>
     </fieldset>
   );
 }
@@ -497,17 +505,19 @@ export function LegHalfFields({
 /** Origem + destino de um trecho completo — usado no painel de Trechos (múltiplos trechos). */
 export function LegFields({
   cities,
+  neighborhoods,
   leg,
   defaultDateTime,
 }: {
   cities: { id: string; name: string }[];
+  neighborhoods: { id: string; name: string; cityId: string; cityName: string }[];
   leg?: LegValue | null;
   defaultDateTime?: string;
 }) {
   return (
     <>
-      <LegHalfFields legLabel="Origem" kind="origin" namePrefix="origin" cities={cities} leg={leg} defaultDateTime={defaultDateTime} />
-      <LegHalfFields legLabel="Destino" kind="destination" namePrefix="destination" cities={cities} leg={leg} />
+      <LegHalfFields legLabel="Origem" kind="origin" namePrefix="origin" cities={cities} neighborhoods={neighborhoods} leg={leg} defaultDateTime={defaultDateTime} />
+      <LegHalfFields legLabel="Destino" kind="destination" namePrefix="destination" cities={cities} neighborhoods={neighborhoods} leg={leg} />
     </>
   );
 }
@@ -515,6 +525,7 @@ export function LegFields({
 export function BookingFields({
   cities,
   types,
+  neighborhoods,
   booking,
   legs,
   defaultDate,
@@ -522,6 +533,7 @@ export function BookingFields({
 }: {
   cities: { id: string; name: string }[];
   types: { id: string; name: string }[];
+  neighborhoods: { id: string; name: string; cityId: string; cityName: string }[];
   booking?: Booking;
   /** Trechos já cadastrados (modo edição): legs[0] = ida, legs[1] = volta. */
   legs?: LegValue[];
@@ -555,16 +567,16 @@ export function BookingFields({
         initialTripType={booking?.tripType}
         oneWay={
           <>
-            <LegHalfFields legLabel="Origem" kind="origin" namePrefix="origin" cities={cities} leg={outbound} defaultDateTime={defaultDateTime} />
-            <LegHalfFields legLabel="Destino" kind="destination" namePrefix="destination" cities={cities} leg={outbound} />
+            <LegHalfFields legLabel="Origem" kind="origin" namePrefix="origin" cities={cities} neighborhoods={neighborhoods} leg={outbound} defaultDateTime={defaultDateTime} />
+            <LegHalfFields legLabel="Destino" kind="destination" namePrefix="destination" cities={cities} neighborhoods={neighborhoods} leg={outbound} />
           </>
         }
         roundTrip={
           <>
-            <LegHalfFields legLabel="Origem (ida)" kind="origin" namePrefix="origin" cities={cities} leg={outbound} defaultDateTime={defaultDateTime} />
-            <LegHalfFields legLabel="Destino (ida)" kind="destination" namePrefix="destination" cities={cities} leg={outbound} />
-            <LegHalfFields legLabel="Origem (volta)" kind="origin" namePrefix="returnOrigin" cities={cities} leg={inbound} />
-            <LegHalfFields legLabel="Destino (volta)" kind="destination" namePrefix="returnDestination" cities={cities} leg={inbound} />
+            <LegHalfFields legLabel="Origem (ida)" kind="origin" namePrefix="origin" cities={cities} neighborhoods={neighborhoods} leg={outbound} defaultDateTime={defaultDateTime} />
+            <LegHalfFields legLabel="Destino (ida)" kind="destination" namePrefix="destination" cities={cities} neighborhoods={neighborhoods} leg={outbound} />
+            <LegHalfFields legLabel="Origem (volta)" kind="origin" namePrefix="returnOrigin" cities={cities} neighborhoods={neighborhoods} leg={inbound} />
+            <LegHalfFields legLabel="Destino (volta)" kind="destination" namePrefix="returnDestination" cities={cities} neighborhoods={neighborhoods} leg={inbound} />
           </>
         }
         multiLeg={
@@ -605,10 +617,12 @@ export function BookingFields({
 export function QuickBookingFields({
   cities,
   types,
+  neighborhoods,
   defaultDate,
 }: {
   cities: { id: string; name: string }[];
   types: { id: string; name: string }[];
+  neighborhoods: { id: string; name: string; cityId: string; cityName: string }[];
   defaultDate?: string;
 }) {
   return (
@@ -632,8 +646,8 @@ export function QuickBookingFields({
       <Field label="Número do pedido" className="sm:col-span-3">
         <input name="orderNumber" className={inputCls} />
       </Field>
-      <LegHalfFields legLabel="Origem" kind="origin" namePrefix="origin" cities={cities} defaultDateTime={defaultDate ? `${defaultDate}T09:00` : undefined} />
-      <LegHalfFields legLabel="Destino" kind="destination" namePrefix="destination" cities={cities} />
+      <LegHalfFields legLabel="Origem" kind="origin" namePrefix="origin" cities={cities} neighborhoods={neighborhoods} defaultDateTime={defaultDate ? `${defaultDate}T09:00` : undefined} />
+      <LegHalfFields legLabel="Destino" kind="destination" namePrefix="destination" cities={cities} neighborhoods={neighborhoods} />
       <fieldset
         id="reserva"
         className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:col-span-6 sm:grid-cols-6"

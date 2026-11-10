@@ -5,7 +5,7 @@ import { ArrowLeft, Pencil } from "lucide-react";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { formatDateTime, formatMoney } from "@/lib/format";
-import { getTripCities } from "@/services/cities";
+import { getTripCities, listNeighborhoodsForCities } from "@/services/cities";
 import { listBookingTypes } from "@/services/catalogs";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import { listTripTravelerOptions } from "@/services/trip-travelers";
@@ -53,6 +53,7 @@ export default async function EditBookingPage({
     db.select({ name: t.users.name }).from(t.users).where(eq(t.users.id, trip.ownerId)).limit(1),
   ]);
   const attachment = doc ? { name: doc.fileName, href: `/api/files/${trip.id}/${booking.documentId}` } : null;
+  const neighborhoods = await listNeighborhoodsForCities(cities.map((c) => c.id));
   const legs = await listBookingLegs(bookingId);
   const vouchers = await listBookingVouchers(bookingId, owner?.name ?? "Dono");
   const voucherDocIds = vouchers.map((v) => v.voucherDocumentId).filter((docId): docId is string => !!docId);
@@ -98,7 +99,7 @@ export default async function EditBookingPage({
         <ErrorBanner message={error} />
         <form action={updateBookingAction.bind(null, trip.id, booking.id)} className="grid gap-3 sm:grid-cols-6">
           <input type="hidden" name="day" value={day ?? ""} />
-          <BookingFields cities={cities} types={types} booking={booking} legs={legs} attachment={attachment} />
+          <BookingFields cities={cities} types={types} neighborhoods={neighborhoods} booking={booking} legs={legs} attachment={attachment} />
           <div className="flex gap-2 sm:col-span-6">
             <button className={btnPrimary}>Salvar alterações</button>
             <Link href={cancelHref} className={btnGhost}>
@@ -139,7 +140,7 @@ export default async function EditBookingPage({
                       </summary>
                       <div className="border-t border-slate-100 p-3">
                         <form action={updateLegAction.bind(null, trip.id, booking.id, leg.id)} className="grid gap-3 sm:grid-cols-6">
-                          <LegFields cities={cities} leg={leg} />
+                          <LegFields cities={cities} neighborhoods={neighborhoods} leg={leg} />
                           <div className="sm:col-span-6">
                             <button className={btnPrimary}>Salvar trecho</button>
                           </div>
@@ -151,7 +152,7 @@ export default async function EditBookingPage({
               </ul>
             )}
             <form action={addLegAction.bind(null, trip.id, booking.id)} className="grid gap-3 sm:grid-cols-6">
-              <LegFields cities={cities} />
+              <LegFields cities={cities} neighborhoods={neighborhoods} />
               <div className="sm:col-span-6">
                 <button className={btnPrimary}>Adicionar trecho</button>
               </div>

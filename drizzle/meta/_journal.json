@@ -225,6 +225,13 @@
       "when": 1794330029644,
       "tag": "0031_lucky_la_nuit",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1794332307867,
+      "tag": "0032_opposite_angel",
+      "breakpoints": true
     }
   ]
 }

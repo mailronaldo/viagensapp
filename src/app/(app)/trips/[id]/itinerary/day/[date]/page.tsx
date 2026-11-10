@@ -273,6 +273,7 @@ export default async function ItineraryDayPage({
               <QuickBookingFields
                 cities={cities}
                 types={bookingTypes.filter((ty) => !LEGACY_BOOKING_TYPE_IDS.includes(ty.id))}
+                neighborhoods={neighborhoods}
                 defaultDate={date}
               />
               <div className="sm:col-span-6">

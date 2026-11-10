@@ -17,6 +17,7 @@ function parseTripType(formData: FormData) {
 async function parseLeg(formData: FormData, tripId: string, prefix: string, back: string) {
   const at = str(formData, `${prefix}At`);
   const cityId = str(formData, `${prefix}CityId`);
+  const neighborhoodId = str(formData, `${prefix}NeighborhoodId`);
   if (at && !LOCAL_DATETIME.test(at)) fail(back, "Data/hora inválida.");
   if (cityId) {
     const [city] = await db
@@ -26,10 +27,20 @@ async function parseLeg(formData: FormData, tripId: string, prefix: string, back
       .limit(1);
     if (!city) fail(back, "Cidade inválida.");
   }
+  if (neighborhoodId) {
+    const [n] = await db
+      .select({ id: t.cityNeighborhoods.id })
+      .from(t.cityNeighborhoods)
+      .innerJoin(t.tripCities, eq(t.tripCities.cityId, t.cityNeighborhoods.cityId))
+      .where(and(eq(t.cityNeighborhoods.id, neighborhoodId), eq(t.tripCities.tripId, tripId)))
+      .limit(1);
+    if (!n) fail(back, "Bairro/região inválido.");
+  }
   return {
     at: toWallClock(at),
     location: str(formData, `${prefix}Location`),
     cityId,
+    neighborhoodId,
   };
 }
 
@@ -50,9 +61,11 @@ async function parseLegPair(
     originAt: origin.at,
     originLocation: origin.location,
     originCityId: origin.cityId,
+    originNeighborhoodId: origin.neighborhoodId,
     destinationAt: destination.at,
     destinationLocation: destination.location,
     destinationCityId: destination.cityId,
+    destinationNeighborhoodId: destination.neighborhoodId,
   };
 }
 

@@ -3,7 +3,7 @@ import { Pencil } from "lucide-react";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { formatDateTime, formatMoney } from "@/lib/format";
-import { getTripCities } from "@/services/cities";
+import { getTripCities, listNeighborhoodsForCities } from "@/services/cities";
 import { LEGACY_BOOKING_TYPE_IDS, listBookingTypes, toNameMap } from "@/services/catalogs";
 import { listVouchersForBookings } from "@/services/transport-vouchers";
 import { listLegsForBookings } from "@/services/booking-legs";
@@ -51,6 +51,7 @@ export default async function BookingsPage({
       .orderBy(asc(t.bookings.title)),
     db.select({ name: t.users.name }).from(t.users).where(eq(t.users.id, trip.ownerId)).limit(1),
   ]);
+  const neighborhoods = await listNeighborhoodsForCities(cities.map((c) => c.id));
   const typeName = toNameMap(bookingTypes);
   const creatableTypes = bookingTypes.filter((ty) => !LEGACY_BOOKING_TYPE_IDS.includes(ty.id));
   const vouchersByBooking = await listVouchersForBookings(rows.map((r) => r.booking.id), owner?.name ?? "Dono");
@@ -73,7 +74,7 @@ export default async function BookingsPage({
             action={addBookingAction.bind(null, trip.id)}
             className="grid gap-3 sm:grid-cols-6"
           >
-            <BookingFields cities={cities} types={creatableTypes} />
+            <BookingFields cities={cities} types={creatableTypes} neighborhoods={neighborhoods} />
             <div className="sm:col-span-6">
               <button className={btnPrimary}>Salvar transporte</button>
             </div>

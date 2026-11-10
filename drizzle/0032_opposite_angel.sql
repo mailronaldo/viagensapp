@@ -1,0 +1,4 @@
+ALTER TABLE "booking_legs" ADD COLUMN "origin_neighborhood_id" text;--> statement-breakpoint
+ALTER TABLE "booking_legs" ADD COLUMN "destination_neighborhood_id" text;--> statement-breakpoint
+ALTER TABLE "booking_legs" ADD CONSTRAINT "booking_legs_origin_neighborhood_id_city_neighborhoods_id_fk" FOREIGN KEY ("origin_neighborhood_id") REFERENCES "public"."city_neighborhoods"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "booking_legs" ADD CONSTRAINT "booking_legs_destination_neighborhood_id_city_neighborhoods_id_fk" FOREIGN KEY ("destination_neighborhood_id") REFERENCES "public"."city_neighborhoods"("id") ON DELETE set null ON UPDATE no action;
