@@ -5,8 +5,8 @@ import { and, eq, sql } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireClient } from "@/lib/auth";
 import { requireTripAccess } from "@/lib/access";
-import { fail, str } from "@/lib/form";
-import { parseTipCategoryIds } from "@/services/catalogs";
+import { fail, file, str } from "@/lib/form";
+import { listTipCategories, parseTipCategoryIds } from "@/services/catalogs";
 
 /**
  * O App Router do Next, numa navegação disparada por Server Action que
@@ -163,4 +163,88 @@ export async function unlinkTipAction(tripId: string, itemId: string, tipId: str
     .delete(t.itineraryItemTips)
     .where(and(eq(t.itineraryItemTips.itemId, itemId), eq(t.itineraryItemTips.tipId, tipId)));
   redirect(bustCache(itemEditPath(tripId, itemId)));
+}
+
+// ---------- Importação em lote (txt/csv) ----------
+
+export type TipImportSummary = {
+  created: number;
+  duplicates: number;
+  neighborhoodsCreated: string[];
+  categoriesNotFound: string[];
+  lineErrors: string[];
+};
+
+/**
+ * Formato: `nome;bairro/região;descrição;categoria1,categoria2,...` (colunas
+ * extras, como o `;;` do fim, são ignoradas). Bairro é criado na cidade
+ * escolhida se não existir; categoria NÃO é criada (catálogo é do MASTER,
+ * `src/app/actions/catalogs.ts:addTipCategoryAction`) — casa por substring no
+ * catálogo existente e lista a que não achou.
+ */
+export async function importTipsAction(formData: FormData) {
+  const user = await requireClient();
+  const back = "/tools/tip-importer";
+
+  const cityId = str(formData, "cityId");
+  if (!cityId) fail(back, "Selecione a cidade.");
+  const [city] = await db.select({ id: t.cities.id }).from(t.cities).where(and(eq(t.cities.id, cityId), eq(t.cities.clientId, user.id))).limit(1);
+  if (!city) fail(back, "Cidade inválida.");
+
+  const uploaded = file(formData, "file");
+  if (!uploaded) fail(back, "Selecione um arquivo .txt ou .csv.");
+
+  const text = await uploaded.text();
+  const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
+  if (lines.length === 0) fail(back, "O arquivo está vazio.");
+
+  const neighborhoods = await db.select().from(t.cityNeighborhoods).where(eq(t.cityNeighborhoods.cityId, cityId));
+  const categories = await listTipCategories();
+  const existingTips = await db.select({ name: t.tips.name, neighborhoodId: t.tips.neighborhoodId }).from(t.tips).where(and(eq(t.tips.clientId, user.id), eq(t.tips.cityId, cityId)));
+
+  const summary: TipImportSummary = { created: 0, duplicates: 0, neighborhoodsCreated: [], categoriesNotFound: [], lineErrors: [] };
+  const categoriesNotFound = new Set<string>();
+
+  for (const [index, line] of lines.entries()) {
+    const [nameRaw, neighborhoodRaw, descriptionRaw, categoriesRaw] = line.split(";");
+    const name = nameRaw?.trim();
+    const neighborhoodName = neighborhoodRaw?.trim();
+    if (!name || !neighborhoodName) {
+      summary.lineErrors.push(`Linha ${index + 1}: faltou nome ou bairro/região.`);
+      continue;
+    }
+
+    let neighborhood = neighborhoods.find((n) => n.name.toLowerCase() === neighborhoodName.toLowerCase());
+    if (!neighborhood) {
+      const [created] = await db.insert(t.cityNeighborhoods).values({ cityId, name: neighborhoodName }).returning();
+      neighborhood = created;
+      neighborhoods.push(created);
+      summary.neighborhoodsCreated.push(neighborhoodName);
+    }
+
+    const isDuplicate = existingTips.some((e) => e.neighborhoodId === neighborhood!.id && e.name.toLowerCase() === name.toLowerCase());
+    if (isDuplicate) {
+      summary.duplicates++;
+      continue;
+    }
+
+    const categoryNames = (categoriesRaw ?? "").split(",").map((c) => c.trim()).filter(Boolean);
+    const categoryIds: string[] = [];
+    for (const wanted of categoryNames) {
+      const match = categories.find((c) => c.name.toLowerCase().includes(wanted.toLowerCase()) || wanted.toLowerCase().includes(c.name.toLowerCase()));
+      if (match) categoryIds.push(match.id);
+      else categoriesNotFound.add(wanted);
+    }
+
+    const [created] = await db
+      .insert(t.tips)
+      .values({ clientId: user.id, name, description: descriptionRaw?.trim() || null, cityId, neighborhoodId: neighborhood.id })
+      .returning({ id: t.tips.id });
+    if (categoryIds.length > 0) await db.insert(t.tipCategoryLinks).values(categoryIds.map((categoryId) => ({ tipId: created.id, categoryId })));
+    existingTips.push({ name, neighborhoodId: neighborhood.id });
+    summary.created++;
+  }
+
+  summary.categoriesNotFound = [...categoriesNotFound];
+  redirect(bustCache(`${back}?cityId=${cityId}&result=${encodeURIComponent(JSON.stringify(summary))}`));
 }

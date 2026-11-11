@@ -1,4 +1,4 @@
-import { Briefcase, Coins, Copy, FolderCog, HandCoins, LifeBuoy, Lightbulb, MapPin, Settings2, Users, Wrench } from "lucide-react";
+import { Briefcase, Coins, Copy, FolderCog, HandCoins, LifeBuoy, Lightbulb, MapPin, Settings2, Upload, Users, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 // Ícones do lucide-react são componentes React: não dá pra passar por props de
@@ -39,7 +39,10 @@ const CLIENT_LINKS: NavItem[] = [
     kind: "group",
     label: "Ferramentas",
     icon: Wrench,
-    children: [{ href: "/tools/cloner", label: "Clonador", icon: Copy }],
+    children: [
+      { href: "/tools/cloner", label: "Clonador", icon: Copy },
+      { href: "/tools/tip-importer", label: "Importar dicas", icon: Upload },
+    ],
   },
   { kind: "link", href: "/financial", label: "Financeiro", icon: HandCoins },
   { kind: "link", href: "/support", label: "Suporte ao cliente", icon: LifeBuoy },
