@@ -3,8 +3,14 @@ import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireClient } from "@/lib/auth";
-import { deleteTravelerAction, setTravelerAccessActiveAction, updateTravelerAction } from "@/app/actions/travelers";
+import {
+  deleteTravelerAction,
+  setTravelerAccessActiveAction,
+  unlinkTelegramAction,
+  updateTravelerAction,
+} from "@/app/actions/travelers";
 import { TravelerAccessForm } from "@/components/TravelerAccess";
+import { TelegramLinkForm } from "@/components/TelegramLink";
 import { getLoginUrl } from "@/lib/origin";
 import { Card, ErrorBanner, Field, btnDanger, btnGhost, btnPrimary, inputCls } from "@/components/ui";
 
@@ -37,6 +43,12 @@ export default async function EditTravelerPage({
         .limit(1)
     : [];
   const loginUrl = await getLoginUrl();
+
+  const [telegramLink] = await db
+    .select({ id: t.telegramLinks.id })
+    .from(t.telegramLinks)
+    .where(eq(t.telegramLinks.travelerId, tr.id))
+    .limit(1);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -100,6 +112,22 @@ export default async function EditTravelerPage({
         {tr.userId && (
           <form action={setTravelerAccessActiveAction.bind(null, tr.id, !login?.active)} className="mt-3">
             <button className={btnGhost}>{login?.active ? "Desativar acesso" : "Reativar acesso"}</button>
+          </form>
+        )}
+      </Card>
+      <Card className="mt-6">
+        <h2 className="mb-1 font-medium">Agente no Telegram</h2>
+        <p className="mb-3 text-sm text-slate-600">
+          Com o vínculo, {tr.name.split(" ")[0]} conversa com o agente de viagens pelo Telegram durante a viagem
+          (agenda do dia, vouchers, etc.), sem precisar do painel web.
+        </p>
+        <p className="mb-3 text-sm">
+          Status: <strong className={telegramLink ? "text-emerald-700" : "text-slate-500"}>{telegramLink ? "vinculado" : "não vinculado"}</strong>
+        </p>
+        <TelegramLinkForm travelerId={tr.id} linked={!!telegramLink} />
+        {telegramLink && (
+          <form action={unlinkTelegramAction.bind(null, tr.id)} className="mt-3">
+            <button className={btnGhost}>Remover vínculo</button>
           </form>
         )}
       </Card>

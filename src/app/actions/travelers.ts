@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { randomBytes } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -10,6 +11,8 @@ import { requireTripAccess } from "@/lib/access";
 import { ISO_DATE, str } from "@/lib/form";
 import { generateTempPassword } from "@/lib/password";
 import type { CredentialsState } from "@/app/actions/agency";
+
+export type TelegramLinkState = { error?: string; link?: string };
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -298,4 +301,37 @@ export async function setTravelerAccessActiveFromTripAction(tripId: string, trav
       .where(and(eq(t.users.id, tr.userId), eq(t.users.role, "TRAVELER")));
   }
   redirect(`/trips/${tripId}/travelers/${travelerId}`);
+}
+
+// ---------- Vínculo com o agente no Telegram ----------
+
+const TELEGRAM_LINK_TTL_MS = 30 * 60 * 1000;
+
+/** Gera um link de convite de uso único pro viajante vincular o próprio chat do Telegram ao cadastro. */
+export async function generateTelegramLinkAction(
+  _prev: TelegramLinkState,
+  formData: FormData,
+): Promise<TelegramLinkState> {
+  const client = await requireClient();
+  const tr = await ownTraveler(client.id, String(formData.get("travelerId") ?? ""));
+  if (!tr) return { error: "Viajante não encontrado." };
+
+  const botUsername = process.env.TELEGRAM_BOT_USERNAME;
+  if (!botUsername) return { error: "O agente no Telegram ainda não foi configurado (falta TELEGRAM_BOT_USERNAME)." };
+
+  const token = randomBytes(24).toString("base64url");
+  await db.insert(t.telegramLinkTokens).values({
+    travelerId: tr.id,
+    token,
+    expiresAt: new Date(Date.now() + TELEGRAM_LINK_TTL_MS),
+  });
+
+  return { link: `https://t.me/${botUsername}?start=${token}` };
+}
+
+export async function unlinkTelegramAction(travelerId: string) {
+  const client = await requireClient();
+  const tr = await ownTraveler(client.id, travelerId);
+  if (tr) await db.delete(t.telegramLinks).where(eq(t.telegramLinks.travelerId, tr.id));
+  redirect(`/travelers/${travelerId}`);
 }

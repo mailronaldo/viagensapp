@@ -11,6 +11,7 @@ import {
   timestamp,
   uniqueIndex,
   index,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { createId } from "./id";
 
@@ -813,6 +814,40 @@ export const expenses = pgTable(
   },
   (t) => [index("expenses_trip_date_idx").on(t.tripId, t.date)],
 );
+
+// ---------- Agente via Telegram (viajante conversa com o sistema) ----------
+
+export const telegramLinks = pgTable(
+  "telegram_links",
+  {
+    id: id(),
+    travelerId: text("traveler_id")
+      .notNull()
+      .references(() => travelers.id, { onDelete: "cascade" }),
+    chatId: text("chat_id").notNull(),
+    // Viagem que o agente assume por padrão nesta conversa (resolvida
+    // automaticamente quando só há uma, ou escolhida pelo viajante).
+    activeTripId: text("active_trip_id").references(() => trips.id, { onDelete: "set null" }),
+    // Últimas trocas (role + texto), só pra dar continuidade a perguntas
+    // de seguimento — não é um histórico completo nem auditável.
+    history: jsonb("history").notNull().default([]),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("telegram_links_chat_unique").on(t.chatId), index("telegram_links_traveler_idx").on(t.travelerId)],
+);
+
+// Token de uso único pro viajante vincular o próprio chat do Telegram
+// (gerado pelo cliente na tela do viajante, consumido no /start do bot).
+export const telegramLinkTokens = pgTable("telegram_link_tokens", {
+  id: id(),
+  travelerId: text("traveler_id")
+    .notNull()
+    .references(() => travelers.id, { onDelete: "cascade" }),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: createdAt(),
+});
 
 export type User = typeof users.$inferSelect;
 export type TripDay = typeof tripDays.$inferSelect;

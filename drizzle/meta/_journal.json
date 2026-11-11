@@ -288,6 +288,13 @@
       "when": 1794355872756,
       "tag": "0040_brief_mandroid",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1794402019671,
+      "tag": "0041_adorable_martin_li",
+      "breakpoints": true
     }
   ]
 }
