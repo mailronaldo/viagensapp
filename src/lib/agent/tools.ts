@@ -4,7 +4,9 @@ import { db, t } from "@/db";
 import { getAgenda } from "@/services/agenda";
 import { getTripCities, listNeighborhoodsForCities } from "@/services/cities";
 import { listDocuments } from "@/services/documents";
-import { addExpense, getExpenseSummary } from "@/services/expenses";
+import { addExpense } from "@/services/expenses";
+import { listCostEntries, withConvertedAmounts, SOURCE_LABEL } from "@/services/cost-center";
+import { ensureTodayRates, listClientCurrencyCodes } from "@/services/currencies";
 import { listClientTips } from "@/services/tips";
 import { listExpenseCategories, listTipCategories, toNameMap } from "@/services/catalogs";
 import { travelerCanReadDocument } from "@/lib/traveler-access";
@@ -67,7 +69,8 @@ export const AGENT_TOOLS: AgentTool[] = [
   },
   {
     name: "get_expenses",
-    description: "Resumo dos gastos já lançados na viagem: total por categoria e por moeda.",
+    description:
+      "Resumo de TODOS os custos da viagem (igual à Central de Custos do app): despesas avulsas, transporte, hospedagem, chip, ingressos, passes, seguro e estimativas de atividade — total a pagar/pago e por categoria.",
     input_schema: { type: "object", properties: {} },
   },
   {
@@ -198,19 +201,39 @@ async function execGetVoucher(ctx: AgentContext, input: Record<string, unknown>)
   return `Documento "${doc.title}" enviado no chat.`;
 }
 
+/**
+ * Mesma fonte da Central de Custos (`src/app/(app)/trips/[id]/costs/page.tsx`): todas as
+ * origens de valor da viagem (despesa avulsa, transporte, hospedagem, chip, ingresso, passe,
+ * seguro, atividade), não só a tabela de despesas — senão o total nunca bate com o que o
+ * cliente vê no app.
+ */
 async function execGetExpenses(ctx: AgentContext): Promise<string> {
-  const summary = await getExpenseSummary(ctx.trip.id, ctx.trip.baseCurrency);
-  if (summary.byCurrency.length === 0) return "Nenhuma despesa lançada ainda nessa viagem.";
+  const entries = await listCostEntries(ctx.trip.id);
+  if (entries.length === 0) return "Nenhum custo lançado ainda nessa viagem.";
 
-  const names = toNameMap(await listExpenseCategories());
-  const lines = [
-    `Total (em ${summary.baseCurrency}): ${summary.totalBase.toFixed(2)}`,
-    ...summary.byCategory.map((c) => `- ${names[c.category] ?? c.category}: ${c.totalBase.toFixed(2)} ${summary.baseCurrency}`),
-  ];
-  if (summary.byCurrency.length > 1) {
-    lines.push(`Por moeda original: ${summary.byCurrency.map((c) => `${c.total.toFixed(2)} ${c.currency}`).join(", ")}`);
+  const currencies = await listClientCurrencyCodes(ctx.trip.ownerId);
+  await ensureTodayRates(currencies);
+  const converted = await withConvertedAmounts(entries, ctx.trip.baseCurrency);
+
+  const aPagar = converted.filter((e) => e.status === "A_PAGAR").reduce((sum, e) => sum + (e.amountBase ?? 0), 0);
+  const pago = converted.filter((e) => e.status === "PAGO").reduce((sum, e) => sum + (e.amountBase ?? 0), 0);
+  const unconvertedCount = converted.filter((e) => e.amount && e.amountBase === null).length;
+
+  const categoryNames = toNameMap(await listExpenseCategories());
+  const byCategory = new Map<string, number>();
+  for (const e of converted) {
+    if ((e.status !== "A_PAGAR" && e.status !== "PAGO") || e.amountBase === null) continue;
+    const key = e.category ? (categoryNames[e.category] ?? e.category) : SOURCE_LABEL[e.source];
+    byCategory.set(key, (byCategory.get(key) ?? 0) + e.amountBase);
   }
-  if (summary.unconvertedCount > 0) lines.push(`${summary.unconvertedCount} despesa(s) em outra moeda sem cotação, fora do total acima.`);
+
+  const lines = [
+    `Total (${ctx.trip.baseCurrency}): ${(aPagar + pago).toFixed(2)}`,
+    `- A pagar: ${aPagar.toFixed(2)}`,
+    `- Pago: ${pago.toFixed(2)}`,
+    ...[...byCategory.entries()].sort((a, b) => b[1] - a[1]).map(([name, total]) => `- ${name}: ${total.toFixed(2)} ${ctx.trip.baseCurrency}`),
+  ];
+  if (unconvertedCount > 0) lines.push(`${unconvertedCount} lançamento(s) sem cotação, fora do total acima.`);
   return lines.join("\n");
 }
 
