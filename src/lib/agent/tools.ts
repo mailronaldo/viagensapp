@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, ilike, or } from "drizzle-orm";
+import { and, eq, ilike, or, sql } from "drizzle-orm";
 import { db, t } from "@/db";
 import { getAgenda } from "@/services/agenda";
 import { getTripCities, listNeighborhoodsForCities } from "@/services/cities";
@@ -8,6 +8,8 @@ import { addExpense } from "@/services/expenses";
 import { listCostEntries, withConvertedAmounts, SOURCE_LABEL } from "@/services/cost-center";
 import { ensureTodayRates, listClientCurrencyCodes } from "@/services/currencies";
 import { listClientTips } from "@/services/tips";
+import { listTravelerTickets } from "@/services/tickets";
+import { listTravelerPasses } from "@/services/passes";
 import { listExpenseCategories, listTipCategories, toNameMap } from "@/services/catalogs";
 import { travelerCanReadDocument } from "@/lib/traveler-access";
 import { readStoredFile } from "@/lib/storage";
@@ -109,6 +111,27 @@ export const AGENT_TOOLS: AgentTool[] = [
         categories: { type: "array", items: { type: "string" }, description: "Nomes livres de categorias (ex.: comida, cultura). Opcional." },
       },
       required: ["name", "neighborhood"],
+    },
+  },
+  {
+    name: "get_tickets_and_passes",
+    description:
+      "Lista os ingressos de atividades e os passes (tipo Go City) do viajante/dono, com usos restantes dos passes. Pode filtrar por um texto livre (nome da atividade, provider ou nome do passe).",
+    input_schema: {
+      type: "object",
+      properties: { query: { type: "string", description: "Filtro livre. Opcional." } },
+    },
+  },
+  {
+    name: "link_tip_to_activity",
+    description: "Vincula uma dica já cadastrada (repositório de dicas) a uma atividade do roteiro.",
+    input_schema: {
+      type: "object",
+      properties: {
+        activity: { type: "string", description: "Nome (ou trecho do nome) da atividade do roteiro." },
+        tip: { type: "string", description: "Nome (ou trecho do nome) da dica já cadastrada." },
+      },
+      required: ["activity", "tip"],
     },
   },
 ];
@@ -319,6 +342,75 @@ async function execAddTip(ctx: AgentContext, input: Record<string, unknown>): Pr
   return `Dica "${name}" cadastrada em ${match.name} (${match.cityName}).`;
 }
 
+async function execGetTicketsAndPasses(ctx: AgentContext, input: Record<string, unknown>): Promise<string> {
+  const query = typeof input.query === "string" ? input.query.trim().toLowerCase() : "";
+
+  const tickets = await listTravelerTickets(ctx.trip.id, ctx.travelerId);
+  const passes = await listTravelerPasses(ctx.trip.id, ctx.travelerId);
+
+  const ticketLines = tickets
+    .filter((r) => !query || r.itemTitle.toLowerCase().includes(query) || (r.ticket.provider ?? "").toLowerCase().includes(query))
+    .map((r) => {
+      const parts = [`${formatDate(r.itemDate)} — ${r.itemTitle}`];
+      if (r.ticket.provider) parts.push(r.ticket.provider);
+      parts.push(r.ticket.status);
+      if (r.ticket.price) parts.push(`${r.ticket.price} ${r.ticket.currency ?? ctx.trip.baseCurrency}`);
+      return `- ${parts.join(" — ")}`;
+    });
+
+  const passLines = passes
+    .filter((p) => !query || p.name.toLowerCase().includes(query))
+    .map((p) => {
+      const remaining = p.maxUses === null ? "ilimitado" : `${Math.max(p.maxUses - p.usedCount, 0)} de ${p.maxUses} usos restantes`;
+      return `- ${p.name}${p.provider ? ` (${p.provider})` : ""} — ${remaining}`;
+    });
+
+  if (ticketLines.length === 0 && passLines.length === 0) return "Nenhum ingresso ou passe encontrado.";
+
+  const lines: string[] = [];
+  if (ticketLines.length > 0) lines.push("Ingressos:", ...ticketLines);
+  if (passLines.length > 0) lines.push(passLines.length > 0 && ticketLines.length > 0 ? "" : "", "Passes:", ...passLines);
+  return lines.join("\n");
+}
+
+type ActivityCandidate = { id: string; title: string; date: string };
+
+async function findActivityCandidates(tripId: string, query: string): Promise<ActivityCandidate[]> {
+  return db
+    .select({ id: t.itineraryItems.id, title: t.itineraryItems.title, date: t.itineraryItems.date })
+    .from(t.itineraryItems)
+    .where(and(eq(t.itineraryItems.tripId, tripId), ilike(t.itineraryItems.title, `%${query}%`)));
+}
+
+async function execLinkTipToActivity(ctx: AgentContext, input: Record<string, unknown>): Promise<string> {
+  if (!(await canWrite(ctx))) return "Você não tem permissão para editar atividades nesta viagem.";
+
+  const activityQuery = typeof input.activity === "string" ? input.activity.trim() : "";
+  const tipQuery = typeof input.tip === "string" ? input.tip.trim() : "";
+  if (!activityQuery || !tipQuery) return "Preciso do nome da atividade e do nome da dica.";
+
+  const activities = await findActivityCandidates(ctx.trip.id, activityQuery);
+  if (activities.length === 0) return `Não encontrei nenhuma atividade com "${activityQuery}" no roteiro.`;
+  if (activities.length > 1) {
+    return `Encontrei mais de uma atividade para "${activityQuery}":\n${activities.map((a, i) => `${i + 1}) ${formatDate(a.date)} — ${a.title}`).join("\n")}\nQual delas?`;
+  }
+
+  const tips = (await listClientTips(ctx.trip.ownerId)).filter((tip) => tip.name.toLowerCase().includes(tipQuery.toLowerCase()));
+  if (tips.length === 0) return `Não encontrei nenhuma dica cadastrada com "${tipQuery}".`;
+  if (tips.length > 1) {
+    return `Encontrei mais de uma dica para "${tipQuery}":\n${tips.map((tp, i) => `${i + 1}) ${tp.name}`).join("\n")}\nQual delas?`;
+  }
+
+  const activity = activities[0];
+  const tip = tips[0];
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)`.mapWith(Number) })
+    .from(t.itineraryItemTips)
+    .where(eq(t.itineraryItemTips.itemId, activity.id));
+  await db.insert(t.itineraryItemTips).values({ itemId: activity.id, tipId: tip.id, position: count }).onConflictDoNothing();
+  return `Dica "${tip.name}" vinculada à atividade "${activity.title}".`;
+}
+
 export function buildToolExecutor(ctx: AgentContext) {
   return async function execute(name: string, input: Record<string, unknown>): Promise<string> {
     try {
@@ -337,6 +429,10 @@ export function buildToolExecutor(ctx: AgentContext) {
           return await execGetTips(ctx, input);
         case "add_tip":
           return await execAddTip(ctx, input);
+        case "get_tickets_and_passes":
+          return await execGetTicketsAndPasses(ctx, input);
+        case "link_tip_to_activity":
+          return await execLinkTipToActivity(ctx, input);
         default:
           return `Tool desconhecida: ${name}.`;
       }

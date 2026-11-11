@@ -24,6 +24,15 @@ export async function sendMessage(chatId: string, text: string): Promise<void> {
   }
 }
 
+/** Mostra "digitando..." no chat — dura ~5s no Telegram, então precisa ser repetido durante respostas longas. */
+export async function sendChatAction(chatId: string, action: "typing"): Promise<void> {
+  await fetch(apiUrl("sendChatAction"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, action }),
+  }).catch(() => {});
+}
+
 /** Envia um arquivo (ex.: voucher) direto no chat — sem precisar expor uma URL pública. */
 export async function sendDocument(chatId: string, buffer: Buffer, filename: string, mimeType: string): Promise<void> {
   const form = new FormData();

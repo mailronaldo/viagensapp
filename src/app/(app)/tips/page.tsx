@@ -44,14 +44,14 @@ function TipFormFields({
 export default async function TipsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; cityId?: string; neighborhoodId?: string; categoryId?: string }>;
+  searchParams: Promise<{ error?: string; cityId?: string; neighborhoodId?: string; categoryId?: string; q?: string }>;
 }) {
   const user = await requireClient();
-  const { error, cityId, neighborhoodId, categoryId } = await searchParams;
+  const { error, cityId, neighborhoodId, categoryId, q } = await searchParams;
 
   const [cities, categories] = await Promise.all([getClientCities(user.id), listTipCategories()]);
   const neighborhoods = await listNeighborhoodsForCities(cities.map((c) => c.id));
-  const tips = await listClientTips(user.id, { cityId, neighborhoodId, categoryId });
+  const tips = await listClientTips(user.id, { cityId, neighborhoodId, categoryId, nameQuery: q });
 
   return (
     <>
@@ -62,7 +62,10 @@ export default async function TipsPage({
       <ErrorBanner message={error} />
 
       <Card className="mb-4">
-        <form method="get" className="grid gap-3 sm:grid-cols-3">
+        <form method="get" className="grid gap-3 sm:grid-cols-4">
+          <Field label="Buscar por nome" className="sm:col-span-1">
+            <input type="text" name="q" defaultValue={q ?? ""} placeholder="Nome do lugar" className={inputCls} />
+          </Field>
           <Field label="Cidade" className="sm:col-span-1">
             <select name="cityId" defaultValue={cityId ?? ""} className={inputCls}>
               <option value="">Todas</option>
@@ -93,7 +96,7 @@ export default async function TipsPage({
               ))}
             </select>
           </Field>
-          <div className="sm:col-span-3">
+          <div className="sm:col-span-4">
             <button className={btnPrimary}>Filtrar</button>
           </div>
         </form>
@@ -111,21 +114,21 @@ export default async function TipsPage({
       {tips.length === 0 ? (
         <EmptyState>Nenhuma dica encontrada.</EmptyState>
       ) : (
-        <ul className="space-y-2">
+        <ul className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
           {tips.map((tip) => (
-            <li key={tip.id} className="rounded-lg border border-slate-200">
+            <li key={tip.id} className="min-w-0 rounded-lg border border-slate-200">
               <details className="group">
-                <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 p-3 text-sm">
+                <summary className="flex cursor-pointer flex-wrap items-start justify-between gap-2 p-3 text-sm">
                   <div className="min-w-0">
                     <a
                       href={googleMapsSearchUrl([tip.name, tip.neighborhoodName, tip.cityName])}
                       target="_blank"
                       rel="noreferrer"
-                      className="font-medium hover:underline"
+                      className="block truncate font-medium hover:underline"
                     >
                       {tip.name}
                     </a>
-                    <p className="text-xs text-slate-500">
+                    <p className="truncate text-xs text-slate-500">
                       {[tip.cityName, tip.neighborhoodName].filter(Boolean).join(" · ") || "Sem cidade"}
                     </p>
                     <div className="mt-1 flex flex-wrap gap-1">

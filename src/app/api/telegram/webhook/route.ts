@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, eq, gte, isNull, or } from "drizzle-orm";
 import { db, t } from "@/db";
 import { formatDate } from "@/lib/format";
-import { parseIncomingMessage, sendMessage, verifyWebhookSecret, type TelegramUpdate } from "@/lib/telegram";
+import { parseIncomingMessage, sendChatAction, sendMessage, verifyWebhookSecret, type TelegramUpdate } from "@/lib/telegram";
 import { checkAgentRateLimit } from "@/lib/agent/rate-limit";
 import { runAgentForMessage } from "@/lib/agent/run";
 
@@ -135,7 +135,14 @@ async function handleMessage(chatId: string, text: string) {
     return;
   }
 
-  const reply = await runAgentForMessage(link, name, trip, text);
+  await sendChatAction(chatId, "typing");
+  const typingInterval = setInterval(() => sendChatAction(chatId, "typing"), 4000);
+  let reply: string;
+  try {
+    reply = await runAgentForMessage(link, name, trip, text);
+  } finally {
+    clearInterval(typingInterval);
+  }
   await sendMessage(chatId, reply);
 }
 

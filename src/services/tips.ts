@@ -1,11 +1,12 @@
 import "server-only";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray } from "drizzle-orm";
 import { db, t } from "@/db";
 
 export type TipFilters = {
   cityId?: string;
   neighborhoodId?: string;
   categoryId?: string;
+  nameQuery?: string;
 };
 
 function tipRow() {
@@ -48,6 +49,7 @@ export async function listClientTips(clientId: string, filters: TipFilters = {})
   const conditions = [eq(t.tips.clientId, clientId)];
   if (filters.cityId) conditions.push(eq(t.tips.cityId, filters.cityId));
   if (filters.neighborhoodId) conditions.push(eq(t.tips.neighborhoodId, filters.neighborhoodId));
+  if (filters.nameQuery) conditions.push(ilike(t.tips.name, `%${filters.nameQuery}%`));
 
   let tipIdsWithCategory: string[] | null = null;
   if (filters.categoryId) {
