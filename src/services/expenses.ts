@@ -19,7 +19,7 @@ export async function addExpense(
   tripId: string,
   paidById: string,
   input: NewExpense,
-  source: "web" | "whatsapp" = "web",
+  source: "web" | "whatsapp" | "telegram" = "web",
 ) {
   const [row] = await db
     .insert(t.expenses)

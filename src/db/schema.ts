@@ -808,7 +808,7 @@ export const expenses = pgTable(
       () => documents.id,
       { onDelete: "set null" },
     ),
-    // Origem do lançamento: "web" hoje, "whatsapp" no futuro
+    // Origem do lançamento: "web", "telegram" (agente) ou "whatsapp" no futuro
     source: text("source").notNull().default("web"),
     createdAt: createdAt(),
   },

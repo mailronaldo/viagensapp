@@ -128,7 +128,7 @@ export default async function ExpensesPage({
                   <td className="px-4 py-2">
                     {e.description}
                     <span className="block text-xs text-slate-400">
-                      {[paidByName, e.paymentMethod, e.source === "whatsapp" ? "via WhatsApp" : null]
+                      {[paidByName, e.paymentMethod, e.source === "telegram" ? "via Telegram" : e.source === "whatsapp" ? "via WhatsApp" : null]
                         .filter(Boolean)
                         .join(" · ")}
                       {e.receiptDocumentId && (
