@@ -155,6 +155,12 @@ export async function POST(req: NextRequest) {
   if (!incoming) return NextResponse.json({ ok: true });
   const { chatId, text } = incoming;
 
+  if (text === null) {
+    // Áudio, foto, figurinha, etc. — ainda não suportado (fica pra um próximo lote).
+    await sendMessage(chatId, "Por enquanto eu só entendo mensagens de texto — manda sua pergunta digitada que eu te ajudo 🙂").catch(() => {});
+    return NextResponse.json({ ok: true });
+  }
+
   try {
     if (text.startsWith("/start")) {
       await handleStart(chatId, text);

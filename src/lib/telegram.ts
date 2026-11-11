@@ -44,8 +44,9 @@ export type TelegramUpdate = {
   };
 };
 
-export function parseIncomingMessage(update: TelegramUpdate): { chatId: string; text: string } | null {
+/** `text` vem `null` quando a mensagem existe mas não é texto (áudio, foto, figurinha, etc.). */
+export function parseIncomingMessage(update: TelegramUpdate): { chatId: string; text: string | null } | null {
   const msg = update.message;
-  if (!msg?.text) return null;
-  return { chatId: String(msg.chat.id), text: msg.text.trim() };
+  if (!msg) return null;
+  return { chatId: String(msg.chat.id), text: msg.text ? msg.text.trim() : null };
 }
