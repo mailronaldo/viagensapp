@@ -6,7 +6,6 @@ export type TipFilters = {
   cityId?: string;
   neighborhoodId?: string;
   categoryId?: string;
-  cost?: string;
 };
 
 function tipRow() {
@@ -14,7 +13,6 @@ function tipRow() {
     id: t.tips.id,
     name: t.tips.name,
     description: t.tips.description,
-    cost: t.tips.cost,
     cityId: t.tips.cityId,
     cityName: t.cities.name,
     neighborhoodId: t.tips.neighborhoodId,
@@ -50,7 +48,6 @@ export async function listClientTips(clientId: string, filters: TipFilters = {})
   const conditions = [eq(t.tips.clientId, clientId)];
   if (filters.cityId) conditions.push(eq(t.tips.cityId, filters.cityId));
   if (filters.neighborhoodId) conditions.push(eq(t.tips.neighborhoodId, filters.neighborhoodId));
-  if (filters.cost) conditions.push(eq(t.tips.cost, filters.cost as "BAIXO" | "MEDIO" | "ALTO" | "GRATIS"));
 
   let tipIdsWithCategory: string[] | null = null;
   if (filters.categoryId) {

@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card, CategoryCheckboxes, Field, btnGhost, btnPrimary, inputCls } from "@/components/ui";
-import { TIP_COST_LABEL } from "@/lib/labels";
 import { googleMapsSearchUrl } from "@/lib/maps";
 import { suggestTipsAction, saveSuggestedTipsAction, type AiPoint } from "@/app/actions/ai-suggestions";
 
@@ -23,7 +22,6 @@ type Tip = {
   description: string | null;
   cityName: string | null;
   neighborhoodName: string | null;
-  cost: string | null;
   categories: { id: string; name: string }[];
 };
 
@@ -256,16 +254,6 @@ export function ActivityTipsCard({
                 <Field label="Categorias">
                   <CategoryCheckboxes categories={categories} />
                 </Field>
-                <Field label="Custo">
-                  <select name="cost" defaultValue="" className={inputCls}>
-                    <option value="">—</option>
-                    {Object.entries(TIP_COST_LABEL).map(([v, l]) => (
-                      <option key={v} value={v}>
-                        {l}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
                 <Field label="Descrição">
                   <textarea name="description" rows={2} className={inputCls} />
                 </Field>
@@ -308,7 +296,6 @@ export function ActivityTipsCard({
                 >
                   {p.name}
                 </a>
-                {p.cost && <span className="text-[10px] text-brand-600">{TIP_COST_LABEL[p.cost as keyof typeof TIP_COST_LABEL]}</span>}
                 <form action={unlinkAction.bind(null, p.id)}>
                   <button aria-label={`Remover ${p.name}`} className="flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-brand-700 hover:bg-brand-200 hover:text-rose-700">
                     <X className="size-3" />

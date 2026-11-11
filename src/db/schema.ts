@@ -566,9 +566,6 @@ export const tipCategories = pgTable("tip_categories", {
   createdAt: createdAt(),
 });
 
-// Custo aproximado de uma dica: $ / $$ / $$$ / Grátis.
-export const tipCost = pgEnum("tip_cost", ["BAIXO", "MEDIO", "ALTO", "GRATIS"]);
-
 // Repositório de Dicas do cliente: lugares por cidade/bairro (ex-"POI" e
 // ex-"Tips" da atividade viraram a mesma coisa aqui — só um lugar com nome,
 // categoria, custo e link, que pode ser reaproveitado em várias atividades).
@@ -587,7 +584,6 @@ export const tips = pgTable(
     neighborhoodId: text("neighborhood_id")
       .notNull()
       .references(() => cityNeighborhoods.id, { onDelete: "cascade" }),
-    cost: tipCost("cost"),
     createdAt: createdAt(),
   },
   (t) => [index("tips_client_idx").on(t.clientId), index("tips_city_idx").on(t.cityId)],

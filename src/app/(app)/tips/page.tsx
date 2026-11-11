@@ -4,24 +4,10 @@ import { listTipCategories } from "@/services/catalogs";
 import { listClientTips } from "@/services/tips";
 import { addTipAction, deleteTipAction, updateTipAction } from "@/app/actions/tips";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
-import { TIP_COST_LABEL } from "@/lib/labels";
 import { googleMapsSearchUrl } from "@/lib/maps";
 import { AddPanel, Card, CategoryCheckboxes, EmptyState, ErrorBanner, Field, NeighborhoodSelect, Tag, btnPrimary, inputCls } from "@/components/ui";
 
 export const metadata = { title: "Dicas" };
-
-function CostOptions() {
-  return (
-    <>
-      <option value="">—</option>
-      {Object.entries(TIP_COST_LABEL).map(([v, l]) => (
-        <option key={v} value={v}>
-          {l}
-        </option>
-      ))}
-    </>
-  );
-}
 
 function TipFormFields({
   neighborhoods,
@@ -34,7 +20,6 @@ function TipFormFields({
     name: string;
     description: string | null;
     neighborhoodId: string | null;
-    cost: string | null;
     categories?: { id: string; name: string }[];
   };
 }) {
@@ -46,13 +31,8 @@ function TipFormFields({
       <Field label="Bairro/Região" className="sm:col-span-2">
         <NeighborhoodSelect neighborhoods={neighborhoods} defaultValue={tip?.neighborhoodId ?? ""} required />
       </Field>
-      <Field label="Categorias" className="sm:col-span-4">
+      <Field label="Categorias" className="sm:col-span-6">
         <CategoryCheckboxes categories={categories} defaultSelected={tip?.categories?.map((c) => c.id)} />
-      </Field>
-      <Field label="Custo" className="sm:col-span-2">
-        <select name="cost" defaultValue={tip?.cost ?? ""} className={inputCls}>
-          <CostOptions />
-        </select>
       </Field>
       <Field label="Descrição" className="sm:col-span-6">
         <textarea name="description" rows={2} defaultValue={tip?.description ?? ""} className={inputCls} />
@@ -64,14 +44,14 @@ function TipFormFields({
 export default async function TipsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; cityId?: string; neighborhoodId?: string; categoryId?: string; cost?: string }>;
+  searchParams: Promise<{ error?: string; cityId?: string; neighborhoodId?: string; categoryId?: string }>;
 }) {
   const user = await requireClient();
-  const { error, cityId, neighborhoodId, categoryId, cost } = await searchParams;
+  const { error, cityId, neighborhoodId, categoryId } = await searchParams;
 
   const [cities, categories] = await Promise.all([getClientCities(user.id), listTipCategories()]);
   const neighborhoods = await listNeighborhoodsForCities(cities.map((c) => c.id));
-  const tips = await listClientTips(user.id, { cityId, neighborhoodId, categoryId, cost });
+  const tips = await listClientTips(user.id, { cityId, neighborhoodId, categoryId });
 
   return (
     <>
@@ -82,7 +62,7 @@ export default async function TipsPage({
       <ErrorBanner message={error} />
 
       <Card className="mb-4">
-        <form method="get" className="grid gap-3 sm:grid-cols-4">
+        <form method="get" className="grid gap-3 sm:grid-cols-3">
           <Field label="Cidade" className="sm:col-span-1">
             <select name="cityId" defaultValue={cityId ?? ""} className={inputCls}>
               <option value="">Todas</option>
@@ -113,13 +93,7 @@ export default async function TipsPage({
               ))}
             </select>
           </Field>
-          <Field label="Custo" className="sm:col-span-1">
-            <select name="cost" defaultValue={cost ?? ""} className={inputCls}>
-              <option value="">Todos</option>
-              <CostOptions />
-            </select>
-          </Field>
-          <div className="sm:col-span-4">
+          <div className="sm:col-span-3">
             <button className={btnPrimary}>Filtrar</button>
           </div>
         </form>
@@ -160,7 +134,6 @@ export default async function TipsPage({
                           {c.name}
                         </Tag>
                       ))}
-                      {tip.cost && <Tag tone="neutral">{TIP_COST_LABEL[tip.cost as keyof typeof TIP_COST_LABEL]}</Tag>}
                     </div>
                   </div>
                   <span className="flex shrink-0 items-center gap-3">

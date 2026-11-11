@@ -8,8 +8,6 @@ import { requireTripAccess } from "@/lib/access";
 import { fail, str } from "@/lib/form";
 import { parseTipCategoryIds } from "@/services/catalogs";
 
-const TIP_COSTS = ["BAIXO", "MEDIO", "ALTO", "GRATIS"];
-
 /**
  * O App Router do Next, numa navegação disparada por Server Action que
  * redireciona pra exatamente a mesma URL de onde o form foi enviado, às
@@ -18,10 +16,6 @@ const TIP_COSTS = ["BAIXO", "MEDIO", "ALTO", "GRATIS"];
  */
 function bustCache(url: string) {
   return `${url}${url.includes("?") ? "&" : "?"}_r=${Date.now()}`;
-}
-
-function parseCost(raw: string | null) {
-  return raw && TIP_COSTS.includes(raw) ? (raw as "BAIXO" | "MEDIO" | "ALTO" | "GRATIS") : null;
 }
 
 /** Bairro/Região é obrigatório numa dica — confere que é do cliente informado e resolve a cidade a partir dele. */
@@ -49,7 +43,6 @@ async function parseTip(clientId: string, formData: FormData, back: string) {
     cityId,
     neighborhoodId,
     categoryIds,
-    cost: parseCost(str(formData, "cost")),
   };
 }
 
@@ -153,7 +146,6 @@ export async function createAndLinkTipAction(tripId: string, itemId: string, for
         description: str(formData, "description"),
         cityId: item.cityId!,
         neighborhoodId: item.neighborhoodId!,
-        cost: parseCost(str(formData, "cost")),
       })
       .returning({ id: t.tips.id });
     if (categoryIds.length > 0) {

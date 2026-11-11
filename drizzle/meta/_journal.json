@@ -281,6 +281,13 @@
       "when": 1794354500920,
       "tag": "0039_illegal_slayback",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1794355872756,
+      "tag": "0040_brief_mandroid",
+      "breakpoints": true
     }
   ]
 }
