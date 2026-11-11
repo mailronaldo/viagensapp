@@ -821,9 +821,12 @@ export const telegramLinks = pgTable(
   "telegram_links",
   {
     id: id(),
-    travelerId: text("traveler_id")
+    clientId: text("client_id")
       .notNull()
-      .references(() => travelers.id, { onDelete: "cascade" }),
+      .references(() => users.id, { onDelete: "cascade" }),
+    // null = o próprio dono da viagem (mesma convenção de `travelerId` nulo
+    // usada em chips/passes: o dono também pode viajar e usar o agente).
+    travelerId: text("traveler_id").references(() => travelers.id, { onDelete: "cascade" }),
     chatId: text("chat_id").notNull(),
     // Viagem que o agente assume por padrão nesta conversa (resolvida
     // automaticamente quando só há uma, ou escolhida pelo viajante).
@@ -836,13 +839,14 @@ export const telegramLinks = pgTable(
   (t) => [uniqueIndex("telegram_links_chat_unique").on(t.chatId), index("telegram_links_traveler_idx").on(t.travelerId)],
 );
 
-// Token de uso único pro viajante vincular o próprio chat do Telegram
-// (gerado pelo cliente na tela do viajante, consumido no /start do bot).
+// Token de uso único pro viajante (ou o dono da viagem, travelerId nulo)
+// vincular o próprio chat do Telegram (consumido no /start do bot).
 export const telegramLinkTokens = pgTable("telegram_link_tokens", {
   id: id(),
-  travelerId: text("traveler_id")
+  clientId: text("client_id")
     .notNull()
-    .references(() => travelers.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "cascade" }),
+  travelerId: text("traveler_id").references(() => travelers.id, { onDelete: "cascade" }),
   token: text("token").notNull().unique(),
   expiresAt: timestamp("expires_at").notNull(),
   usedAt: timestamp("used_at"),

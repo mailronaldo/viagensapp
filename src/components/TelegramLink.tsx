@@ -1,14 +1,22 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { generateTelegramLinkAction, type TelegramLinkState } from "@/app/actions/travelers";
+import type { TelegramLinkState } from "@/app/actions/telegram";
 import { ErrorBanner, btnGhost, btnPrimary } from "@/components/ui";
 
 const initial: TelegramLinkState = {};
 
-/** Gera um link de convite de uso único pro viajante abrir o Telegram e vincular o próprio chat. */
-export function TelegramLinkForm({ travelerId, linked }: { travelerId: string; linked: boolean }) {
-  const [state, formAction, pending] = useActionState(generateTelegramLinkAction, initial);
+/** Gera um link de convite de uso único pra abrir o Telegram e vincular o chat (viajante ou dono da viagem). */
+export function TelegramLinkForm({
+  action,
+  linked,
+  hiddenFields,
+}: {
+  action: (prev: TelegramLinkState, formData: FormData) => Promise<TelegramLinkState>;
+  linked: boolean;
+  hiddenFields?: Record<string, string>;
+}) {
+  const [state, formAction, pending] = useActionState(action, initial);
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -26,7 +34,7 @@ export function TelegramLinkForm({ travelerId, linked }: { travelerId: string; l
       <ErrorBanner message={state.error} />
       {state.link && (
         <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-950">
-          <p className="mb-2 font-medium">Link gerado — vale só uma vez, por 30 minutos. Envie pro viajante.</p>
+          <p className="mb-2 font-medium">Link gerado — vale só uma vez, por 30 minutos.</p>
           <p className="mb-3 break-all">
             <code className="rounded bg-white px-2 py-0.5 font-mono">{state.link}</code>
           </p>
@@ -36,7 +44,8 @@ export function TelegramLinkForm({ travelerId, linked }: { travelerId: string; l
         </div>
       )}
       <form action={formAction}>
-        <input type="hidden" name="travelerId" value={travelerId} />
+        {hiddenFields &&
+          Object.entries(hiddenFields).map(([name, value]) => <input key={name} type="hidden" name={name} value={value} />)}
         <button disabled={pending} className={`${linked ? btnGhost : btnPrimary} disabled:opacity-60`}>
           {pending ? "Gerando…" : linked ? "Gerar novo link (substitui o vínculo atual)" : "Gerar link do Telegram"}
         </button>

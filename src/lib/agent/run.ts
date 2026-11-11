@@ -19,7 +19,7 @@ function systemPrompt(travelerName: string, tripTitle: string): string {
 export async function runAgentForMessage(link: {
   id: string;
   chatId: string;
-  travelerId: string;
+  travelerId: string | null;
   history: unknown;
 }, travelerName: string, trip: typeof t.trips.$inferSelect, userText: string): Promise<string> {
   const history: AgentHistoryEntry[] = Array.isArray(link.history) ? (link.history as AgentHistoryEntry[]) : [];

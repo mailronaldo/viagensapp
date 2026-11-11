@@ -1,20 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, gte, or } from "drizzle-orm";
+import { and, eq, gte, isNull, or } from "drizzle-orm";
 import { db, t } from "@/db";
 import { formatDate } from "@/lib/format";
 import { parseIncomingMessage, sendMessage, verifyWebhookSecret, type TelegramUpdate } from "@/lib/telegram";
 import { checkAgentRateLimit } from "@/lib/agent/rate-limit";
 import { runAgentForMessage } from "@/lib/agent/run";
 
-/** Viagens em curso/futuras vinculadas a este viajante, na ordem em que começam. */
-async function listTravelerTrips(travelerId: string) {
+type Link = typeof t.telegramLinks.$inferSelect;
+
+/**
+ * Viagens em curso/futuras vinculadas a este chat, na ordem em que começam.
+ * `travelerId` nulo = o próprio dono da viagem (mesma convenção de
+ * chips/passes): aí é "as viagens que ele mesmo viaja", não "gerencia".
+ */
+async function listLinkedTrips(link: { clientId: string; travelerId: string | null }) {
   const today = new Date().toISOString().slice(0, 10);
+  const cols = { id: t.trips.id, title: t.trips.title, destination: t.trips.destination, startDate: t.trips.startDate, endDate: t.trips.endDate };
+
+  if (link.travelerId) {
+    return db
+      .select(cols)
+      .from(t.tripTravelers)
+      .innerJoin(t.trips, eq(t.trips.id, t.tripTravelers.tripId))
+      .where(and(eq(t.tripTravelers.travelerId, link.travelerId), gte(t.trips.endDate, today)))
+      .orderBy(t.trips.startDate);
+  }
   return db
-    .select({ id: t.trips.id, title: t.trips.title, destination: t.trips.destination, startDate: t.trips.startDate, endDate: t.trips.endDate })
-    .from(t.tripTravelers)
-    .innerJoin(t.trips, eq(t.trips.id, t.tripTravelers.tripId))
-    .where(and(eq(t.tripTravelers.travelerId, travelerId), gte(t.trips.endDate, today)))
+    .select(cols)
+    .from(t.trips)
+    .where(and(eq(t.trips.ownerId, link.clientId), eq(t.trips.ownerIsTraveler, true), gte(t.trips.endDate, today)))
     .orderBy(t.trips.startDate);
+}
+
+async function resolveLinkName(link: { clientId: string; travelerId: string | null }): Promise<string | null> {
+  if (link.travelerId) {
+    const [tr] = await db.select({ name: t.travelers.name }).from(t.travelers).where(eq(t.travelers.id, link.travelerId)).limit(1);
+    return tr?.name ?? null;
+  }
+  const [u] = await db.select({ name: t.users.name }).from(t.users).where(eq(t.users.id, link.clientId)).limit(1);
+  return u?.name ?? null;
 }
 
 async function handleStart(chatId: string, text: string) {
@@ -30,30 +54,31 @@ async function handleStart(chatId: string, text: string) {
     return;
   }
 
-  const [traveler] = await db.select({ id: t.travelers.id, name: t.travelers.name }).from(t.travelers).where(eq(t.travelers.id, row.travelerId)).limit(1);
-  if (!traveler) {
-    await sendMessage(chatId, "Viajante não encontrado.");
+  const name = await resolveLinkName(row);
+  if (!name) {
+    await sendMessage(chatId, "Cadastro não encontrado.");
     return;
   }
 
   await db.transaction(async (tx) => {
-    await tx.delete(t.telegramLinks).where(or(eq(t.telegramLinks.travelerId, traveler.id), eq(t.telegramLinks.chatId, chatId)));
-    await tx.insert(t.telegramLinks).values({ travelerId: traveler.id, chatId });
+    const sameSubject = row.travelerId ? eq(t.telegramLinks.travelerId, row.travelerId) : and(eq(t.telegramLinks.clientId, row.clientId), isNull(t.telegramLinks.travelerId));
+    await tx.delete(t.telegramLinks).where(or(sameSubject, eq(t.telegramLinks.chatId, chatId)));
+    await tx.insert(t.telegramLinks).values({ clientId: row.clientId, travelerId: row.travelerId, chatId });
     await tx.update(t.telegramLinkTokens).set({ usedAt: new Date() }).where(eq(t.telegramLinkTokens.id, row.id));
   });
 
-  await sendMessage(chatId, `Vinculado! Oi, ${traveler.name.split(" ")[0]} 👋 Pode me perguntar sobre sua viagem (agenda, vouchers, etc.).`);
+  await sendMessage(chatId, `Vinculado! Oi, ${name.split(" ")[0]} 👋 Pode me perguntar sobre sua viagem (agenda, vouchers, etc.).`);
 }
 
-async function handleSwitchTrip(chatId: string, linkId: string, travelerId: string) {
-  await db.update(t.telegramLinks).set({ activeTripId: null }).where(eq(t.telegramLinks.id, linkId));
-  const candidates = await listTravelerTrips(travelerId);
+async function handleSwitchTrip(chatId: string, link: Link) {
+  await db.update(t.telegramLinks).set({ activeTripId: null }).where(eq(t.telegramLinks.id, link.id));
+  const candidates = await listLinkedTrips(link);
   if (candidates.length === 0) {
     await sendMessage(chatId, "Não encontrei nenhuma viagem em curso ou futura vinculada a você.");
     return;
   }
   if (candidates.length === 1) {
-    await db.update(t.telegramLinks).set({ activeTripId: candidates[0].id }).where(eq(t.telegramLinks.id, linkId));
+    await db.update(t.telegramLinks).set({ activeTripId: candidates[0].id }).where(eq(t.telegramLinks.id, link.id));
     await sendMessage(chatId, `Você só tem uma viagem: ${candidates[0].title}. Continuando com ela.`);
     return;
   }
@@ -69,18 +94,18 @@ async function handleMessage(chatId: string, text: string) {
   }
 
   if (text === "/trocar") {
-    await handleSwitchTrip(chatId, link.id, link.travelerId);
+    await handleSwitchTrip(chatId, link);
     return;
   }
 
-  if (!checkAgentRateLimit(link.travelerId)) {
+  if (!checkAgentRateLimit(link.id)) {
     await sendMessage(chatId, "Você atingiu o limite de mensagens por hoje. Tente de novo mais tarde.");
     return;
   }
 
   let tripId = link.activeTripId;
   if (!tripId) {
-    const candidates = await listTravelerTrips(link.travelerId);
+    const candidates = await listLinkedTrips(link);
     if (candidates.length === 0) {
       await sendMessage(chatId, "Não encontrei nenhuma viagem em curso ou futura vinculada a você. Fale com seu agente de viagens.");
       return;
@@ -104,13 +129,13 @@ async function handleMessage(chatId: string, text: string) {
   }
 
   const [trip] = await db.select().from(t.trips).where(eq(t.trips.id, tripId)).limit(1);
-  const [traveler] = await db.select({ name: t.travelers.name }).from(t.travelers).where(eq(t.travelers.id, link.travelerId)).limit(1);
-  if (!trip || !traveler) {
+  const name = await resolveLinkName(link);
+  if (!trip || !name) {
     await sendMessage(chatId, "Não encontrei a viagem vinculada. Fale com seu agente de viagens.");
     return;
   }
 
-  const reply = await runAgentForMessage(link, traveler.name, trip, text);
+  const reply = await runAgentForMessage(link, name, trip, text);
   await sendMessage(chatId, reply);
 }
 

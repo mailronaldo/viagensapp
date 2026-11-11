@@ -12,7 +12,9 @@ import type { AgentTool } from "./claude";
 
 export type AgentContext = {
   chatId: string;
-  travelerId: string;
+  // null = o próprio dono da viagem (vínculo feito em "Minha conta") — tem acesso
+  // irrestrito aos documentos da viagem, igual a um membro da viagem na web.
+  travelerId: string | null;
   trip: typeof t.trips.$inferSelect;
 };
 
@@ -111,10 +113,12 @@ async function execGetVoucher(ctx: AgentContext, input: Record<string, unknown>)
   if (candidates.length === 0) return `Não encontrei nenhum documento/voucher relacionado a "${query}".`;
 
   // Confere visibilidade (mesma regra do painel do viajante) antes de considerar o candidato.
+  // O dono da viagem (travelerId nulo) não é filtrado — vê tudo, igual a um membro na web.
   const allowed: VoucherCandidate[] = [];
   for (const c of candidates) {
     const [doc] = await db.select().from(t.documents).where(eq(t.documents.id, c.documentId)).limit(1);
-    if (doc && (await travelerCanReadDocument(ctx.trip.id, ctx.travelerId, doc))) allowed.push(c);
+    if (!doc) continue;
+    if (!ctx.travelerId || (await travelerCanReadDocument(ctx.trip.id, ctx.travelerId, doc))) allowed.push(c);
   }
   if (allowed.length === 0) return `Não encontrei nenhum documento/voucher relacionado a "${query}" que você tenha acesso.`;
 

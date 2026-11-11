@@ -3,12 +3,8 @@ import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireClient } from "@/lib/auth";
-import {
-  deleteTravelerAction,
-  setTravelerAccessActiveAction,
-  unlinkTelegramAction,
-  updateTravelerAction,
-} from "@/app/actions/travelers";
+import { deleteTravelerAction, setTravelerAccessActiveAction, updateTravelerAction } from "@/app/actions/travelers";
+import { generateTelegramLinkAction, unlinkTelegramAction } from "@/app/actions/telegram";
 import { TravelerAccessForm } from "@/components/TravelerAccess";
 import { TelegramLinkForm } from "@/components/TelegramLink";
 import { getLoginUrl } from "@/lib/origin";
@@ -124,7 +120,7 @@ export default async function EditTravelerPage({
         <p className="mb-3 text-sm">
           Status: <strong className={telegramLink ? "text-emerald-700" : "text-slate-500"}>{telegramLink ? "vinculado" : "não vinculado"}</strong>
         </p>
-        <TelegramLinkForm travelerId={tr.id} linked={!!telegramLink} />
+        <TelegramLinkForm action={generateTelegramLinkAction} linked={!!telegramLink} hiddenFields={{ travelerId: tr.id }} />
         {telegramLink && (
           <form action={unlinkTelegramAction.bind(null, tr.id)} className="mt-3">
             <button className={btnGhost}>Remover vínculo</button>
