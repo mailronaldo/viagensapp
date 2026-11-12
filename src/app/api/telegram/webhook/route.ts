@@ -91,8 +91,11 @@ const MAPS_URL_RE = /https:\/\/www\.google\.com\/maps\/\S+/;
 /**
  * O bot responde com texto livre (o modelo decide a redação), mas qualquer
  * link de rota que ele gere sempre segue o formato "rótulo: URL" — então
- * extraímos cada linha com link do texto e virão botão ("Ver rota no mapa")
- * em vez de uma URL enorme solta na conversa.
+ * extraímos cada linha com link do texto e viram botão em vez de uma URL
+ * enorme solta na conversa. O rótulo do botão não vem do texto (o modelo
+ * reescreve à vontade): sem "origin=" na URL, o link depende do GPS de quem
+ * abrir ("Rota em tempo real"); com origem já definida, não depende
+ * ("Rota no Mapa") — mesmos dois rótulos dos botões da tela de edição no app.
  */
 function extractMapButtons(text: string): { text: string; buttons: LinkButton[] } {
   const buttons: LinkButton[] = [];
@@ -103,12 +106,8 @@ function extractMapButtons(text: string): { text: string; buttons: LinkButton[] 
       keptLines.push(line);
       continue;
     }
-    const label = line
-      .slice(0, match.index)
-      .replace(/^[\s📍🗺️-]+/, "")
-      .replace(/[\s:–-]+$/, "")
-      .trim();
-    buttons.push({ text: `🗺️ ${label || `Ver rota ${buttons.length + 1}`}`.slice(0, 64), url: match[0] });
+    const label = match[0].includes("origin=") ? "Rota no Mapa" : "Rota em tempo real";
+    buttons.push({ text: `🗺️ ${label}`, url: match[0] });
   }
   return { text: keptLines.join("\n").replace(/\n{3,}/g, "\n\n").trim(), buttons };
 }
