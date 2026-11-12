@@ -116,7 +116,7 @@ export const AGENT_TOOLS: AgentTool[] = [
   {
     name: "get_tickets_and_passes",
     description:
-      "Lista os ingressos de atividades e os passes (tipo Go City) do viajante/dono, com usos restantes dos passes. Pode filtrar por um texto livre (nome da atividade, provider ou nome do passe).",
+      "Lista os ingressos de atividades (com número, status, preço e observações/detalhes) e os passes (tipo Go City) do viajante/dono, com usos restantes dos passes. Pode filtrar por um texto livre (nome da atividade, provider ou nome do passe).",
     input_schema: {
       type: "object",
       properties: { query: { type: "string", description: "Filtro livre. Opcional." } },
@@ -355,7 +355,10 @@ async function execGetTicketsAndPasses(ctx: AgentContext, input: Record<string, 
       if (r.ticket.provider) parts.push(r.ticket.provider);
       parts.push(r.ticket.status);
       if (r.ticket.price) parts.push(`${r.ticket.price} ${r.ticket.currency ?? ctx.trip.baseCurrency}`);
-      return `- ${parts.join(" — ")}`;
+      if (r.ticket.ticketNumber) parts.push(`nº ${r.ticket.ticketNumber}`);
+      let line = `- ${parts.join(" — ")}`;
+      if (r.ticket.details) line += `\n  Detalhes: ${r.ticket.details}`;
+      return line;
     });
 
   const passLines = passes
