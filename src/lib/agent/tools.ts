@@ -62,7 +62,7 @@ export const AGENT_TOOLS: AgentTool[] = [
   {
     name: "get_voucher",
     description:
-      "Procura e envia direto no chat um documento/voucher da viagem (reserva de hospedagem, transporte, ingresso) a partir de uma descrição livre (ex.: 'voucher do hotel', 'passagem de avião').",
+      "Procura e envia direto no chat qualquer documento/voucher anexado na viagem — reserva de hospedagem, transporte (inclusive voucher por viajante), ingresso ou reserva de atividade, seguro viagem, recibo de despesa — a partir de uma descrição livre (ex.: 'voucher do hotel', 'reserva do museu', 'apólice do seguro').",
     input_schema: {
       type: "object",
       properties: { query: { type: "string", description: "O que o viajante está procurando." } },
@@ -170,6 +170,11 @@ async function execGetAgenda(ctx: AgentContext, input: Record<string, unknown>):
 
 type VoucherCandidate = { documentId: string; label: string };
 
+/**
+ * Cobre toda fonte de anexo da viagem, não só a tabela `documents` genérica — senão o
+ * agente não acha vouchers de transporte por viajante, ingresso/reserva anexados direto
+ * na atividade, seguro viagem ou recibo de despesa, mesmo que estejam lá no app.
+ */
 async function findVoucherCandidates(tripId: string, query: string): Promise<VoucherCandidate[]> {
   const pattern = `%${query}%`;
 
@@ -189,9 +194,65 @@ async function findVoucherCandidates(tripId: string, query: string): Promise<Vou
     .from(t.bookings)
     .where(and(eq(t.bookings.tripId, tripId), or(ilike(t.bookings.title, pattern), ilike(t.bookings.provider, pattern))));
 
+  const transportVoucherMatches = await db
+    .select({ documentId: t.transportVouchers.voucherDocumentId, title: t.bookings.title, provider: t.transportVouchers.provider })
+    .from(t.transportVouchers)
+    .innerJoin(t.bookings, eq(t.bookings.id, t.transportVouchers.bookingId))
+    .where(
+      and(
+        eq(t.bookings.tripId, tripId),
+        or(ilike(t.bookings.title, pattern), ilike(t.transportVouchers.provider, pattern), ilike(t.transportVouchers.reservationCode, pattern)),
+      ),
+    );
+
+  const itemMatches = await db
+    .select({
+      ticketDocumentId: t.itineraryItems.ticketDocumentId,
+      reservationDocumentId: t.itineraryItems.reservationDocumentId,
+      title: t.itineraryItems.title,
+    })
+    .from(t.itineraryItems)
+    .where(
+      and(
+        eq(t.itineraryItems.tripId, tripId),
+        or(ilike(t.itineraryItems.title, pattern), ilike(t.itineraryItems.reservationProvider, pattern)),
+      ),
+    );
+
+  const ticketVoucherMatches = await db
+    .select({ documentId: t.activityTickets.voucherDocumentId, title: t.itineraryItems.title, provider: t.activityTickets.provider })
+    .from(t.activityTickets)
+    .innerJoin(t.itineraryItems, eq(t.itineraryItems.id, t.activityTickets.itemId))
+    .where(
+      and(eq(t.activityTickets.tripId, tripId), or(ilike(t.itineraryItems.title, pattern), ilike(t.activityTickets.provider, pattern))),
+    );
+
+  const mentionsInsurance = ["seguro", "apólice", "apolice", "insurance"].some((w) => query.toLowerCase().includes(w));
+  const insuranceMatches = mentionsInsurance
+    ? await db.select({ documentId: t.travelInsurances.policyDocumentId, provider: t.travelInsurances.provider }).from(t.travelInsurances).where(eq(t.travelInsurances.tripId, tripId))
+    : await db
+        .select({ documentId: t.travelInsurances.policyDocumentId, provider: t.travelInsurances.provider })
+        .from(t.travelInsurances)
+        .where(and(eq(t.travelInsurances.tripId, tripId), ilike(t.travelInsurances.provider, pattern)));
+
+  const expenseMatches = await db
+    .select({ documentId: t.expenses.receiptDocumentId, description: t.expenses.description })
+    .from(t.expenses)
+    .where(and(eq(t.expenses.tripId, tripId), ilike(t.expenses.description, pattern)));
+
   const candidates: VoucherCandidate[] = [...byDoc];
   for (const m of lodgingMatches) if (m.documentId) candidates.push({ documentId: m.documentId, label: `Hospedagem — ${m.label}` });
   for (const m of bookingMatches) if (m.documentId) candidates.push({ documentId: m.documentId, label: `Transporte — ${m.title}` });
+  for (const m of transportVoucherMatches)
+    if (m.documentId) candidates.push({ documentId: m.documentId, label: `Transporte (voucher) — ${m.title}${m.provider ? ` — ${m.provider}` : ""}` });
+  for (const m of itemMatches) {
+    if (m.ticketDocumentId) candidates.push({ documentId: m.ticketDocumentId, label: `Ingresso — ${m.title}` });
+    if (m.reservationDocumentId) candidates.push({ documentId: m.reservationDocumentId, label: `Reserva da atividade — ${m.title}` });
+  }
+  for (const m of ticketVoucherMatches)
+    if (m.documentId) candidates.push({ documentId: m.documentId, label: `Ingresso — ${m.title}${m.provider ? ` — ${m.provider}` : ""}` });
+  for (const m of insuranceMatches) if (m.documentId) candidates.push({ documentId: m.documentId, label: `Seguro viagem${m.provider ? ` — ${m.provider}` : ""}` });
+  for (const m of expenseMatches) if (m.documentId) candidates.push({ documentId: m.documentId, label: `Recibo — ${m.description}` });
 
   const seen = new Set<string>();
   return candidates.filter((c) => (seen.has(c.documentId) ? false : (seen.add(c.documentId), true)));
