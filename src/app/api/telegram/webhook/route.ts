@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, eq, gte, isNull, or } from "drizzle-orm";
 import { db, t } from "@/db";
 import { formatDate } from "@/lib/format";
-import { parseIncomingMessage, sendChatAction, sendMessage, verifyWebhookSecret, type LinkButton, type TelegramUpdate } from "@/lib/telegram";
+import { downloadFile, parseIncomingMessage, sendChatAction, sendMessage, verifyWebhookSecret, type LinkButton, type TelegramUpdate } from "@/lib/telegram";
 import { checkAgentRateLimit } from "@/lib/agent/rate-limit";
 import { runAgentForMessage } from "@/lib/agent/run";
+import { transcribeAudio } from "@/lib/whisper";
 
 type Link = typeof t.telegramLinks.$inferSelect;
 
@@ -173,6 +174,18 @@ async function handleMessage(chatId: string, text: string) {
   await sendMessage(chatId, cleanedReply || reply, buttons);
 }
 
+/** Transcreve a mensagem de voz e segue pelo mesmo fluxo de uma mensagem digitada. */
+async function handleVoiceMessage(chatId: string, voiceFileId: string) {
+  await sendChatAction(chatId, "typing");
+  const audio = await downloadFile(voiceFileId);
+  const text = await transcribeAudio(audio);
+  if (!text) {
+    await sendMessage(chatId, "Não consegui entender o áudio. Tenta de novo ou manda por texto 🙂");
+    return;
+  }
+  await handleMessage(chatId, text);
+}
+
 export async function POST(req: NextRequest) {
   if (!verifyWebhookSecret(req.headers.get("x-telegram-bot-api-secret-token"))) {
     return NextResponse.json({ ok: false }, { status: 401 });
@@ -187,19 +200,21 @@ export async function POST(req: NextRequest) {
 
   const incoming = parseIncomingMessage(update);
   if (!incoming) return NextResponse.json({ ok: true });
-  const { chatId, text } = incoming;
+  const { chatId, text, voiceFileId } = incoming;
 
-  if (text === null) {
-    // Áudio, foto, figurinha, etc. — ainda não suportado (fica pra um próximo lote).
-    await sendMessage(chatId, "Por enquanto eu só entendo mensagens de texto — manda sua pergunta digitada que eu te ajudo 🙂").catch(() => {});
+  if (text === null && !voiceFileId) {
+    // Foto, figurinha, etc. — ainda não suportado (fica pra um próximo lote).
+    await sendMessage(chatId, "Por enquanto eu só entendo mensagens de texto ou de voz — manda sua pergunta que eu te ajudo 🙂").catch(() => {});
     return NextResponse.json({ ok: true });
   }
 
   try {
-    if (text.startsWith("/start")) {
-      await handleStart(chatId, text);
+    if (voiceFileId) {
+      await handleVoiceMessage(chatId, voiceFileId);
+    } else if (text!.startsWith("/start")) {
+      await handleStart(chatId, text!);
     } else {
-      await handleMessage(chatId, text);
+      await handleMessage(chatId, text!);
     }
   } catch (e) {
     console.error("[telegram webhook]", e);

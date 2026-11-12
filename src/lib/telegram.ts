@@ -53,12 +53,37 @@ export type TelegramUpdate = {
   message?: {
     chat: { id: number };
     text?: string;
+    voice?: { file_id: string };
   };
 };
 
-/** `text` vem `null` quando a mensagem existe mas não é texto (áudio, foto, figurinha, etc.). */
-export function parseIncomingMessage(update: TelegramUpdate): { chatId: string; text: string | null } | null {
+/**
+ * `text` vem `null` quando a mensagem existe mas não é texto (áudio, foto,
+ * figurinha, etc.) — `voiceFileId` vem preenchido quando for uma mensagem de
+ * voz, pra quem recebeu poder baixar e transcrever.
+ */
+export function parseIncomingMessage(update: TelegramUpdate): { chatId: string; text: string | null; voiceFileId: string | null } | null {
   const msg = update.message;
   if (!msg) return null;
-  return { chatId: String(msg.chat.id), text: msg.text ? msg.text.trim() : null };
+  return {
+    chatId: String(msg.chat.id),
+    text: msg.text ? msg.text.trim() : null,
+    voiceFileId: msg.voice?.file_id ?? null,
+  };
+}
+
+/** Baixa um arquivo enviado ao bot (ex.: mensagem de voz) a partir do `file_id`. */
+export async function downloadFile(fileId: string): Promise<Buffer> {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) throw new Error("TELEGRAM_BOT_TOKEN não configurado.");
+
+  const infoRes = await fetch(apiUrl("getFile") + `?file_id=${encodeURIComponent(fileId)}`);
+  if (!infoRes.ok) throw new Error(`Falha ao obter o arquivo no Telegram (HTTP ${infoRes.status}).`);
+  const info: { ok: boolean; result?: { file_path?: string } } = await infoRes.json();
+  const filePath = info.result?.file_path;
+  if (!filePath) throw new Error("Telegram não devolveu o caminho do arquivo.");
+
+  const fileRes = await fetch(`https://api.telegram.org/file/bot${token}/${filePath}`);
+  if (!fileRes.ok) throw new Error(`Falha ao baixar o arquivo do Telegram (HTTP ${fileRes.status}).`);
+  return Buffer.from(await fileRes.arrayBuffer());
 }

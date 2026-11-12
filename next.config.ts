@@ -5,7 +5,9 @@ const nextConfig: NextConfig = {
   // dinâmica simples (sem Cache Components).
   cacheComponents: false,
   partialPrefetching: false,
-  serverExternalPackages: ["pg"],
+  // ffmpeg-static/onnxruntime-node resolvem caminho de binário nativo via
+  // __dirname — empacotados pelo Turbopack, esse caminho vem errado.
+  serverExternalPackages: ["pg", "ffmpeg-static", "@huggingface/transformers", "onnxruntime-node", "sharp"],
   experimental: {
     serverActions: { bodySizeLimit: "15mb" },
   },

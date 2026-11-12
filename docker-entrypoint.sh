@@ -8,7 +8,7 @@ set -e
 mkdir -p "$UPLOAD_DIR"
 chown -R node:node "$UPLOAD_DIR" 2>/dev/null || true
 
-exec su-exec node sh -c '
+exec su node -s /bin/sh -c '
   node scripts/migrate.mjs &&
   node scripts/seed-master.mjs &&
   exec node node_modules/next/dist/bin/next start -H 0.0.0.0 -p "${PORT:-3000}"
