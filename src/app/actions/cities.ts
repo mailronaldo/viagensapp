@@ -178,6 +178,31 @@ export async function addNeighborhoodAction(back: string, cityId: string, formDa
   redirect(bustCache(back));
 }
 
+/**
+ * Mesma regra de `addNeighborhoodAction`, mas pensada pra ser chamada direto
+ * de um componente cliente (modal "+" nos selects de bairro/região) — devolve
+ * o registro criado em vez de redirecionar, pra inserir na lista sem navegar.
+ */
+export async function createNeighborhoodInlineAction(
+  cityId: string,
+  name: string,
+): Promise<{ id: string; name: string; cityId: string; cityName: string } | { error: string }> {
+  const user = await requireClient();
+  const city = await ownCity(user.id, cityId);
+  if (!city) return { error: "Cidade não encontrada." };
+  if (!name.trim()) return { error: "Informe o nome do bairro/região." };
+
+  const [dup] = await db
+    .select({ id: t.cityNeighborhoods.id })
+    .from(t.cityNeighborhoods)
+    .where(and(eq(t.cityNeighborhoods.cityId, cityId), eq(t.cityNeighborhoods.name, name)))
+    .limit(1);
+  if (dup) return { error: "Já existe um bairro/região com esse nome nessa cidade." };
+
+  const [created] = await db.insert(t.cityNeighborhoods).values({ cityId, name }).returning();
+  return { id: created.id, name: created.name, cityId, cityName: city.name };
+}
+
 export async function deleteNeighborhoodAction(back: string, neighborhoodId: string) {
   const user = await requireClient();
   const [row] = await db

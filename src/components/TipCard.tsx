@@ -21,12 +21,14 @@ type Tip = {
 export function TipCard({
   tip,
   neighborhoods,
+  cities,
   categories,
   updateAction,
   deleteAction,
 }: {
   tip: Tip;
   neighborhoods: { id: string; name: string; cityId: string; cityName: string }[];
+  cities: { id: string; name: string }[];
   categories: { id: string; name: string }[];
   updateAction: (formData: FormData) => void;
   deleteAction: () => void;
@@ -86,7 +88,7 @@ export function TipCard({
               />
             </div>
             <form action={updateAction} className="grid gap-3 sm:grid-cols-6">
-              <TipFormFields neighborhoods={neighborhoods} categories={categories} tip={tip} />
+              <TipFormFields neighborhoods={neighborhoods} cities={cities} categories={categories} tip={tip} />
               <div className="sm:col-span-6">
                 <button className={btnPrimary}>Salvar dica</button>
               </div>

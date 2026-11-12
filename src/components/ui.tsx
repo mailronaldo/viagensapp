@@ -158,47 +158,6 @@ export function CategoryCheckboxes({
   );
 }
 
-/**
- * Select de bairro/região, agrupado por cidade (lista pequena — viagem tem
- * poucas cidades — então dispensa filtro dinâmico via JS).
- */
-export function NeighborhoodSelect({
-  neighborhoods,
-  defaultValue = "",
-  name = "neighborhoodId",
-  className = inputCls,
-  required = false,
-}: {
-  neighborhoods: { id: string; name: string; cityId: string; cityName: string }[];
-  defaultValue?: string;
-  name?: string;
-  className?: string;
-  required?: boolean;
-}) {
-  const byCity = new Map<string, { id: string; name: string }[]>();
-  for (const n of neighborhoods) {
-    const list = byCity.get(n.cityName) ?? [];
-    list.push(n);
-    byCity.set(n.cityName, list);
-  }
-  return (
-    <select name={name} defaultValue={defaultValue} required={required} className={className}>
-      <option value="" disabled={required}>
-        {required ? "Selecione…" : "—"}
-      </option>
-      {[...byCity.entries()].map(([cityLabel, items]) => (
-        <optgroup key={cityLabel} label={cityLabel}>
-          {items.map((n) => (
-            <option key={n.id} value={n.id}>
-              {n.name}
-            </option>
-          ))}
-        </optgroup>
-      ))}
-    </select>
-  );
-}
-
 /** Formulário recolhível: abre ao clicar no botão, sem JavaScript no cliente. */
 export function AddPanel({
   title,

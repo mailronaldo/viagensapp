@@ -98,7 +98,7 @@ export default async function TipsPage({
 
       <AddPanel title="Nova dica" defaultOpen={tips.length === 0}>
         <form action={addTipAction} className="grid gap-3 sm:grid-cols-6">
-          <TipFormFields neighborhoods={neighborhoods} categories={categories} />
+          <TipFormFields neighborhoods={neighborhoods} cities={cities} categories={categories} />
           <div className="sm:col-span-6">
             <button className={btnPrimary}>Salvar dica</button>
           </div>
@@ -114,6 +114,7 @@ export default async function TipsPage({
               <TipCard
                 tip={tip}
                 neighborhoods={neighborhoods}
+                cities={cities}
                 categories={categories}
                 updateAction={updateTipAction.bind(null, tip.id)}
                 deleteAction={deleteTipAction.bind(null, tip.id)}

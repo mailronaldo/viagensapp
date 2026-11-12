@@ -309,6 +309,13 @@
       "when": 1794447738598,
       "tag": "0043_thin_pandemic",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1794485254793,
+      "tag": "0044_seed_activity_types_shopping_walk",
+      "breakpoints": true
     }
   ]
 }

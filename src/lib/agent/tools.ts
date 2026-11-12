@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, ilike, or, sql } from "drizzle-orm";
+import { and, asc, eq, ilike, or, sql } from "drizzle-orm";
 import { db, t } from "@/db";
 import { getAgenda } from "@/services/agenda";
 import { getTripCities, listNeighborhoodsForCities } from "@/services/cities";
@@ -7,7 +7,8 @@ import { listDocuments } from "@/services/documents";
 import { addExpense } from "@/services/expenses";
 import { listCostEntries, withConvertedAmounts, SOURCE_LABEL } from "@/services/cost-center";
 import { ensureTodayRates, listClientCurrencyCodes } from "@/services/currencies";
-import { listClientTips } from "@/services/tips";
+import { listClientTips, listItemTips } from "@/services/tips";
+import { googleMapsDirectionsUrl } from "@/lib/maps";
 import { listTravelerTickets, listTripTickets } from "@/services/tickets";
 import { listTravelerPasses, listTripPasses, listUsagesForPasses } from "@/services/passes";
 import { listExpenseCategories, listTipCategories, toNameMap } from "@/services/catalogs";
@@ -133,6 +134,16 @@ export const AGENT_TOOLS: AgentTool[] = [
         tip: { type: "string", description: "Nome (ou trecho do nome) da dica já cadastrada." },
       },
       required: ["activity", "tip"],
+    },
+  },
+  {
+    name: "get_route",
+    description:
+      "Monta link(s) de rota no Google Maps para uma atividade do roteiro, um transporte ou uma hospedagem, a partir de uma descrição livre (ex.: 'rota pra torre de belém', 'como chego no hotel'). Para atividade com dicas (lojas/pontos) vinculadas, a rota passa por elas. Quando não informa origem, o link deixa o próprio Maps usar a localização atual de quem abrir — ótimo durante a viagem.",
+    input_schema: {
+      type: "object",
+      properties: { query: { type: "string", description: "Nome (ou trecho do nome) da atividade, transporte ou hospedagem." } },
+      required: ["query"],
     },
   },
 ];
@@ -511,6 +522,155 @@ async function execLinkTipToActivity(ctx: AgentContext, input: Record<string, un
   return `Dica "${tip.name}" vinculada à atividade "${activity.title}".`;
 }
 
+type RouteCandidate =
+  | { kind: "activity"; id: string; title: string; date: string }
+  | { kind: "booking"; id: string; title: string }
+  | { kind: "lodging"; id: string; title: string };
+
+async function findRouteCandidates(tripId: string, query: string): Promise<RouteCandidate[]> {
+  const pattern = `%${query}%`;
+
+  const activities = await db
+    .select({ id: t.itineraryItems.id, title: t.itineraryItems.title, date: t.itineraryItems.date })
+    .from(t.itineraryItems)
+    .where(and(eq(t.itineraryItems.tripId, tripId), ilike(t.itineraryItems.title, pattern)));
+
+  const bookings = await db
+    .select({ id: t.bookings.id, title: t.bookings.title })
+    .from(t.bookings)
+    .where(and(eq(t.bookings.tripId, tripId), or(ilike(t.bookings.title, pattern), ilike(t.bookings.provider, pattern))));
+
+  const lodgings = await db
+    .select({ id: t.lodgings.id, title: t.lodgings.name })
+    .from(t.lodgings)
+    .where(and(eq(t.lodgings.tripId, tripId), ilike(t.lodgings.name, pattern)));
+
+  return [
+    ...activities.map((a): RouteCandidate => ({ kind: "activity", id: a.id, title: a.title, date: a.date })),
+    ...bookings.map((b): RouteCandidate => ({ kind: "booking", id: b.id, title: b.title })),
+    ...lodgings.map((l): RouteCandidate => ({ kind: "lodging", id: l.id, title: l.title })),
+  ];
+}
+
+/** Ponto de uma atividade: local/endereço/bairro/cidade — mesmo critério já usado em `googleMapsSearchUrl` pelas dicas. */
+async function activityPlace(itemId: string) {
+  const [row] = await db
+    .select({
+      location: t.itineraryItems.location,
+      address: t.itineraryItems.address,
+      neighborhoodName: t.cityNeighborhoods.name,
+      cityName: t.cities.name,
+    })
+    .from(t.itineraryItems)
+    .leftJoin(t.cityNeighborhoods, eq(t.cityNeighborhoods.id, t.itineraryItems.neighborhoodId))
+    .leftJoin(t.cities, eq(t.cities.id, t.itineraryItems.cityId))
+    .where(eq(t.itineraryItems.id, itemId))
+    .limit(1);
+  return row ?? null;
+}
+
+async function execGetRoute(ctx: AgentContext, input: Record<string, unknown>): Promise<string> {
+  const query = typeof input.query === "string" ? input.query.trim() : "";
+  if (!query) return "Preciso de uma descrição do que procurar (ex.: 'rota pra torre de belém').";
+
+  const candidates = await findRouteCandidates(ctx.trip.id, query);
+  if (candidates.length === 0) return `Não encontrei nenhuma atividade, transporte ou hospedagem com "${query}".`;
+  if (candidates.length > 1) {
+    const list = candidates
+      .map((c, i) => {
+        const label = c.kind === "activity" ? `${formatDate(c.date)} — ${c.title}` : c.kind === "booking" ? `Transporte — ${c.title}` : `Hospedagem — ${c.title}`;
+        return `${i + 1}) ${label}`;
+      })
+      .join("\n");
+    return `Encontrei mais de uma coisa para "${query}":\n${list}\nQual delas?`;
+  }
+
+  const candidate = candidates[0];
+
+  if (candidate.kind === "booking") {
+    const [leg] = await db
+      .select({
+        originLocation: t.bookingLegs.originLocation,
+        originCityName: t.cities.name,
+        destinationLocation: t.bookingLegs.destinationLocation,
+        destinationCityId: t.bookingLegs.destinationCityId,
+      })
+      .from(t.bookingLegs)
+      .leftJoin(t.cities, eq(t.cities.id, t.bookingLegs.originCityId))
+      .where(eq(t.bookingLegs.bookingId, candidate.id))
+      .orderBy(asc(t.bookingLegs.legOrder))
+      .limit(1);
+    if (!leg) return `"${candidate.title}" não tem nenhum trecho com origem/destino cadastrado.`;
+    const [destinationCity] = leg.destinationCityId
+      ? await db.select({ name: t.cities.name }).from(t.cities).where(eq(t.cities.id, leg.destinationCityId)).limit(1)
+      : [null];
+    const origin = [leg.originLocation, leg.originCityName].filter(Boolean).join(", ");
+    const destination = [leg.destinationLocation, destinationCity?.name].filter(Boolean).join(", ");
+    if (!destination) return `"${candidate.title}" não tem destino cadastrado no trecho.`;
+    const url = googleMapsDirectionsUrl({ origin: origin || null, destination });
+    return `Rota de "${candidate.title}":\n${url}`;
+  }
+
+  if (candidate.kind === "lodging") {
+    const [lodging] = await db
+      .select({ name: t.lodgings.name, address: t.lodgings.address, cityName: t.cities.name })
+      .from(t.lodgings)
+      .leftJoin(t.cities, eq(t.cities.id, t.lodgings.cityId))
+      .where(eq(t.lodgings.id, candidate.id))
+      .limit(1);
+    if (!lodging) return `Não encontrei "${candidate.title}".`;
+    const destination = [lodging.name, lodging.address, lodging.cityName].filter(Boolean).join(", ");
+    const url = googleMapsDirectionsUrl({ destination });
+    return `Rota pra "${candidate.title}" (a partir de onde você estiver):\n${url}`;
+  }
+
+  // Atividade: destino é o próprio local, com as dicas vinculadas como paradas no meio do caminho.
+  const [item] = await db
+    .select({ type: t.itineraryItems.type, startTime: t.itineraryItems.startTime })
+    .from(t.itineraryItems)
+    .where(eq(t.itineraryItems.id, candidate.id))
+    .limit(1);
+  const place = await activityPlace(candidate.id);
+  const tips = await listItemTips(candidate.id);
+  const waypoints = tips.length >= 2 ? tips.map((tp) => [tp.name, tp.neighborhoodName, tp.cityName]) : undefined;
+
+  let destination = place ? [place.location, place.address, place.neighborhoodName, place.cityName].filter(Boolean).join(", ") : "";
+  if (!destination && tips.length > 0) {
+    const last = tips[tips.length - 1];
+    destination = [last.name, last.neighborhoodName, last.cityName].filter(Boolean).join(", ");
+  }
+  if (!destination) return `Não encontrei local/endereço cadastrado para "${candidate.title}".`;
+
+  const sameDay = item?.startTime
+    ? await db
+        .select({
+          id: t.itineraryItems.id,
+          startTime: t.itineraryItems.startTime,
+          location: t.itineraryItems.location,
+          address: t.itineraryItems.address,
+          neighborhoodName: t.cityNeighborhoods.name,
+          cityName: t.cities.name,
+        })
+        .from(t.itineraryItems)
+        .leftJoin(t.cityNeighborhoods, eq(t.cityNeighborhoods.id, t.itineraryItems.neighborhoodId))
+        .leftJoin(t.cities, eq(t.cities.id, t.itineraryItems.cityId))
+        .where(and(eq(t.itineraryItems.tripId, ctx.trip.id), eq(t.itineraryItems.date, candidate.date)))
+        .orderBy(asc(t.itineraryItems.startTime))
+    : [];
+  const previous = [...sameDay].filter((i) => i.id !== candidate.id && i.startTime && i.startTime < item!.startTime!).pop();
+
+  const travelmode = item?.type === "WALK" ? ("walking" as const) : undefined;
+  const lines = [`Rota pra "${candidate.title}":`];
+  lines.push(`📍 A partir de onde você estiver: ${googleMapsDirectionsUrl({ destination, waypoints, travelmode })}`);
+  if (previous) {
+    const origin = [previous.location, previous.address, previous.neighborhoodName, previous.cityName].filter(Boolean).join(", ");
+    if (origin) {
+      lines.push(`📍 A partir da atividade anterior: ${googleMapsDirectionsUrl({ origin, destination, waypoints, travelmode })}`);
+    }
+  }
+  return lines.join("\n");
+}
+
 export function buildToolExecutor(ctx: AgentContext) {
   return async function execute(name: string, input: Record<string, unknown>): Promise<string> {
     try {
@@ -533,6 +693,8 @@ export function buildToolExecutor(ctx: AgentContext) {
           return await execGetTicketsAndPasses(ctx, input);
         case "link_tip_to_activity":
           return await execLinkTipToActivity(ctx, input);
+        case "get_route":
+          return await execGetRoute(ctx, input);
         default:
           return `Tool desconhecida: ${name}.`;
       }

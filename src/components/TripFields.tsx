@@ -1,5 +1,6 @@
 import type { Booking, Chip, Expense, ItineraryItem, Lodging, TravelInsurance } from "@/db/schema";
-import { AddPanel, CategoryOptions, Field, NeighborhoodSelect, StatusSelect, inputCls } from "@/components/ui";
+import { AddPanel, CategoryOptions, Field, StatusSelect, inputCls } from "@/components/ui";
+import { NeighborhoodSelect } from "@/components/NeighborhoodSelect";
 import { TripTypeToggle } from "@/components/TripTypeToggle";
 
 type Category = { id: string; name: string };
@@ -121,7 +122,7 @@ export function ItemMainFields({
         <input name="address" defaultValue={item?.address ?? ""} className={inputCls} />
       </Field>
       <Field label="Bairro/Região" className="sm:col-span-3">
-        <NeighborhoodSelect neighborhoods={neighborhoods} defaultValue={item?.neighborhoodId ?? ""} />
+        <NeighborhoodSelect neighborhoods={neighborhoods} cities={cities} defaultValue={item?.neighborhoodId ?? ""} />
       </Field>
       <Field label="Custo estimado" className="sm:col-span-2">
         <input name="costEstimate" inputMode="decimal" defaultValue={dec(item?.costEstimate)} placeholder="0,00" className={inputCls} />
@@ -496,7 +497,7 @@ export function LegHalfFields({
         </select>
       </Field>
       <Field label="Bairro/Região" className="sm:col-span-2">
-        <NeighborhoodSelect neighborhoods={neighborhoods} name={`${namePrefix}NeighborhoodId`} defaultValue={neighborhoodId ?? ""} />
+        <NeighborhoodSelect neighborhoods={neighborhoods} cities={cities} name={`${namePrefix}NeighborhoodId`} defaultValue={neighborhoodId ?? ""} />
       </Field>
     </fieldset>
   );

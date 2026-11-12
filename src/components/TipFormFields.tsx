@@ -1,11 +1,14 @@
-import { CategoryCheckboxes, Field, NeighborhoodSelect, inputCls } from "@/components/ui";
+import { CategoryCheckboxes, Field, inputCls } from "@/components/ui";
+import { NeighborhoodSelect } from "@/components/NeighborhoodSelect";
 
 export function TipFormFields({
   neighborhoods,
+  cities,
   categories,
   tip,
 }: {
   neighborhoods: { id: string; name: string; cityId: string; cityName: string }[];
+  cities: { id: string; name: string }[];
   categories: { id: string; name: string }[];
   tip?: {
     name: string;
@@ -20,7 +23,7 @@ export function TipFormFields({
         <input name="name" required defaultValue={tip?.name} className={inputCls} />
       </Field>
       <Field label="Bairro/Região" className="sm:col-span-2">
-        <NeighborhoodSelect neighborhoods={neighborhoods} defaultValue={tip?.neighborhoodId ?? ""} required />
+        <NeighborhoodSelect neighborhoods={neighborhoods} cities={cities} defaultValue={tip?.neighborhoodId ?? ""} required />
       </Field>
       <Field label="Categorias" className="sm:col-span-6">
         <CategoryCheckboxes categories={categories} defaultSelected={tip?.categories?.map((c) => c.id)} />
