@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Sparkles, X } from "lucide-react";
+import { ChevronDown, Plus, Sparkles, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,8 +11,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandCheck, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card, CategoryCheckboxes, Field, btnGhost, btnPrimary, inputCls } from "@/components/ui";
+import { cn } from "@/lib/utils";
 import { googleMapsSearchUrl } from "@/lib/maps";
 import { suggestTipsAction, saveSuggestedTipsAction, type AiPoint } from "@/app/actions/ai-suggestions";
 
@@ -24,6 +27,72 @@ type Tip = {
   neighborhoodName: string | null;
   categories: { id: string; name: string }[];
 };
+
+/**
+ * Select de dica existente com busca (digita e filtra por nome, bairro ou
+ * categoria) — mesmo padrão do NeighborhoodSelect, útil quando o repositório
+ * de dicas cresce e o <select> nativo vira uma lista imensa de rolar.
+ */
+function TipSelect({ tips, name = "tipId" }: { tips: Tip[]; name?: string }) {
+  const [value, setValue] = useState("");
+  const [open, setOpen] = useState(false);
+
+  const byNeighborhood = new Map<string, Tip[]>();
+  for (const t of tips) {
+    const key = t.neighborhoodName ?? "Sem bairro/região";
+    const list = byNeighborhood.get(key) ?? [];
+    list.push(t);
+    byNeighborhood.set(key, list);
+  }
+  const selected = tips.find((t) => t.id === value);
+
+  return (
+    <>
+      <input type="hidden" name={name} value={value} required />
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={cn(inputCls, "flex w-full items-center justify-between gap-2 text-left", !selected && "text-slate-400")}
+          >
+            <span className="truncate">{selected ? selected.name : "Selecione…"}</span>
+            <ChevronDown className="size-4 shrink-0 opacity-50" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+          <Command>
+            <CommandInput placeholder="Buscar dica por nome, bairro ou categoria…" />
+            <CommandList>
+              <CommandEmpty>Nada encontrado.</CommandEmpty>
+              {[...byNeighborhood.entries()].map(([neighborhoodLabel, items]) => (
+                <CommandGroup key={neighborhoodLabel} heading={neighborhoodLabel}>
+                  {items.map((t) => (
+                    <CommandItem
+                      key={t.id}
+                      value={`${t.name} ${neighborhoodLabel} ${t.categories.map((c) => c.name).join(" ")}`}
+                      onSelect={() => {
+                        setValue(t.id);
+                        setOpen(false);
+                      }}
+                    >
+                      <span className="min-w-0 truncate">
+                        {t.categories.length > 0 && (
+                          <span className="mr-1 text-[10px] uppercase text-slate-500">{t.categories.map((c) => c.name).join(", ")}:</span>
+                        )}
+                        {t.name}
+                      </span>
+                      {t.id === value && <CommandCheck />}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ))}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </>
+  );
+}
 
 function AiSuggestions({ tripId, itemId }: { tripId: string; itemId: string }) {
   const router = useRouter();
@@ -223,15 +292,7 @@ export function ActivityTipsCard({
               ) : (
                 <form action={linkAction} className="space-y-3">
                   <Field label="Dica">
-                    <select name="tipId" required defaultValue="" className={inputCls}>
-                      <option value="">Selecione…</option>
-                      {availableExisting.map((e) => (
-                        <option key={e.id} value={e.id}>
-                          {e.name}
-                          {e.categories.length > 0 ? ` — ${e.categories.map((c) => c.name).join(", ")}` : ""}
-                        </option>
-                      ))}
-                    </select>
+                    <TipSelect tips={availableExisting} />
                   </Field>
                   <DialogFooter>
                     <button type="button" onClick={() => setOpen(false)} className={btnGhost}>
