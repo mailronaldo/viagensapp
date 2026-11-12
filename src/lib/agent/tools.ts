@@ -93,7 +93,8 @@ export const AGENT_TOOLS: AgentTool[] = [
   },
   {
     name: "get_tips",
-    description: "Lista as dicas (lugares) cadastradas nas cidades da viagem. Pode filtrar por um texto livre (nome ou categoria).",
+    description:
+      "Lista as dicas (lugares) cadastradas nas cidades da viagem e sempre informa o total encontrado (mesmo quando a lista é truncada). Pode filtrar por um texto livre (nome ou categoria) — use pra refinar quando o total for grande.",
     input_schema: {
       type: "object",
       properties: { query: { type: "string", description: "Filtro livre. Opcional." } },
@@ -298,12 +299,19 @@ async function execGetTips(ctx: AgentContext, input: Record<string, unknown>): P
   });
   if (filtered.length === 0) return "Nenhuma dica encontrada para essa viagem.";
 
-  const lines = filtered.slice(0, 15).map((tip) => {
+  const LIMIT = 30;
+  const shown = filtered.slice(0, LIMIT);
+  const lines = shown.map((tip) => {
     const cats = tip.categories.map((c) => c.name).join(", ");
     const place = [tip.neighborhoodName, tip.cityName].filter(Boolean).join(" — ");
     return `- ${tip.name}${cats ? ` [${cats}]` : ""}${place ? ` (${place})` : ""}`;
   });
-  return lines.join("\n");
+
+  const header =
+    filtered.length > LIMIT
+      ? `${filtered.length} dicas encontradas — mostrando as ${LIMIT} primeiras (use um texto de busca mais específico pra refinar):`
+      : `${filtered.length} dica${filtered.length === 1 ? "" : "s"} encontrada${filtered.length === 1 ? "" : "s"}:`;
+  return `${header}\n${lines.join("\n")}`;
 }
 
 async function execAddTip(ctx: AgentContext, input: Record<string, unknown>): Promise<string> {
@@ -380,8 +388,14 @@ async function execGetTicketsAndPasses(ctx: AgentContext, input: Record<string, 
     .filter((p) => !query || p.name.toLowerCase().includes(query))
     .map((p) => {
       const remaining = p.maxUses === null ? "ilimitado" : `${Math.max(p.maxUses - p.usedCount, 0)} de ${p.maxUses} usos restantes`;
-      const who = seeAll ? ` — viajante: ${p.travelerName}` : "";
-      let line = `- ${p.name}${p.provider ? ` (${p.provider})` : ""} — ${remaining}${who}`;
+      const parts = [p.name];
+      if (p.provider) parts.push(p.provider);
+      parts.push(p.status);
+      if (p.price) parts.push(`${p.price} ${p.currency ?? ctx.trip.baseCurrency}`);
+      if (p.passNumber) parts.push(`nº ${p.passNumber}`);
+      parts.push(remaining);
+      if (seeAll) parts.push(`viajante: ${p.travelerName}`);
+      let line = `- ${parts.join(" — ")}`;
       if (p.details) line += `\n  Detalhes: ${p.details}`;
       return line;
     });
