@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, eq, gte, isNull, or } from "drizzle-orm";
 import { db, t } from "@/db";
 import { formatDate } from "@/lib/format";
-import { parseIncomingMessage, sendChatAction, sendMessage, verifyWebhookSecret, type TelegramUpdate } from "@/lib/telegram";
+import { parseIncomingMessage, sendChatAction, sendMessage, verifyWebhookSecret, type LinkButton, type TelegramUpdate } from "@/lib/telegram";
 import { checkAgentRateLimit } from "@/lib/agent/rate-limit";
 import { runAgentForMessage } from "@/lib/agent/run";
 
@@ -86,6 +86,33 @@ async function handleSwitchTrip(chatId: string, link: Link) {
   await sendMessage(chatId, `Qual viagem?\n${list}\nResponda com o número.`);
 }
 
+const MAPS_URL_RE = /https:\/\/www\.google\.com\/maps\/\S+/;
+
+/**
+ * O bot responde com texto livre (o modelo decide a redação), mas qualquer
+ * link de rota que ele gere sempre segue o formato "rótulo: URL" — então
+ * extraímos cada linha com link do texto e virão botão ("Ver rota no mapa")
+ * em vez de uma URL enorme solta na conversa.
+ */
+function extractMapButtons(text: string): { text: string; buttons: LinkButton[] } {
+  const buttons: LinkButton[] = [];
+  const keptLines: string[] = [];
+  for (const line of text.split("\n")) {
+    const match = line.match(MAPS_URL_RE);
+    if (!match) {
+      keptLines.push(line);
+      continue;
+    }
+    const label = line
+      .slice(0, match.index)
+      .replace(/^[\s📍🗺️-]+/, "")
+      .replace(/[\s:–-]+$/, "")
+      .trim();
+    buttons.push({ text: `🗺️ ${label || `Ver rota ${buttons.length + 1}`}`.slice(0, 64), url: match[0] });
+  }
+  return { text: keptLines.join("\n").replace(/\n{3,}/g, "\n\n").trim(), buttons };
+}
+
 async function handleMessage(chatId: string, text: string) {
   const [link] = await db.select().from(t.telegramLinks).where(eq(t.telegramLinks.chatId, chatId)).limit(1);
   if (!link) {
@@ -143,7 +170,8 @@ async function handleMessage(chatId: string, text: string) {
   } finally {
     clearInterval(typingInterval);
   }
-  await sendMessage(chatId, reply);
+  const { text: cleanedReply, buttons } = extractMapButtons(reply);
+  await sendMessage(chatId, cleanedReply || reply, buttons);
 }
 
 export async function POST(req: NextRequest) {

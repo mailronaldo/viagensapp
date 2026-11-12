@@ -1,30 +1,29 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { MapPin, Navigation } from "lucide-react";
 import { btnOutline, btnPrimary } from "@/components/ui";
+import { getItemRouteLinksAction } from "@/app/actions/items";
 
 /**
- * Na tela de editar atividade, o roteiro completo fica "escondido" atrás do
- * breadcrumb — troca o "Editar viagem" por um atalho de volta pra lá. O
- * atalho de volta pro dia específico mora junto do X de excluir, dentro da
- * própria tela de edição (padrão igual ao de transporte/hospedagem).
+ * Na tela de editar atividade, no lugar do atalho pro roteiro completo
+ * (o próprio formulário já tem um botão de voltar pro dia), mostramos os
+ * links de rota no Google Maps dessa atividade — é o que o viajante mais
+ * usa chegando nela.
  *
  * Na central de custos, o atalho é pro novo lançamento (custo avulso); na
  * tela de novo lançamento, o atalho volta pra central de custos.
  */
 export function TripHeaderActions({ tripId, canEditTrip }: { tripId: string; canEditTrip: boolean }) {
   const pathname = usePathname();
-  const isItemEdit = pathname?.startsWith(`/trips/${tripId}/itinerary/items/`);
+  const itemEditMatch = pathname?.match(new RegExp(`^/trips/${tripId}/itinerary/items/([^/]+)$`));
   const isCostCenter = pathname === `/trips/${tripId}/costs`;
   const isNewExpense = pathname === `/trips/${tripId}/expenses`;
 
-  if (isItemEdit) {
-    return (
-      <Link href={`/trips/${tripId}/itinerary`} className={btnOutline}>
-        Roteiro completo
-      </Link>
-    );
+  if (itemEditMatch) {
+    return <ItemRouteActions key={itemEditMatch[1]} tripId={tripId} itemId={itemEditMatch[1]} />;
   }
   if (isCostCenter) {
     return (
@@ -45,5 +44,31 @@ export function TripHeaderActions({ tripId, canEditTrip }: { tripId: string; can
     <Link href={`/trips/${tripId}/edit`} className={btnOutline}>
       Editar viagem
     </Link>
+  );
+}
+
+type RouteLinks = { liveUrl: string; mapUrl: string | null; mapLabel: string | null };
+
+function ItemRouteActions({ tripId, itemId }: { tripId: string; itemId: string }) {
+  const [links, setLinks] = useState<RouteLinks | null>(null);
+
+  useEffect(() => {
+    getItemRouteLinksAction(tripId, itemId).then(setLinks).catch(() => setLinks(null));
+  }, [tripId, itemId]);
+
+  if (!links) return null;
+  return (
+    <>
+      <a href={links.liveUrl} target="_blank" rel="noreferrer" className={`${btnOutline} gap-1.5`} title="Rota a partir de onde você estiver agora">
+        <Navigation className="size-4" aria-hidden />
+        Rota em tempo real
+      </a>
+      {links.mapUrl && (
+        <a href={links.mapUrl} target="_blank" rel="noreferrer" className={`${btnOutline} gap-1.5`} title={links.mapLabel ?? undefined}>
+          <MapPin className="size-4" aria-hidden />
+          Rota no mapa
+        </a>
+      )}
+    </>
   );
 }

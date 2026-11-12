@@ -8,6 +8,7 @@ import { attachmentFromForm } from "@/lib/attachment";
 import { HH_MM, ISO_DATE, fail, parseDecimal, parseStatus, str } from "@/lib/form";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import { parseOptionalCategory } from "@/services/catalogs";
+import { getActivityRouteUrls } from "@/services/routes";
 
 async function parseItem(
   tripId: string,
@@ -207,4 +208,9 @@ export async function removeReservationAction(tripId: string, itemId: string, re
     .returning({ date: t.itineraryItems.date });
   const day = `/trips/${tripId}/itinerary/day/${item?.date ?? ""}`;
   redirect(returnTo === "edit" ? `/trips/${tripId}/itinerary/items/${itemId}` : item ? day : `/trips/${tripId}/itinerary`);
+}
+
+export async function getItemRouteLinksAction(tripId: string, itemId: string) {
+  await requireTripAccess(tripId);
+  return getActivityRouteUrls(tripId, itemId);
 }

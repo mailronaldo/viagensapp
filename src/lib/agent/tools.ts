@@ -7,8 +7,9 @@ import { listDocuments } from "@/services/documents";
 import { addExpense } from "@/services/expenses";
 import { listCostEntries, withConvertedAmounts, SOURCE_LABEL } from "@/services/cost-center";
 import { ensureTodayRates, listClientCurrencyCodes } from "@/services/currencies";
-import { listClientTips, listItemTips } from "@/services/tips";
+import { listClientTips } from "@/services/tips";
 import { googleMapsDirectionsUrl } from "@/lib/maps";
+import { getActivityRouteUrls } from "@/services/routes";
 import { listTravelerTickets, listTripTickets } from "@/services/tickets";
 import { listTravelerPasses, listTripPasses, listUsagesForPasses } from "@/services/passes";
 import { listExpenseCategories, listTipCategories, toNameMap } from "@/services/catalogs";
@@ -552,23 +553,6 @@ async function findRouteCandidates(tripId: string, query: string): Promise<Route
   ];
 }
 
-/** Ponto de uma atividade: local/endereço/bairro/cidade — mesmo critério já usado em `googleMapsSearchUrl` pelas dicas. */
-async function activityPlace(itemId: string) {
-  const [row] = await db
-    .select({
-      location: t.itineraryItems.location,
-      address: t.itineraryItems.address,
-      neighborhoodName: t.cityNeighborhoods.name,
-      cityName: t.cities.name,
-    })
-    .from(t.itineraryItems)
-    .leftJoin(t.cityNeighborhoods, eq(t.cityNeighborhoods.id, t.itineraryItems.neighborhoodId))
-    .leftJoin(t.cities, eq(t.cities.id, t.itineraryItems.cityId))
-    .where(eq(t.itineraryItems.id, itemId))
-    .limit(1);
-  return row ?? null;
-}
-
 async function execGetRoute(ctx: AgentContext, input: Record<string, unknown>): Promise<string> {
   const query = typeof input.query === "string" ? input.query.trim() : "";
   if (!query) return "Preciso de uma descrição do que procurar (ex.: 'rota pra torre de belém').";
@@ -625,54 +609,12 @@ async function execGetRoute(ctx: AgentContext, input: Record<string, unknown>): 
   }
 
   // Atividade: destino é o próprio local, com as dicas vinculadas como paradas no meio do caminho.
-  const [item] = await db
-    .select({ type: t.itineraryItems.type, startTime: t.itineraryItems.startTime })
-    .from(t.itineraryItems)
-    .where(eq(t.itineraryItems.id, candidate.id))
-    .limit(1);
-  const place = await activityPlace(candidate.id);
-  const tips = await listItemTips(candidate.id);
-  const waypoints = tips.length >= 2 ? tips.map((tp) => [tp.name, tp.neighborhoodName, tp.cityName]) : undefined;
-
-  let destination = place ? [place.location, place.address, place.neighborhoodName, place.cityName].filter(Boolean).join(", ") : "";
-  if (!destination && tips.length > 0) {
-    const last = tips[tips.length - 1];
-    destination = [last.name, last.neighborhoodName, last.cityName].filter(Boolean).join(", ");
-  }
-  if (!destination) return `Não encontrei local/endereço cadastrado para "${candidate.title}".`;
-
-  const sameDay = item?.startTime
-    ? await db
-        .select({
-          id: t.itineraryItems.id,
-          startTime: t.itineraryItems.startTime,
-          location: t.itineraryItems.location,
-          address: t.itineraryItems.address,
-          neighborhoodName: t.cityNeighborhoods.name,
-          cityName: t.cities.name,
-        })
-        .from(t.itineraryItems)
-        .leftJoin(t.cityNeighborhoods, eq(t.cityNeighborhoods.id, t.itineraryItems.neighborhoodId))
-        .leftJoin(t.cities, eq(t.cities.id, t.itineraryItems.cityId))
-        .where(and(eq(t.itineraryItems.tripId, ctx.trip.id), eq(t.itineraryItems.date, candidate.date)))
-        .orderBy(asc(t.itineraryItems.startTime))
-    : [];
-  const previous = [...sameDay].filter((i) => i.id !== candidate.id && i.startTime && i.startTime < item!.startTime!).pop();
-
-  const travelmode = item?.type === "WALK" ? ("walking" as const) : undefined;
-  let origin = previous ? [previous.location, previous.address, previous.neighborhoodName, previous.cityName].filter(Boolean).join(", ") : "";
-  // Sem atividade anterior, uma rota com várias paradas ainda precisa de uma origem explícita
-  // (senão o link depende do GPS do celular no momento de abrir, e não carrega se o viajante
-  // ainda não estiver lá) — usa o próprio local da atividade como ponto de partida e chegada.
-  const isLoop = !origin && !!waypoints;
-  if (isLoop) origin = destination;
+  const route = await getActivityRouteUrls(ctx.trip.id, candidate.id);
+  if (!route) return `Não encontrei local/endereço cadastrado para "${candidate.title}".`;
 
   const lines = [`Rota pra "${candidate.title}":`];
-  lines.push(`📍 A partir de onde você estiver: ${googleMapsDirectionsUrl({ destination, waypoints, travelmode })}`);
-  if (origin) {
-    const label = previous ? "A partir da atividade anterior" : "Roteiro passando pelas paradas (não depende da sua localização)";
-    lines.push(`📍 ${label}: ${googleMapsDirectionsUrl({ origin, destination, waypoints, travelmode })}`);
-  }
+  lines.push(`📍 A partir de onde você estiver: ${route.liveUrl}`);
+  if (route.mapUrl) lines.push(`📍 ${route.mapLabel}: ${route.mapUrl}`);
   return lines.join("\n");
 }
 

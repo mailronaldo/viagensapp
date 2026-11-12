@@ -12,11 +12,14 @@ export function verifyWebhookSecret(headerValue: string | null): boolean {
   return !!expected && headerValue === expected;
 }
 
-export async function sendMessage(chatId: string, text: string): Promise<void> {
+export type LinkButton = { text: string; url: string };
+
+export async function sendMessage(chatId: string, text: string, buttons?: LinkButton[]): Promise<void> {
+  const reply_markup = buttons && buttons.length > 0 ? { inline_keyboard: buttons.map((b) => [{ text: b.text, url: b.url }]) } : undefined;
   const res = await fetch(apiUrl("sendMessage"), {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text }),
+    body: JSON.stringify({ chat_id: chatId, text, reply_markup }),
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
