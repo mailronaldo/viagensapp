@@ -660,13 +660,18 @@ async function execGetRoute(ctx: AgentContext, input: Record<string, unknown>): 
   const previous = [...sameDay].filter((i) => i.id !== candidate.id && i.startTime && i.startTime < item!.startTime!).pop();
 
   const travelmode = item?.type === "WALK" ? ("walking" as const) : undefined;
+  let origin = previous ? [previous.location, previous.address, previous.neighborhoodName, previous.cityName].filter(Boolean).join(", ") : "";
+  // Sem atividade anterior, uma rota com várias paradas ainda precisa de uma origem explícita
+  // (senão o link depende do GPS do celular no momento de abrir, e não carrega se o viajante
+  // ainda não estiver lá) — usa o próprio local da atividade como ponto de partida e chegada.
+  const isLoop = !origin && !!waypoints;
+  if (isLoop) origin = destination;
+
   const lines = [`Rota pra "${candidate.title}":`];
   lines.push(`📍 A partir de onde você estiver: ${googleMapsDirectionsUrl({ destination, waypoints, travelmode })}`);
-  if (previous) {
-    const origin = [previous.location, previous.address, previous.neighborhoodName, previous.cityName].filter(Boolean).join(", ");
-    if (origin) {
-      lines.push(`📍 A partir da atividade anterior: ${googleMapsDirectionsUrl({ origin, destination, waypoints, travelmode })}`);
-    }
+  if (origin) {
+    const label = previous ? "A partir da atividade anterior" : "Roteiro passando pelas paradas (não depende da sua localização)";
+    lines.push(`📍 ${label}: ${googleMapsDirectionsUrl({ origin, destination, waypoints, travelmode })}`);
   }
   return lines.join("\n");
 }
