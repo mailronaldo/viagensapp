@@ -1,9 +1,15 @@
 import "server-only";
 import { spawn } from "node:child_process";
 import ffmpegPath from "ffmpeg-static";
-import { pipeline, type AutomaticSpeechRecognitionPipeline } from "@huggingface/transformers";
+import { env, pipeline, type AutomaticSpeechRecognitionPipeline } from "@huggingface/transformers";
 
 const MODEL = "onnx-community/whisper-base";
+
+// Por padrão a lib guarda o modelo baixado dentro de node_modules, mas o
+// container roda como usuário sem permissão de escrita lá — usa /tmp
+// (sempre gravável; só não persiste entre reinícios do container, o que já
+// era esperado nesta primeira versão).
+env.cacheDir = "/tmp/transformers-cache";
 
 // Carrega o modelo uma única vez por processo (fica em memória pelo resto da
 // vida do servidor) — a primeira transcrição depois de cada deploy/restart
