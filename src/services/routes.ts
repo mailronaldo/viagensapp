@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { db, t } from "@/db";
 import { listItemTips } from "@/services/tips";
 import { googleMapsDirectionsUrl } from "@/lib/maps";
@@ -10,6 +10,15 @@ export type ActivityRouteUrls = {
   /** Com origem explícita (atividade anterior, ou a própria atividade quando é um roteiro de várias paradas sem atividade anterior) — não depende do GPS no momento de abrir. */
   mapUrl: string | null;
   mapLabel: string | null;
+};
+
+type DayItem = {
+  id: string;
+  startTime: string | null;
+  location: string | null;
+  address: string | null;
+  neighborhoodName: string | null;
+  cityName: string | null;
 };
 
 /** Ponto de uma atividade: local/endereço/bairro/cidade — mesmo critério já usado em `googleMapsSearchUrl` pelas dicas. */
@@ -29,6 +38,28 @@ async function activityPlace(itemId: string) {
   return row ?? null;
 }
 
+function placeOf(row: DayItem): string {
+  return [row.location, row.address, row.neighborhoodName, row.cityName].filter(Boolean).join(", ");
+}
+
+/** Itens do roteiro num dia, na mesma ordem usada na agenda (horário, nulls no fim). */
+async function itemsOnDay(tripId: string, date: string): Promise<DayItem[]> {
+  return db
+    .select({
+      id: t.itineraryItems.id,
+      startTime: t.itineraryItems.startTime,
+      location: t.itineraryItems.location,
+      address: t.itineraryItems.address,
+      neighborhoodName: t.cityNeighborhoods.name,
+      cityName: t.cities.name,
+    })
+    .from(t.itineraryItems)
+    .leftJoin(t.cityNeighborhoods, eq(t.cityNeighborhoods.id, t.itineraryItems.neighborhoodId))
+    .leftJoin(t.cities, eq(t.cities.id, t.itineraryItems.cityId))
+    .where(and(eq(t.itineraryItems.tripId, tripId), eq(t.itineraryItems.date, date)))
+    .orderBy(sql`${t.itineraryItems.startTime} asc nulls last`, asc(t.itineraryItems.title));
+}
+
 /**
  * Monta os links de rota de uma atividade do roteiro (mesma lógica da tool
  * `get_route` do bot) — usada tanto pelo bot quanto pelos botões da tela de
@@ -36,7 +67,7 @@ async function activityPlace(itemId: string) {
  */
 export async function getActivityRouteUrls(tripId: string, itemId: string): Promise<ActivityRouteUrls | null> {
   const [item] = await db
-    .select({ type: t.itineraryItems.type, startTime: t.itineraryItems.startTime, date: t.itineraryItems.date })
+    .select({ type: t.itineraryItems.type, date: t.itineraryItems.date })
     .from(t.itineraryItems)
     .where(and(eq(t.itineraryItems.id, itemId), eq(t.itineraryItems.tripId, tripId)))
     .limit(1);
@@ -53,24 +84,15 @@ export async function getActivityRouteUrls(tripId: string, itemId: string): Prom
   }
   if (!destination) return null;
 
-  const sameDay = await db
-    .select({
-      id: t.itineraryItems.id,
-      startTime: t.itineraryItems.startTime,
-      location: t.itineraryItems.location,
-      address: t.itineraryItems.address,
-      neighborhoodName: t.cityNeighborhoods.name,
-      cityName: t.cities.name,
-    })
-    .from(t.itineraryItems)
-    .leftJoin(t.cityNeighborhoods, eq(t.cityNeighborhoods.id, t.itineraryItems.neighborhoodId))
-    .leftJoin(t.cities, eq(t.cities.id, t.itineraryItems.cityId))
-    .where(and(eq(t.itineraryItems.tripId, tripId), eq(t.itineraryItems.date, item.date)))
-    .orderBy(asc(t.itineraryItems.startTime));
-  const previous = item.startTime ? sameDay.filter((i) => i.id !== itemId && i.startTime && i.startTime < item.startTime!).pop() : undefined;
+  // Acha a atividade anterior pela posição no dia (mesma ordem da agenda),
+  // não pelo horário desta atividade — senão uma atividade sem horário
+  // definido nunca encontrava a anterior.
+  const sameDay = await itemsOnDay(tripId, item.date);
+  const idx = sameDay.findIndex((i) => i.id === itemId);
+  const previous = idx > 0 ? sameDay[idx - 1] : undefined;
 
   const travelmode = item.type === "WALK" ? ("walking" as const) : undefined;
-  let origin = previous ? [previous.location, previous.address, previous.neighborhoodName, previous.cityName].filter(Boolean).join(", ") : "";
+  let origin = previous ? placeOf(previous) : "";
   // Sem atividade anterior, uma rota com várias paradas ainda precisa de uma origem explícita
   // (senão o link depende do GPS do celular no momento de abrir, e não carrega se o viajante
   // ainda não estiver lá) — usa o próprio local da atividade como ponto de partida e chegada.
@@ -85,5 +107,44 @@ export async function getActivityRouteUrls(tripId: string, itemId: string): Prom
     mapLabel = previous ? "A partir da atividade anterior" : "Roteiro com as paradas (não depende da sua localização)";
   }
 
+  return { liveUrl, mapUrl, mapLabel };
+}
+
+/**
+ * Mesma ideia, mas pra hospedagem: destino é a própria hospedagem, origem é
+ * a última atividade do roteiro antes do check-in (pelo horário de check-in,
+ * ou a última do dia quando o horário não foi informado).
+ */
+export async function getLodgingRouteUrls(tripId: string, lodgingId: string): Promise<ActivityRouteUrls | null> {
+  const [lodging] = await db
+    .select({
+      name: t.lodgings.name,
+      address: t.lodgings.address,
+      cityName: t.cities.name,
+      checkInDate: t.lodgings.checkInDate,
+      checkInTime: t.lodgings.checkInTime,
+    })
+    .from(t.lodgings)
+    .leftJoin(t.cities, eq(t.cities.id, t.lodgings.cityId))
+    .where(and(eq(t.lodgings.id, lodgingId), eq(t.lodgings.tripId, tripId)))
+    .limit(1);
+  if (!lodging) return null;
+
+  const destination = [lodging.name, lodging.address, lodging.cityName].filter(Boolean).join(", ");
+  if (!destination) return null;
+
+  // A hospedagem não é um item do roteiro com horário comparável (muita
+  // atividade do dia fica sem horário definido) — usa direto a última
+  // atividade do dia do check-in, na mesma ordem da agenda.
+  let origin = "";
+  if (lodging.checkInDate) {
+    const sameDay = await itemsOnDay(tripId, lodging.checkInDate);
+    const previous = sameDay[sameDay.length - 1];
+    if (previous) origin = placeOf(previous);
+  }
+
+  const liveUrl = googleMapsDirectionsUrl({ destination });
+  const mapUrl = origin ? googleMapsDirectionsUrl({ origin, destination }) : null;
+  const mapLabel = origin ? "A partir da atividade anterior" : null;
   return { liveUrl, mapUrl, mapLabel };
 }

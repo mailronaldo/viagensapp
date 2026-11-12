@@ -122,7 +122,7 @@ export function ItemMainFields({
         <input name="address" defaultValue={item?.address ?? ""} className={inputCls} />
       </Field>
       <Field label="Bairro/Região" className="sm:col-span-3">
-        <NeighborhoodSelect neighborhoods={neighborhoods} cities={cities} defaultValue={item?.neighborhoodId ?? ""} />
+        <NeighborhoodSelect neighborhoods={neighborhoods} cities={cities} defaultValue={item?.neighborhoodId ?? ""} required={!item} />
       </Field>
       <Field label="Custo estimado" className="sm:col-span-2">
         <input name="costEstimate" inputMode="decimal" defaultValue={dec(item?.costEstimate)} placeholder="0,00" className={inputCls} />

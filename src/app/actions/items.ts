@@ -15,6 +15,7 @@ async function parseItem(
   trip: { startDate: string; endDate: string; ownerId: string },
   formData: FormData,
   back: string,
+  opts: { requireNeighborhood: boolean } = { requireNeighborhood: false },
 ) {
   const date = str(formData, "date");
   const title = str(formData, "title");
@@ -50,6 +51,7 @@ async function parseItem(
     if (!city) fail(back, "Cidade inválida.");
   }
 
+  if (opts.requireNeighborhood && !neighborhoodId) fail(back, "Selecione o Bairro/Região.");
   if (neighborhoodId) {
     const [n] = await db
       .select({ id: t.cityNeighborhoods.id })
@@ -104,7 +106,7 @@ export async function addItemAction(tripId: string, formData: FormData) {
   const day = str(formData, "day");
   const back =
     day && ISO_DATE.test(day) ? `/trips/${tripId}/itinerary/day/${day}` : `/trips/${tripId}/itinerary`;
-  const v = await parseItem(tripId, trip, formData, back);
+  const v = await parseItem(tripId, trip, formData, back, { requireNeighborhood: true });
 
   const ticketDocumentId = await attachmentFromForm({
     tripId,

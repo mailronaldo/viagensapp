@@ -9,7 +9,7 @@ import { listCostEntries, withConvertedAmounts, SOURCE_LABEL } from "@/services/
 import { ensureTodayRates, listClientCurrencyCodes } from "@/services/currencies";
 import { listClientTips } from "@/services/tips";
 import { googleMapsDirectionsUrl } from "@/lib/maps";
-import { getActivityRouteUrls } from "@/services/routes";
+import { getActivityRouteUrls, getLodgingRouteUrls } from "@/services/routes";
 import { listTravelerTickets, listTripTickets } from "@/services/tickets";
 import { listTravelerPasses, listTripPasses, listUsagesForPasses } from "@/services/passes";
 import { listExpenseCategories, listTipCategories, toNameMap } from "@/services/catalogs";
@@ -596,16 +596,12 @@ async function execGetRoute(ctx: AgentContext, input: Record<string, unknown>): 
   }
 
   if (candidate.kind === "lodging") {
-    const [lodging] = await db
-      .select({ name: t.lodgings.name, address: t.lodgings.address, cityName: t.cities.name })
-      .from(t.lodgings)
-      .leftJoin(t.cities, eq(t.cities.id, t.lodgings.cityId))
-      .where(eq(t.lodgings.id, candidate.id))
-      .limit(1);
-    if (!lodging) return `Não encontrei "${candidate.title}".`;
-    const destination = [lodging.name, lodging.address, lodging.cityName].filter(Boolean).join(", ");
-    const url = googleMapsDirectionsUrl({ destination });
-    return `Rota pra "${candidate.title}" (a partir de onde você estiver):\n${url}`;
+    const route = await getLodgingRouteUrls(ctx.trip.id, candidate.id);
+    if (!route) return `Não encontrei local/endereço cadastrado para "${candidate.title}".`;
+    const lines = [`Rota pra "${candidate.title}":`];
+    lines.push(`📍 A partir de onde você estiver: ${route.liveUrl}`);
+    if (route.mapUrl) lines.push(`📍 ${route.mapLabel}: ${route.mapUrl}`);
+    return lines.join("\n");
   }
 
   // Atividade: destino é o próprio local, com as dicas vinculadas como paradas no meio do caminho.

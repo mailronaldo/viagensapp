@@ -6,12 +6,13 @@ import { usePathname } from "next/navigation";
 import { MapPin, Navigation } from "lucide-react";
 import { btnOutline, btnPrimary } from "@/components/ui";
 import { getItemRouteLinksAction } from "@/app/actions/items";
+import { getLodgingRouteLinksAction } from "@/app/actions/lodgings";
 
 /**
- * Na tela de editar atividade, no lugar do atalho pro roteiro completo
- * (o próprio formulário já tem um botão de voltar pro dia), mostramos os
- * links de rota no Google Maps dessa atividade — é o que o viajante mais
- * usa chegando nela.
+ * Nas telas de editar atividade e editar hospedagem, no lugar do atalho pro
+ * roteiro completo (o próprio formulário já tem um botão de voltar pro
+ * dia), mostramos os links de rota no Google Maps — é o que o viajante mais
+ * usa chegando nelas.
  *
  * Na central de custos, o atalho é pro novo lançamento (custo avulso); na
  * tela de novo lançamento, o atalho volta pra central de custos.
@@ -19,11 +20,15 @@ import { getItemRouteLinksAction } from "@/app/actions/items";
 export function TripHeaderActions({ tripId, canEditTrip }: { tripId: string; canEditTrip: boolean }) {
   const pathname = usePathname();
   const itemEditMatch = pathname?.match(new RegExp(`^/trips/${tripId}/itinerary/items/([^/]+)$`));
+  const lodgingEditMatch = pathname?.match(new RegExp(`^/trips/${tripId}/lodgings/([^/]+)$`));
   const isCostCenter = pathname === `/trips/${tripId}/costs`;
   const isNewExpense = pathname === `/trips/${tripId}/expenses`;
 
   if (itemEditMatch) {
-    return <ItemRouteActions key={itemEditMatch[1]} tripId={tripId} itemId={itemEditMatch[1]} />;
+    return <RouteActions key={itemEditMatch[1]} fetchLinks={() => getItemRouteLinksAction(tripId, itemEditMatch[1])} />;
+  }
+  if (lodgingEditMatch) {
+    return <RouteActions key={lodgingEditMatch[1]} fetchLinks={() => getLodgingRouteLinksAction(tripId, lodgingEditMatch[1])} />;
   }
   if (isCostCenter) {
     return (
@@ -49,12 +54,13 @@ export function TripHeaderActions({ tripId, canEditTrip }: { tripId: string; can
 
 type RouteLinks = { liveUrl: string; mapUrl: string | null; mapLabel: string | null };
 
-function ItemRouteActions({ tripId, itemId }: { tripId: string; itemId: string }) {
+function RouteActions({ fetchLinks }: { fetchLinks: () => Promise<RouteLinks | null> }) {
   const [links, setLinks] = useState<RouteLinks | null>(null);
 
   useEffect(() => {
-    getItemRouteLinksAction(tripId, itemId).then(setLinks).catch(() => setLinks(null));
-  }, [tripId, itemId]);
+    fetchLinks().then(setLinks).catch(() => setLinks(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- roda uma vez por montagem (o pai já troca de key quando o item/hospedagem muda)
+  }, []);
 
   if (!links) return null;
   return (
