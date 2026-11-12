@@ -9,7 +9,7 @@ import { listCostEntries, withConvertedAmounts, SOURCE_LABEL } from "@/services/
 import { ensureTodayRates, listClientCurrencyCodes } from "@/services/currencies";
 import { listClientTips } from "@/services/tips";
 import { listTravelerTickets, listTripTickets } from "@/services/tickets";
-import { listTravelerPasses, listTripPasses } from "@/services/passes";
+import { listTravelerPasses, listTripPasses, listUsagesForPasses } from "@/services/passes";
 import { listExpenseCategories, listTipCategories, toNameMap } from "@/services/catalogs";
 import { travelerCanReadDocument } from "@/lib/traveler-access";
 import { readStoredFile } from "@/lib/storage";
@@ -117,7 +117,7 @@ export const AGENT_TOOLS: AgentTool[] = [
   {
     name: "get_tickets_and_passes",
     description:
-      "Lista os ingressos de atividades e os passes (tipo Go City) — ambos com número/status/preço e observações/detalhes — e os usos restantes dos passes. O dono da viagem e viajantes com permissão total veem os ingressos/passes de TODOS os viajantes da viagem; um viajante só com leitura vê apenas os seus. Pode filtrar por um texto livre (nome da atividade, provider ou nome do passe).",
+      "Lista os ingressos de atividades e os passes (tipo Go City) — ambos com número/status/preço e observações/detalhes — além dos usos restantes de cada passe e EM QUAIS atividades (com data) ele já foi usado. O dono da viagem e viajantes com permissão total veem os ingressos/passes de TODOS os viajantes da viagem; um viajante só com leitura vê apenas os seus. Pode filtrar por um texto livre (nome da atividade, provider ou nome do passe).",
     input_schema: {
       type: "object",
       properties: { query: { type: "string", description: "Filtro livre. Opcional." } },
@@ -384,21 +384,25 @@ async function execGetTicketsAndPasses(ctx: AgentContext, input: Record<string, 
       return line;
     });
 
-  const passLines = passes
-    .filter((p) => !query || p.name.toLowerCase().includes(query))
-    .map((p) => {
-      const remaining = p.maxUses === null ? "ilimitado" : `${Math.max(p.maxUses - p.usedCount, 0)} de ${p.maxUses} usos restantes`;
-      const parts = [p.name];
-      if (p.provider) parts.push(p.provider);
-      parts.push(p.status);
-      if (p.price) parts.push(`${p.price} ${p.currency ?? ctx.trip.baseCurrency}`);
-      if (p.passNumber) parts.push(`nº ${p.passNumber}`);
-      parts.push(remaining);
-      if (seeAll) parts.push(`viajante: ${p.travelerName}`);
-      let line = `- ${parts.join(" — ")}`;
-      if (p.details) line += `\n  Detalhes: ${p.details}`;
-      return line;
-    });
+  const matchingPasses = passes.filter((p) => !query || p.name.toLowerCase().includes(query));
+  const usagesByPass = await listUsagesForPasses(matchingPasses.map((p) => p.id));
+  const passLines = matchingPasses.map((p) => {
+    const remaining = p.maxUses === null ? "ilimitado" : `${Math.max(p.maxUses - p.usedCount, 0)} de ${p.maxUses} usos restantes`;
+    const parts = [p.name];
+    if (p.provider) parts.push(p.provider);
+    parts.push(p.status);
+    if (p.price) parts.push(`${p.price} ${p.currency ?? ctx.trip.baseCurrency}`);
+    if (p.passNumber) parts.push(`nº ${p.passNumber}`);
+    parts.push(remaining);
+    if (seeAll) parts.push(`viajante: ${p.travelerName}`);
+    let line = `- ${parts.join(" — ")}`;
+    if (p.details) line += `\n  Detalhes: ${p.details}`;
+    const usages = usagesByPass.get(p.id) ?? [];
+    if (usages.length > 0) {
+      line += `\n  Usado em: ${usages.map((u) => `${formatDate(u.itemDate)} — ${u.itemTitle}`).join(", ")}`;
+    }
+    return line;
+  });
 
   if (ticketLines.length === 0 && passLines.length === 0) return "Nenhum ingresso ou passe encontrado.";
 

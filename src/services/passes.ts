@@ -91,3 +91,21 @@ export async function getItemPassUsages(itemId: string) {
 
   return rows.map((r) => ({ ...r, usedCount: totalById.get(r.pass.id) ?? 0 }));
 }
+
+/** Pra cada passe informado, as atividades (título + data) onde ele foi usado. */
+export async function listUsagesForPasses(passIds: string[]) {
+  const map = new Map<string, { itemTitle: string; itemDate: string }[]>();
+  if (passIds.length === 0) return map;
+  const rows = await db
+    .select({ passId: t.activityPassUsages.passId, itemTitle: t.itineraryItems.title, itemDate: t.itineraryItems.date })
+    .from(t.activityPassUsages)
+    .innerJoin(t.itineraryItems, eq(t.itineraryItems.id, t.activityPassUsages.itemId))
+    .where(inArray(t.activityPassUsages.passId, passIds))
+    .orderBy(asc(t.itineraryItems.date));
+  for (const r of rows) {
+    const list = map.get(r.passId) ?? [];
+    list.push({ itemTitle: r.itemTitle, itemDate: r.itemDate });
+    map.set(r.passId, list);
+  }
+  return map;
+}
