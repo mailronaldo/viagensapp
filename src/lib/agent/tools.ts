@@ -8,8 +8,8 @@ import { addExpense } from "@/services/expenses";
 import { listCostEntries, withConvertedAmounts, SOURCE_LABEL } from "@/services/cost-center";
 import { ensureTodayRates, listClientCurrencyCodes } from "@/services/currencies";
 import { listClientTips } from "@/services/tips";
-import { listTravelerTickets } from "@/services/tickets";
-import { listTravelerPasses } from "@/services/passes";
+import { listTravelerTickets, listTripTickets } from "@/services/tickets";
+import { listTravelerPasses, listTripPasses } from "@/services/passes";
 import { listExpenseCategories, listTipCategories, toNameMap } from "@/services/catalogs";
 import { travelerCanReadDocument } from "@/lib/traveler-access";
 import { readStoredFile } from "@/lib/storage";
@@ -116,7 +116,7 @@ export const AGENT_TOOLS: AgentTool[] = [
   {
     name: "get_tickets_and_passes",
     description:
-      "Lista os ingressos de atividades (com número, status, preço e observações/detalhes) e os passes (tipo Go City) do viajante/dono, com usos restantes dos passes. Pode filtrar por um texto livre (nome da atividade, provider ou nome do passe).",
+      "Lista os ingressos de atividades (com número, status, preço e observações/detalhes) e os passes (tipo Go City), com usos restantes dos passes. O dono da viagem e viajantes com permissão total veem os ingressos/passes de TODOS os viajantes da viagem; um viajante só com leitura vê apenas os seus. Pode filtrar por um texto livre (nome da atividade, provider ou nome do passe).",
     input_schema: {
       type: "object",
       properties: { query: { type: "string", description: "Filtro livre. Opcional." } },
@@ -342,16 +342,31 @@ async function execAddTip(ctx: AgentContext, input: Record<string, unknown>): Pr
   return `Dica "${name}" cadastrada em ${match.name} (${match.cityName}).`;
 }
 
+/**
+ * Dono vê tudo da viagem (todos os viajantes); viajante com permissão FULL (gestor) também —
+ * mesma regra de `canWrite`. Viajante com permissão só de leitura vê apenas o que é dele.
+ */
 async function execGetTicketsAndPasses(ctx: AgentContext, input: Record<string, unknown>): Promise<string> {
   const query = typeof input.query === "string" ? input.query.trim().toLowerCase() : "";
+  const seeAll = await canWrite(ctx);
 
-  const tickets = await listTravelerTickets(ctx.trip.id, ctx.travelerId);
-  const passes = await listTravelerPasses(ctx.trip.id, ctx.travelerId);
+  let tickets: (Omit<Awaited<ReturnType<typeof listTripTickets>>[number], "travelerName"> & { travelerName: string | null })[];
+  let passes: (Omit<Awaited<ReturnType<typeof listTripPasses>>[number], "travelerName"> & { travelerName: string | null })[];
+  if (seeAll) {
+    const [owner] = await db.select({ name: t.users.name }).from(t.users).where(eq(t.users.id, ctx.trip.ownerId)).limit(1);
+    const ownerName = owner?.name ?? "Dono da viagem";
+    tickets = await listTripTickets(ctx.trip.id, ownerName);
+    passes = await listTripPasses(ctx.trip.id, ownerName);
+  } else {
+    tickets = (await listTravelerTickets(ctx.trip.id, ctx.travelerId)).map((r) => ({ ...r, travelerName: null }));
+    passes = (await listTravelerPasses(ctx.trip.id, ctx.travelerId)).map((p) => ({ ...p, travelerName: null }));
+  }
 
   const ticketLines = tickets
     .filter((r) => !query || r.itemTitle.toLowerCase().includes(query) || (r.ticket.provider ?? "").toLowerCase().includes(query))
     .map((r) => {
       const parts = [`${formatDate(r.itemDate)} — ${r.itemTitle}`];
+      if (seeAll) parts.push(`viajante: ${r.travelerName}`);
       if (r.ticket.provider) parts.push(r.ticket.provider);
       parts.push(r.ticket.status);
       if (r.ticket.price) parts.push(`${r.ticket.price} ${r.ticket.currency ?? ctx.trip.baseCurrency}`);
@@ -365,7 +380,8 @@ async function execGetTicketsAndPasses(ctx: AgentContext, input: Record<string, 
     .filter((p) => !query || p.name.toLowerCase().includes(query))
     .map((p) => {
       const remaining = p.maxUses === null ? "ilimitado" : `${Math.max(p.maxUses - p.usedCount, 0)} de ${p.maxUses} usos restantes`;
-      return `- ${p.name}${p.provider ? ` (${p.provider})` : ""} — ${remaining}`;
+      const who = seeAll ? ` — viajante: ${p.travelerName}` : "";
+      return `- ${p.name}${p.provider ? ` (${p.provider})` : ""} — ${remaining}${who}`;
     });
 
   if (ticketLines.length === 0 && passLines.length === 0) return "Nenhum ingresso ou passe encontrado.";

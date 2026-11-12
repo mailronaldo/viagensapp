@@ -19,6 +19,23 @@ export async function getActivityTickets(itemId: string, ownerName: string) {
   }));
 }
 
+/** Todos os ingressos da viagem toda (todos os viajantes + dono), com o nome de quem é cada um. */
+export async function listTripTickets(tripId: string, ownerName: string) {
+  const rows = await db
+    .select({
+      ticket: t.activityTickets,
+      travelerName: t.travelers.name,
+      itemTitle: t.itineraryItems.title,
+      itemDate: t.itineraryItems.date,
+    })
+    .from(t.activityTickets)
+    .innerJoin(t.itineraryItems, eq(t.itineraryItems.id, t.activityTickets.itemId))
+    .leftJoin(t.travelers, eq(t.travelers.id, t.activityTickets.travelerId))
+    .where(eq(t.activityTickets.tripId, tripId))
+    .orderBy(asc(t.itineraryItems.date));
+  return rows.map((r) => ({ ...r, travelerName: r.travelerName ?? `${ownerName} (dono da viagem)` }));
+}
+
 /** Ingressos de um viajante (ou do dono, quando `travelerId` nulo) em toda a viagem. */
 export async function listTravelerTickets(tripId: string, travelerId: string | null) {
   const rows = await db

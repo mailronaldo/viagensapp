@@ -2,6 +2,23 @@ import "server-only";
 import { and, asc, eq, inArray, isNull, notInArray, sql } from "drizzle-orm";
 import { db, t } from "@/db";
 
+/** Todos os passes da viagem toda (todos os viajantes + dono), com o nome de quem é cada um e a contagem de usos. */
+export async function listTripPasses(tripId: string, ownerName: string) {
+  const rows = await db
+    .select({
+      pass: t.passes,
+      travelerName: t.travelers.name,
+      usedCount: sql<number>`count(${t.activityPassUsages.id})`.mapWith(Number),
+    })
+    .from(t.passes)
+    .leftJoin(t.travelers, eq(t.travelers.id, t.passes.travelerId))
+    .leftJoin(t.activityPassUsages, eq(t.activityPassUsages.passId, t.passes.id))
+    .where(eq(t.passes.tripId, tripId))
+    .groupBy(t.passes.id, t.travelers.name)
+    .orderBy(asc(t.passes.name));
+  return rows.map((r) => ({ ...r.pass, travelerName: r.travelerName ?? `${ownerName} (dono da viagem)`, usedCount: r.usedCount }));
+}
+
 /** Passes de um viajante (ou do dono, quando `travelerId` nulo) na viagem, com a contagem de usos. */
 export async function listTravelerPasses(tripId: string, travelerId: string | null) {
   const rows = await db
