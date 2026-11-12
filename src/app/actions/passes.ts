@@ -67,6 +67,7 @@ export async function addPassAction(tripId: string, travelerId: string, formData
     status: parseStatus(str(formData, "status")),
     category: await getTicketCategoryId(),
     passNumber: str(formData, "passNumber"),
+    details: str(formData, "details"),
   });
   redirect(back);
 }
@@ -117,6 +118,7 @@ async function updatePass(tripId: string, ownerId: string, passId: string, formD
       status: parseStatus(str(formData, "status")),
       category: await getTicketCategoryId(),
       passNumber: str(formData, "passNumber"),
+      details: str(formData, "details"),
     })
     .where(eq(t.passes.id, passId));
 }

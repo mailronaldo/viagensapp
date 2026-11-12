@@ -958,6 +958,7 @@ export function PassFields({
     price: string | null;
     currency: string | null;
     status: string;
+    details: string | null;
   } | null;
 }) {
   return (
@@ -987,6 +988,9 @@ export function PassFields({
       </Field>
       <Field label="Status do valor" className="sm:col-span-2">
         <StatusSelect name="status" defaultValue={pass?.status ?? "ESTIMADO"} />
+      </Field>
+      <Field label="Detalhes" className="sm:col-span-6">
+        <textarea name="details" rows={2} defaultValue={pass?.details ?? ""} className={inputCls} />
       </Field>
     </>
   );

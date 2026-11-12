@@ -689,6 +689,7 @@ export const passes = pgTable(
     status: valueStatus("status").notNull().default("ESTIMADO"),
     category: text("category").references(() => expenseCategories.id),
     passNumber: text("pass_number"),
+    details: text("details"),
     firstUsedAt: date("first_used_at"),
     createdAt: createdAt(),
   },

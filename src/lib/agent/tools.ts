@@ -116,7 +116,7 @@ export const AGENT_TOOLS: AgentTool[] = [
   {
     name: "get_tickets_and_passes",
     description:
-      "Lista os ingressos de atividades (com número, status, preço e observações/detalhes) e os passes (tipo Go City), com usos restantes dos passes. O dono da viagem e viajantes com permissão total veem os ingressos/passes de TODOS os viajantes da viagem; um viajante só com leitura vê apenas os seus. Pode filtrar por um texto livre (nome da atividade, provider ou nome do passe).",
+      "Lista os ingressos de atividades e os passes (tipo Go City) — ambos com número/status/preço e observações/detalhes — e os usos restantes dos passes. O dono da viagem e viajantes com permissão total veem os ingressos/passes de TODOS os viajantes da viagem; um viajante só com leitura vê apenas os seus. Pode filtrar por um texto livre (nome da atividade, provider ou nome do passe).",
     input_schema: {
       type: "object",
       properties: { query: { type: "string", description: "Filtro livre. Opcional." } },
@@ -381,7 +381,9 @@ async function execGetTicketsAndPasses(ctx: AgentContext, input: Record<string, 
     .map((p) => {
       const remaining = p.maxUses === null ? "ilimitado" : `${Math.max(p.maxUses - p.usedCount, 0)} de ${p.maxUses} usos restantes`;
       const who = seeAll ? ` — viajante: ${p.travelerName}` : "";
-      return `- ${p.name}${p.provider ? ` (${p.provider})` : ""} — ${remaining}${who}`;
+      let line = `- ${p.name}${p.provider ? ` (${p.provider})` : ""} — ${remaining}${who}`;
+      if (p.details) line += `\n  Detalhes: ${p.details}`;
+      return line;
     });
 
   if (ticketLines.length === 0 && passLines.length === 0) return "Nenhum ingresso ou passe encontrado.";
