@@ -59,7 +59,10 @@ export async function runAgentTurn({
           "x-api-key": apiKey,
           "anthropic-version": "2023-06-01",
         },
-        body: JSON.stringify({ model: MODEL, max_tokens: 1024, system, messages, tools }),
+        // 1024 não bastava pra respostas com link(s) de rota de várias paradas — a URL
+        // codificada de um roteiro com várias dicas sozinha já passa de 1k caracteres,
+        // e duas delas (GPS + origem fixa) estouravam o limite antes de sair texto nenhum.
+        body: JSON.stringify({ model: MODEL, max_tokens: 2048, system, messages, tools }),
       });
     } catch (e) {
       return { error: e instanceof Error ? `Falha ao consultar a IA: ${e.message}` : "Falha ao consultar a IA." };
