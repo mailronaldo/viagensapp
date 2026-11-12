@@ -3,43 +3,11 @@ import { getClientCities, listNeighborhoodsForCities } from "@/services/cities";
 import { listTipCategories } from "@/services/catalogs";
 import { listClientTips } from "@/services/tips";
 import { addTipAction, deleteTipAction, updateTipAction } from "@/app/actions/tips";
-import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
-import { googleMapsSearchUrl } from "@/lib/maps";
-import { AddPanel, Card, CategoryCheckboxes, EmptyState, ErrorBanner, Field, NeighborhoodSelect, Tag, btnPrimary, inputCls } from "@/components/ui";
+import { TipFormFields } from "@/components/TipFormFields";
+import { TipCard } from "@/components/TipCard";
+import { AddPanel, Card, EmptyState, ErrorBanner, Field, btnOutline, btnPrimary, inputCls } from "@/components/ui";
 
 export const metadata = { title: "Dicas" };
-
-function TipFormFields({
-  neighborhoods,
-  categories,
-  tip,
-}: {
-  neighborhoods: { id: string; name: string; cityId: string; cityName: string }[];
-  categories: { id: string; name: string }[];
-  tip?: {
-    name: string;
-    description: string | null;
-    neighborhoodId: string | null;
-    categories?: { id: string; name: string }[];
-  };
-}) {
-  return (
-    <>
-      <Field label="Nome" className="sm:col-span-4">
-        <input name="name" required defaultValue={tip?.name} className={inputCls} />
-      </Field>
-      <Field label="Bairro/Região" className="sm:col-span-2">
-        <NeighborhoodSelect neighborhoods={neighborhoods} defaultValue={tip?.neighborhoodId ?? ""} required />
-      </Field>
-      <Field label="Categorias" className="sm:col-span-6">
-        <CategoryCheckboxes categories={categories} defaultSelected={tip?.categories?.map((c) => c.id)} />
-      </Field>
-      <Field label="Descrição" className="sm:col-span-6">
-        <textarea name="description" rows={2} defaultValue={tip?.description ?? ""} className={inputCls} />
-      </Field>
-    </>
-  );
-}
 
 export default async function TipsPage({
   searchParams,
@@ -52,6 +20,13 @@ export default async function TipsPage({
   const [cities, categories] = await Promise.all([getClientCities(user.id), listTipCategories()]);
   const neighborhoods = await listNeighborhoodsForCities(cities.map((c) => c.id));
   const tips = await listClientTips(user.id, { cityId, neighborhoodId, categoryId, nameQuery: q });
+
+  const filterQuery = new URLSearchParams();
+  if (cityId) filterQuery.set("cityId", cityId);
+  if (neighborhoodId) filterQuery.set("neighborhoodId", neighborhoodId);
+  if (categoryId) filterQuery.set("categoryId", categoryId);
+  if (q) filterQuery.set("q", q);
+  const hasFilter = filterQuery.size > 0;
 
   return (
     <>
@@ -102,6 +77,25 @@ export default async function TipsPage({
         </form>
       </Card>
 
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-slate-600">
+          {tips.length} dica{tips.length === 1 ? "" : "s"} encontrada{tips.length === 1 ? "" : "s"}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <a href="/tools/tip-importer" className={btnOutline}>
+            Importar dicas
+          </a>
+          {hasFilter && (
+            <a href={`/api/tips/export?${filterQuery.toString()}`} className={btnOutline}>
+              Exportar filtradas
+            </a>
+          )}
+          <a href="/api/tips/export" className={btnOutline}>
+            Exportar todas
+          </a>
+        </div>
+      </div>
+
       <AddPanel title="Nova dica" defaultOpen={tips.length === 0}>
         <form action={addTipAction} className="grid gap-3 sm:grid-cols-6">
           <TipFormFields neighborhoods={neighborhoods} categories={categories} />
@@ -116,52 +110,14 @@ export default async function TipsPage({
       ) : (
         <ul className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
           {tips.map((tip) => (
-            <li key={tip.id} className="min-w-0 rounded-lg border border-slate-200">
-              <details className="group">
-                <summary className="flex cursor-pointer flex-wrap items-start justify-between gap-2 p-3 text-sm">
-                  <div className="min-w-0">
-                    <a
-                      href={googleMapsSearchUrl([tip.name, tip.neighborhoodName, tip.cityName])}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block truncate font-medium hover:underline"
-                    >
-                      {tip.name}
-                    </a>
-                    <p className="truncate text-xs text-slate-500">
-                      {[tip.cityName, tip.neighborhoodName].filter(Boolean).join(" · ") || "Sem cidade"}
-                    </p>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {tip.categories.map((c) => (
-                        <Tag key={c.id} tone="neutral">
-                          {c.name}
-                        </Tag>
-                      ))}
-                    </div>
-                  </div>
-                  <span className="flex shrink-0 items-center gap-3">
-                    <span className="text-xs text-brand-700 group-open:hidden">editar</span>
-                    <span className="hidden text-xs text-brand-700 group-open:inline">fechar</span>
-                  </span>
-                </summary>
-                <div className="border-t border-slate-100 p-3">
-                  <div className="mb-3 flex items-center justify-end">
-                    <ConfirmDeleteButton
-                      label="Excluir dica"
-                      confirmTitle="Excluir esta dica?"
-                      confirmDescription="Só é possível excluir se nenhuma atividade estiver usando essa dica."
-                      deleteAction={deleteTipAction.bind(null, tip.id)}
-                      size="sm"
-                    />
-                  </div>
-                  <form action={updateTipAction.bind(null, tip.id)} className="grid gap-3 sm:grid-cols-6">
-                    <TipFormFields neighborhoods={neighborhoods} categories={categories} tip={tip} />
-                    <div className="sm:col-span-6">
-                      <button className={btnPrimary}>Salvar dica</button>
-                    </div>
-                  </form>
-                </div>
-              </details>
+            <li key={tip.id}>
+              <TipCard
+                tip={tip}
+                neighborhoods={neighborhoods}
+                categories={categories}
+                updateAction={updateTipAction.bind(null, tip.id)}
+                deleteAction={deleteTipAction.bind(null, tip.id)}
+              />
             </li>
           ))}
         </ul>
