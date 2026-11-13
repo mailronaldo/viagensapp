@@ -75,14 +75,15 @@ export async function getActivityRouteUrls(tripId: string, itemId: string): Prom
 
   const place = await activityPlace(itemId);
   const tips = await listItemTips(itemId);
-  const waypoints = tips.length >= 2 ? tips.map((tp) => [tp.name, tp.neighborhoodName, tp.cityName]) : undefined;
+  const tipPlace = (tp: (typeof tips)[number]) => [tp.name, tp.neighborhoodName, tp.cityName];
 
-  let destination = place ? [place.location, place.address, place.neighborhoodName, place.cityName].filter(Boolean).join(", ") : "";
-  if (!destination && tips.length > 0) {
-    const last = tips[tips.length - 1];
-    destination = [last.name, last.neighborhoodName, last.cityName].filter(Boolean).join(", ");
-  }
-  if (!destination) return null;
+  // Com dicas cadastradas, a rota termina na última delas — não faz sentido
+  // "voltar" pro local da atividade depois de visitar os pontos; quem quiser
+  // retornar cadastra uma última dica própria pra isso.
+  const destinationParts =
+    tips.length > 0 ? tipPlace(tips[tips.length - 1]) : [place?.location, place?.address, place?.neighborhoodName, place?.cityName];
+  const destinationQuery = destinationParts.filter(Boolean).join(", ");
+  if (!destinationQuery) return null;
 
   // Acha a atividade anterior pela posição no dia (mesma ordem da agenda),
   // não pelo horário desta atividade — senão uma atividade sem horário
@@ -92,19 +93,29 @@ export async function getActivityRouteUrls(tripId: string, itemId: string): Prom
   const previous = idx > 0 ? sameDay[idx - 1] : undefined;
 
   const travelmode = item.type === "WALK" ? ("walking" as const) : undefined;
-  let origin = previous ? placeOf(previous) : "";
-  // Sem atividade anterior, uma rota com várias paradas ainda precisa de uma origem explícita
-  // (senão o link depende do GPS do celular no momento de abrir, e não carrega se o viajante
-  // ainda não estiver lá) — usa o próprio local da atividade como ponto de partida e chegada.
-  const isLoop = !origin && !!waypoints;
-  if (isLoop) origin = destination;
+  // As paradas no meio do caminho: todas as dicas menos a última (que já é o destino).
+  const stops = tips.slice(0, -1);
 
-  const liveUrl = googleMapsDirectionsUrl({ destination, waypoints, travelmode });
+  // Sem GPS, o live usa todas as paradas como waypoints (não tem de onde "começar" a não ser pela primeira delas).
+  const liveWaypoints = stops.length > 0 ? stops.map(tipPlace) : undefined;
+  const liveUrl = googleMapsDirectionsUrl({ destination: destinationQuery, waypoints: liveWaypoints, travelmode });
+
+  let origin = previous ? placeOf(previous) : "";
+  // Sem atividade anterior, a primeira dica vira a origem explícita do mapUrl
+  // (em vez de aparecer também como parada) — senão o link ficaria sem ponto
+  // de partida (dependendo do GPS) ou criaria uma volta desnecessária.
+  let mapStops = stops;
+  if (!origin && mapStops.length > 0) {
+    origin = tipPlace(mapStops[0]).filter(Boolean).join(", ");
+    mapStops = mapStops.slice(1);
+  }
+  const mapWaypoints = mapStops.length > 0 ? mapStops.map(tipPlace) : undefined;
+
   let mapUrl: string | null = null;
   let mapLabel: string | null = null;
   if (origin) {
-    mapUrl = googleMapsDirectionsUrl({ origin, destination, waypoints, travelmode });
-    mapLabel = previous ? "A partir da atividade anterior" : "Roteiro com as paradas (não depende da sua localização)";
+    mapUrl = googleMapsDirectionsUrl({ origin, destination: destinationQuery, waypoints: mapWaypoints, travelmode });
+    mapLabel = previous ? "A partir da atividade anterior" : "Roteiro com as paradas (começa na primeira dica)";
   }
 
   return { liveUrl, mapUrl, mapLabel };
