@@ -6,6 +6,7 @@ import { downloadFile, parseIncomingMessage, sendChatAction, sendMessage, verify
 import { checkAgentRateLimit } from "@/lib/agent/rate-limit";
 import { runAgentForMessage } from "@/lib/agent/run";
 import { transcribeAudio } from "@/lib/whisper";
+import { addDocument, validateUpload } from "@/services/documents";
 
 type Link = typeof t.telegramLinks.$inferSelect;
 
@@ -113,6 +114,71 @@ function extractMapButtons(text: string): { text: string; buttons: LinkButton[] 
   return { text: keptLines.join("\n").replace(/\n{3,}/g, "\n\n").trim(), buttons };
 }
 
+const PENDING_DOC_RE = /^\[\[doc_pendente:[^\]]+\]\]$/;
+
+/**
+ * O agente marca a proposta de uma foto de documento com `[[doc_pendente:ID]]`
+ * (linha sozinha) pra saber, na mensagem seguinte, que documento confirmar —
+ * mesma ideia do link de rota em `extractMapButtons`: convenção visível só
+ * pro modelo/histórico, nunca pro viajante.
+ */
+function stripPendingDocTag(text: string): string {
+  return text
+    .split("\n")
+    .filter((line) => !PENDING_DOC_RE.test(line.trim()))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+async function sendAgentReply(chatId: string, reply: string): Promise<void> {
+  const { text: afterMaps, buttons } = extractMapButtons(reply);
+  const cleaned = stripPendingDocTag(afterMaps);
+  await sendMessage(chatId, cleaned || reply, buttons);
+}
+
+/**
+ * Resolve a viagem ativa do vínculo (ou pede pra escolher, quando há mais de
+ * uma e nenhuma está ativa ainda) — mesma lógica usada tanto por mensagem de
+ * texto/voz quanto por foto. `selectionText` só é usado pra interpretar a
+ * resposta numérica de escolha de viagem (nulo quando não faz sentido, como
+ * numa foto).
+ */
+async function resolveTripContext(chatId: string, link: Link, selectionText: string | null): Promise<{ trip: typeof t.trips.$inferSelect; name: string } | null> {
+  let tripId = link.activeTripId;
+  if (!tripId) {
+    const candidates = await listLinkedTrips(link);
+    if (candidates.length === 0) {
+      await sendMessage(chatId, "Não encontrei nenhuma viagem em curso ou futura vinculada a você. Fale com seu agente de viagens.");
+      return null;
+    }
+    if (candidates.length === 1) {
+      tripId = candidates[0].id;
+      await db.update(t.telegramLinks).set({ activeTripId: tripId }).where(eq(t.telegramLinks.id, link.id));
+    } else {
+      const choiceIndex = selectionText && /^\d+$/.test(selectionText) ? Number(selectionText) - 1 : -1;
+      const choice = choiceIndex >= 0 ? candidates[choiceIndex] : undefined;
+      if (!choice) {
+        const list = candidates.map((c, i) => `${i + 1}) ${c.title} — ${c.destination} (${formatDate(c.startDate)} a ${formatDate(c.endDate)})`).join("\n");
+        await sendMessage(chatId, `Você tem ${candidates.length} viagens:\n${list}\nResponda com o número de qual você quer falar.`);
+        return null;
+      }
+      tripId = choice.id;
+      await db.update(t.telegramLinks).set({ activeTripId: tripId }).where(eq(t.telegramLinks.id, link.id));
+      await sendMessage(chatId, `Prontinho, viagem ativa: ${choice.title}. Pode perguntar!`);
+      return null;
+    }
+  }
+
+  const [trip] = await db.select().from(t.trips).where(eq(t.trips.id, tripId)).limit(1);
+  const name = await resolveLinkName(link);
+  if (!trip || !name) {
+    await sendMessage(chatId, "Não encontrei a viagem vinculada. Fale com seu agente de viagens.");
+    return null;
+  }
+  return { trip, name };
+}
+
 async function handleMessage(chatId: string, text: string) {
   const [link] = await db.select().from(t.telegramLinks).where(eq(t.telegramLinks.chatId, chatId)).limit(1);
   if (!link) {
@@ -130,37 +196,9 @@ async function handleMessage(chatId: string, text: string) {
     return;
   }
 
-  let tripId = link.activeTripId;
-  if (!tripId) {
-    const candidates = await listLinkedTrips(link);
-    if (candidates.length === 0) {
-      await sendMessage(chatId, "Não encontrei nenhuma viagem em curso ou futura vinculada a você. Fale com seu agente de viagens.");
-      return;
-    }
-    if (candidates.length === 1) {
-      tripId = candidates[0].id;
-      await db.update(t.telegramLinks).set({ activeTripId: tripId }).where(eq(t.telegramLinks.id, link.id));
-    } else {
-      const choiceIndex = /^\d+$/.test(text) ? Number(text) - 1 : -1;
-      const choice = choiceIndex >= 0 ? candidates[choiceIndex] : undefined;
-      if (!choice) {
-        const list = candidates.map((c, i) => `${i + 1}) ${c.title} — ${c.destination} (${formatDate(c.startDate)} a ${formatDate(c.endDate)})`).join("\n");
-        await sendMessage(chatId, `Você tem ${candidates.length} viagens:\n${list}\nResponda com o número de qual você quer falar.`);
-        return;
-      }
-      tripId = choice.id;
-      await db.update(t.telegramLinks).set({ activeTripId: tripId }).where(eq(t.telegramLinks.id, link.id));
-      await sendMessage(chatId, `Prontinho, viagem ativa: ${choice.title}. Pode perguntar!`);
-      return;
-    }
-  }
-
-  const [trip] = await db.select().from(t.trips).where(eq(t.trips.id, tripId)).limit(1);
-  const name = await resolveLinkName(link);
-  if (!trip || !name) {
-    await sendMessage(chatId, "Não encontrei a viagem vinculada. Fale com seu agente de viagens.");
-    return;
-  }
+  const ctx = await resolveTripContext(chatId, link, text);
+  if (!ctx) return;
+  const { trip, name } = ctx;
 
   await sendChatAction(chatId, "typing");
   const typingInterval = setInterval(() => sendChatAction(chatId, "typing"), 4000);
@@ -170,8 +208,7 @@ async function handleMessage(chatId: string, text: string) {
   } finally {
     clearInterval(typingInterval);
   }
-  const { text: cleanedReply, buttons } = extractMapButtons(reply);
-  await sendMessage(chatId, cleanedReply || reply, buttons);
+  await sendAgentReply(chatId, reply);
 }
 
 /** Transcreve a mensagem de voz e segue pelo mesmo fluxo de uma mensagem digitada. */
@@ -184,6 +221,56 @@ async function handleVoiceMessage(chatId: string, voiceFileId: string) {
     return;
   }
   await handleMessage(chatId, text);
+}
+
+/**
+ * Foto de um documento (recibo, voucher, ingresso): baixa, guarda como
+ * `documents` (tipo provisório "OTHER" — a tool que grava o registro depois
+ * reclassifica), e manda pro agente junto com a imagem pra ele extrair os
+ * campos e pedir confirmação antes de gravar qualquer coisa.
+ */
+async function handlePhotoMessage(chatId: string, photoFileId: string, caption: string | null) {
+  const [link] = await db.select().from(t.telegramLinks).where(eq(t.telegramLinks.chatId, chatId)).limit(1);
+  if (!link) {
+    await sendMessage(chatId, "Você ainda não está vinculado. Peça o link de convite ao seu agente de viagens.");
+    return;
+  }
+
+  if (!checkAgentRateLimit(link.id)) {
+    await sendMessage(chatId, "Você atingiu o limite de mensagens por hoje. Tente de novo mais tarde.");
+    return;
+  }
+
+  const ctx = await resolveTripContext(chatId, link, null);
+  if (!ctx) return;
+  const { trip, name } = ctx;
+
+  await sendChatAction(chatId, "typing");
+  const buffer = await downloadFile(photoFileId);
+
+  const file = new File([new Uint8Array(buffer)], "foto.jpg", { type: "image/jpeg" });
+  try {
+    validateUpload(file);
+  } catch (e) {
+    await sendMessage(chatId, e instanceof Error ? e.message : "Não consegui processar essa imagem.");
+    return;
+  }
+  const doc = await addDocument(trip.id, file, {
+    type: "OTHER",
+    title: "Documento do Telegram",
+    visibility: link.travelerId ? "TRAVELER" : "OWNER",
+    travelerId: link.travelerId,
+  });
+
+  const userText = `[Foto recebida. id_documento=${doc.id}]\n${caption ?? ""}`.trim();
+  const typingInterval = setInterval(() => sendChatAction(chatId, "typing"), 4000);
+  let reply: string;
+  try {
+    reply = await runAgentForMessage(link, name, trip, userText, { base64: buffer.toString("base64"), mediaType: "image/jpeg" });
+  } finally {
+    clearInterval(typingInterval);
+  }
+  await sendAgentReply(chatId, reply);
 }
 
 export async function POST(req: NextRequest) {
@@ -200,16 +287,18 @@ export async function POST(req: NextRequest) {
 
   const incoming = parseIncomingMessage(update);
   if (!incoming) return NextResponse.json({ ok: true });
-  const { chatId, text, voiceFileId } = incoming;
+  const { chatId, text, voiceFileId, photoFileId, caption } = incoming;
 
-  if (text === null && !voiceFileId) {
-    // Foto, figurinha, etc. — ainda não suportado (fica pra um próximo lote).
-    await sendMessage(chatId, "Por enquanto eu só entendo mensagens de texto ou de voz — manda sua pergunta que eu te ajudo 🙂").catch(() => {});
+  if (text === null && !voiceFileId && !photoFileId) {
+    // Figurinha, documento como arquivo, etc. — ainda não suportado (fica pra um próximo lote).
+    await sendMessage(chatId, "Por enquanto eu só entendo mensagens de texto, voz ou foto — manda sua pergunta que eu te ajudo 🙂").catch(() => {});
     return NextResponse.json({ ok: true });
   }
 
   try {
-    if (voiceFileId) {
+    if (photoFileId) {
+      await handlePhotoMessage(chatId, photoFileId, caption);
+    } else if (voiceFileId) {
       await handleVoiceMessage(chatId, voiceFileId);
     } else if (text!.startsWith("/start")) {
       await handleStart(chatId, text!);

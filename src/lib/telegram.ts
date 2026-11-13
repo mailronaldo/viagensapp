@@ -54,21 +54,28 @@ export type TelegramUpdate = {
     chat: { id: number };
     text?: string;
     voice?: { file_id: string };
+    photo?: { file_id: string }[];
+    caption?: string;
   };
 };
 
 /**
  * `text` vem `null` quando a mensagem existe mas não é texto (áudio, foto,
- * figurinha, etc.) — `voiceFileId` vem preenchido quando for uma mensagem de
- * voz, pra quem recebeu poder baixar e transcrever.
+ * figurinha, etc.) — `voiceFileId`/`photoFileId` vêm preenchidos pro tipo
+ * correspondente, pra quem recebeu poder baixar. Em `photo`, o Telegram manda
+ * o mesmo envio em vários tamanhos (menor pro maior) — pega o último (maior).
  */
-export function parseIncomingMessage(update: TelegramUpdate): { chatId: string; text: string | null; voiceFileId: string | null } | null {
+export function parseIncomingMessage(
+  update: TelegramUpdate,
+): { chatId: string; text: string | null; voiceFileId: string | null; photoFileId: string | null; caption: string | null } | null {
   const msg = update.message;
   if (!msg) return null;
   return {
     chatId: String(msg.chat.id),
     text: msg.text ? msg.text.trim() : null,
     voiceFileId: msg.voice?.file_id ?? null,
+    photoFileId: msg.photo && msg.photo.length > 0 ? msg.photo[msg.photo.length - 1].file_id : null,
+    caption: msg.caption ? msg.caption.trim() : null,
   };
 }
 

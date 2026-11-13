@@ -12,7 +12,7 @@ import { googleMapsDirectionsUrl } from "@/lib/maps";
 import { getActivityRouteUrls, getLodgingRouteUrls } from "@/services/routes";
 import { listTravelerTickets, listTripTickets } from "@/services/tickets";
 import { listTravelerPasses, listTripPasses, listUsagesForPasses } from "@/services/passes";
-import { listExpenseCategories, listTipCategories, toNameMap } from "@/services/catalogs";
+import { listExpenseCategories, listReservationMethods, listTipCategories, toNameMap } from "@/services/catalogs";
 import { travelerCanReadDocument } from "@/lib/traveler-access";
 import { readStoredFile } from "@/lib/storage";
 import { sendDocument } from "@/lib/telegram";
@@ -89,8 +89,61 @@ export const AGENT_TOOLS: AgentTool[] = [
         date: { type: "string", description: "Data no formato AAAA-MM-DD. Sem isso, usa hoje." },
         category: { type: "string", description: "Nome livre da categoria. Opcional." },
         status: { type: "string", enum: ["ESTIMADO", "A_PAGAR", "PAGO"], description: "Opcional, padrão ESTIMADO." },
+        documentId: { type: "string", description: "Id do documento (recibo) já recebido, quando o lançamento vem de uma foto confirmada. Opcional." },
       },
       required: ["description", "amount"],
+    },
+  },
+  {
+    name: "fill_lodging_voucher",
+    description:
+      "Preenche/anexa o voucher de uma hospedagem já cadastrada no roteiro (código de confirmação, preço, documento) — usado quando o viajante confirma os dados extraídos de uma foto de voucher de hospedagem.",
+    input_schema: {
+      type: "object",
+      properties: {
+        lodging: { type: "string", description: "Nome (ou trecho do nome) da hospedagem no roteiro." },
+        provider: { type: "string", description: "Onde foi reservado (ex.: Booking, Airbnb). Opcional." },
+        confirmationCode: { type: "string", description: "Código de confirmação da reserva. Opcional." },
+        price: { type: "string", description: "Valor, ex.: '123.45'. Opcional." },
+        currency: { type: "string", description: "Moeda do valor (ex.: 'EUR'). Sem isso, usa a moeda base da viagem. Opcional." },
+        documentId: { type: "string", description: "Id do documento (foto do voucher) já recebido." },
+      },
+      required: ["lodging", "documentId"],
+    },
+  },
+  {
+    name: "fill_transport_voucher",
+    description:
+      "Preenche/anexa o voucher de um transporte já cadastrado no roteiro (código de reserva, preço, documento) — usado quando o viajante confirma os dados extraídos de uma foto de voucher de transporte.",
+    input_schema: {
+      type: "object",
+      properties: {
+        booking: { type: "string", description: "Nome (ou trecho do nome) do transporte/reserva no roteiro." },
+        provider: { type: "string", description: "Companhia/fornecedor do transporte. Opcional." },
+        reservationCode: { type: "string", description: "Código de reserva. Opcional." },
+        price: { type: "string", description: "Valor, ex.: '123.45'. Opcional." },
+        currency: { type: "string", description: "Moeda do valor. Sem isso, usa a moeda base da viagem. Opcional." },
+        documentId: { type: "string", description: "Id do documento (foto do voucher) já recebido." },
+      },
+      required: ["booking", "documentId"],
+    },
+  },
+  {
+    name: "fill_activity_ticket",
+    description:
+      "Preenche/anexa o ingresso de uma atividade já cadastrada no roteiro (nº do ingresso, preço, documento) — usado quando o viajante confirma os dados extraídos de uma foto de ingresso.",
+    input_schema: {
+      type: "object",
+      properties: {
+        activity: { type: "string", description: "Nome (ou trecho do nome) da atividade no roteiro." },
+        provider: { type: "string", description: "Quem emitiu o ingresso. Opcional." },
+        ticketNumber: { type: "string", description: "Número do ingresso. Opcional." },
+        price: { type: "string", description: "Valor, ex.: '123.45'. Opcional." },
+        currency: { type: "string", description: "Moeda do valor. Sem isso, usa a moeda base da viagem. Opcional." },
+        details: { type: "string", description: "Outras observações do ingresso. Opcional." },
+        documentId: { type: "string", description: "Id do documento (foto do ingresso) já recebido." },
+      },
+      required: ["activity", "documentId"],
     },
   },
   {
@@ -354,9 +407,136 @@ async function execAddExpense(ctx: AgentContext, input: Record<string, unknown>)
       ? (input.status as "ESTIMADO" | "A_PAGAR" | "PAGO")
       : "ESTIMADO";
 
+  const documentId = typeof input.documentId === "string" && input.documentId ? input.documentId : null;
   const paidById = await resolvePaidBy(ctx);
-  await addExpense(ctx.trip.id, paidById, { date, category: category.id, status, description, amount, currency: ctx.trip.baseCurrency }, "telegram");
+  await addExpense(
+    ctx.trip.id,
+    paidById,
+    { date, category: category.id, status, description, amount, currency: ctx.trip.baseCurrency, receiptDocumentId: documentId },
+    "telegram",
+  );
+  if (documentId) await reclassifyDocument(ctx.trip.id, documentId, "RECEIPT", `Recibo — ${description}`);
   return `Despesa lançada: "${description}" — ${amount} ${ctx.trip.baseCurrency} (${category.name}).`;
+}
+
+/** Depois de uma foto virar um registro de verdade, deixa o documento com o tipo/título certo (cosmético, só pra aparecer certo na aba "Documentos"). */
+async function reclassifyDocument(tripId: string, documentId: string, type: string, title: string): Promise<void> {
+  await db.update(t.documents).set({ type, title }).where(and(eq(t.documents.id, documentId), eq(t.documents.tripId, tripId)));
+}
+
+async function execFillLodgingVoucher(ctx: AgentContext, input: Record<string, unknown>): Promise<string> {
+  if (!(await canWrite(ctx))) return "Você não tem permissão para preencher vouchers nesta viagem.";
+
+  const query = typeof input.lodging === "string" ? input.lodging.trim() : "";
+  if (!query) return "Preciso do nome da hospedagem.";
+  const documentId = typeof input.documentId === "string" ? input.documentId.trim() : "";
+  if (!documentId) return "Preciso do documento da foto recebida.";
+
+  const matches = await db
+    .select({ id: t.lodgings.id, name: t.lodgings.name })
+    .from(t.lodgings)
+    .where(and(eq(t.lodgings.tripId, ctx.trip.id), ilike(t.lodgings.name, `%${query}%`)));
+  if (matches.length === 0) return `Não encontrei nenhuma hospedagem chamada "${query}" no roteiro.`;
+  if (matches.length > 1) {
+    return `Encontrei mais de uma hospedagem para "${query}":\n${matches.map((m, i) => `${i + 1}) ${m.name}`).join("\n")}\nQual delas?`;
+  }
+  const lodging = matches[0];
+
+  // `provider` em lodgingVouchers é FK pro catálogo de métodos de reserva (Booking, Airbnb…),
+  // não texto livre — casa por nome, igual categoria em `execAddExpense`.
+  const providerQuery = typeof input.provider === "string" ? input.provider.trim().toLowerCase() : "";
+  const providerMatch = providerQuery ? (await listReservationMethods()).find((m) => m.name.toLowerCase().includes(providerQuery)) : undefined;
+  const provider = providerMatch?.id ?? null;
+  const confirmationCode = typeof input.confirmationCode === "string" && input.confirmationCode.trim() ? input.confirmationCode.trim() : null;
+  const price = parseDecimal(typeof input.price === "string" ? input.price : null, { positive: false });
+  const currency = typeof input.currency === "string" && input.currency.trim() ? input.currency.trim().toUpperCase() : ctx.trip.baseCurrency;
+
+  const existing = await db.select({ id: t.lodgingVouchers.id }).from(t.lodgingVouchers).where(and(eq(t.lodgingVouchers.lodgingId, lodging.id), sql`${t.lodgingVouchers.voucherDocumentId} IS NULL`));
+
+  if (existing.length === 1) {
+    await db
+      .update(t.lodgingVouchers)
+      .set({ provider, confirmationCode, price, currency, voucherDocumentId: documentId })
+      .where(eq(t.lodgingVouchers.id, existing[0].id));
+  } else {
+    await db.insert(t.lodgingVouchers).values({ lodgingId: lodging.id, name: lodging.name, isGroup: true, provider, confirmationCode, price, currency, voucherDocumentId: documentId });
+  }
+  await reclassifyDocument(ctx.trip.id, documentId, "VOUCHER", `Voucher — ${lodging.name}`);
+  return `Voucher da hospedagem "${lodging.name}" atualizado${price ? ` — ${price} ${currency}` : ""}.`;
+}
+
+async function execFillTransportVoucher(ctx: AgentContext, input: Record<string, unknown>): Promise<string> {
+  if (!(await canWrite(ctx))) return "Você não tem permissão para preencher vouchers nesta viagem.";
+
+  const query = typeof input.booking === "string" ? input.booking.trim() : "";
+  if (!query) return "Preciso do nome da reserva de transporte.";
+  const documentId = typeof input.documentId === "string" ? input.documentId.trim() : "";
+  if (!documentId) return "Preciso do documento da foto recebida.";
+
+  const matches = await db
+    .select({ id: t.bookings.id, title: t.bookings.title })
+    .from(t.bookings)
+    .where(and(eq(t.bookings.tripId, ctx.trip.id), or(ilike(t.bookings.title, `%${query}%`), ilike(t.bookings.provider, `%${query}%`))));
+  if (matches.length === 0) return `Não encontrei nenhum transporte chamado "${query}" no roteiro.`;
+  if (matches.length > 1) {
+    return `Encontrei mais de uma reserva de transporte para "${query}":\n${matches.map((m, i) => `${i + 1}) ${m.title}`).join("\n")}\nQual delas?`;
+  }
+  const booking = matches[0];
+
+  const provider = typeof input.provider === "string" && input.provider.trim() ? input.provider.trim() : null;
+  const reservationCode = typeof input.reservationCode === "string" && input.reservationCode.trim() ? input.reservationCode.trim() : null;
+  const price = parseDecimal(typeof input.price === "string" ? input.price : null, { positive: false });
+  const currency = typeof input.currency === "string" && input.currency.trim() ? input.currency.trim().toUpperCase() : ctx.trip.baseCurrency;
+
+  await db
+    .insert(t.transportVouchers)
+    .values({ bookingId: booking.id, isGroup: true, provider, reservationCode, price, currency, voucherDocumentId: documentId })
+    .onConflictDoUpdate({
+      target: [t.transportVouchers.bookingId],
+      targetWhere: sql`${t.transportVouchers.isGroup} = true`,
+      set: { provider, reservationCode, price, currency, voucherDocumentId: documentId },
+    });
+  await reclassifyDocument(ctx.trip.id, documentId, "VOUCHER", `Voucher — ${booking.title}`);
+  return `Voucher do transporte "${booking.title}" atualizado${price ? ` — ${price} ${currency}` : ""}.`;
+}
+
+async function execFillActivityTicket(ctx: AgentContext, input: Record<string, unknown>): Promise<string> {
+  if (!(await canWrite(ctx))) return "Você não tem permissão para preencher ingressos nesta viagem.";
+
+  const query = typeof input.activity === "string" ? input.activity.trim() : "";
+  if (!query) return "Preciso do nome da atividade.";
+  const documentId = typeof input.documentId === "string" ? input.documentId.trim() : "";
+  if (!documentId) return "Preciso do documento da foto recebida.";
+
+  const matches = await db
+    .select({ id: t.itineraryItems.id, title: t.itineraryItems.title })
+    .from(t.itineraryItems)
+    .where(and(eq(t.itineraryItems.tripId, ctx.trip.id), ilike(t.itineraryItems.title, `%${query}%`)));
+  if (matches.length === 0) return `Não encontrei nenhuma atividade chamada "${query}" no roteiro.`;
+  if (matches.length > 1) {
+    return `Encontrei mais de uma atividade para "${query}":\n${matches.map((m, i) => `${i + 1}) ${m.title}`).join("\n")}\nQual delas?`;
+  }
+  const item = matches[0];
+
+  const provider = typeof input.provider === "string" && input.provider.trim() ? input.provider.trim() : null;
+  const ticketNumber = typeof input.ticketNumber === "string" && input.ticketNumber.trim() ? input.ticketNumber.trim() : null;
+  const price = parseDecimal(typeof input.price === "string" ? input.price : null, { positive: false });
+  const currency = typeof input.currency === "string" && input.currency.trim() ? input.currency.trim().toUpperCase() : ctx.trip.baseCurrency;
+  const details = typeof input.details === "string" && input.details.trim() ? input.details.trim() : null;
+
+  // Os índices únicos são parciais e cada um cobre colunas diferentes:
+  // `(item_id) WHERE traveler_id IS NULL` (dono) vs. `(item_id, traveler_id) WHERE traveler_id IS NOT NULL`
+  // (viajante) — o `target` do upsert tem que casar exatamente com as colunas do índice certo.
+  const conflict = ctx.travelerId
+    ? { target: [t.activityTickets.itemId, t.activityTickets.travelerId], targetWhere: sql`${t.activityTickets.travelerId} IS NOT NULL` }
+    : { target: [t.activityTickets.itemId], targetWhere: sql`${t.activityTickets.travelerId} IS NULL` };
+
+  await db
+    .insert(t.activityTickets)
+    .values({ itemId: item.id, tripId: ctx.trip.id, travelerId: ctx.travelerId, provider, ticketNumber, price, currency, details, voucherDocumentId: documentId })
+    .onConflictDoUpdate({ ...conflict, set: { provider, ticketNumber, price, currency, details, voucherDocumentId: documentId } });
+  await reclassifyDocument(ctx.trip.id, documentId, "TICKET", `Ingresso — ${item.title}`);
+  return `Ingresso da atividade "${item.title}" atualizado${price ? ` — ${price} ${currency}` : ""}.`;
 }
 
 async function execGetTips(ctx: AgentContext, input: Record<string, unknown>): Promise<string> {
@@ -628,6 +808,12 @@ export function buildToolExecutor(ctx: AgentContext) {
           return await execGetExpenses(ctx);
         case "add_expense":
           return await execAddExpense(ctx, input);
+        case "fill_lodging_voucher":
+          return await execFillLodgingVoucher(ctx, input);
+        case "fill_transport_voucher":
+          return await execFillTransportVoucher(ctx, input);
+        case "fill_activity_ticket":
+          return await execFillActivityTicket(ctx, input);
         case "get_tips":
           return await execGetTips(ctx, input);
         case "add_tip":
