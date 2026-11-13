@@ -30,10 +30,25 @@ export function googleMapsDirectionsUrl({
   travelmode?: "walking";
 }) {
   const toQuery = (p: (string | null | undefined)[] | string) => (Array.isArray(p) ? placeQuery(p) : p);
-  const params = new URLSearchParams({ api: "1", destination: toQuery(destination) });
   const originQuery = origin ? toQuery(origin) : "";
+
+  if (waypoints && waypoints.length > 0) {
+    // Formato de rota "por caminho" (sem `api=1`/`waypoints=`): o Maps segue
+    // a ordem exata dos pontos passados, em vez de reotimizar a ordem das
+    // paradas — o formato com `waypoints=` deixa o Maps escolher a ordem que
+    // achar mais curta, o que bagunçava roteiros a pé já pensados em
+    // sequência (ex.: Vessel → High Line → Chelsea → Little Island virava
+    // um vai-e-volta). Origem vazia ("") vira "//" no caminho, que o Maps
+    // entende como "minha localização" — mesmo efeito de omitir `origin` no
+    // formato antigo.
+    const legs = [originQuery, ...waypoints.map(toQuery), toQuery(destination)];
+    const path = legs.map((p) => encodeURIComponent(p)).join("/");
+    const query = travelmode ? `?travelmode=${travelmode}` : "";
+    return `https://www.google.com/maps/dir/${path}${query}`;
+  }
+
+  const params = new URLSearchParams({ api: "1", destination: toQuery(destination) });
   if (originQuery) params.set("origin", originQuery);
-  if (waypoints && waypoints.length > 0) params.set("waypoints", waypoints.map(toQuery).join("|"));
   if (travelmode) params.set("travelmode", travelmode);
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
