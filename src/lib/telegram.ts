@@ -55,19 +55,29 @@ export type TelegramUpdate = {
     text?: string;
     voice?: { file_id: string };
     photo?: { file_id: string }[];
+    document?: { file_id: string; mime_type?: string };
     caption?: string;
   };
 };
 
 /**
  * `text` vem `null` quando a mensagem existe mas não é texto (áudio, foto,
- * figurinha, etc.) — `voiceFileId`/`photoFileId` vêm preenchidos pro tipo
- * correspondente, pra quem recebeu poder baixar. Em `photo`, o Telegram manda
- * o mesmo envio em vários tamanhos (menor pro maior) — pega o último (maior).
+ * figurinha, etc.) — `voiceFileId`/`photoFileId`/`pdfFileId` vêm preenchidos
+ * pro tipo correspondente, pra quem recebeu poder baixar. Em `photo`, o
+ * Telegram manda o mesmo envio em vários tamanhos (menor pro maior) — pega o
+ * último (maior). `document` cobre qualquer arquivo enviado "sem compressão"
+ * (anexo) — só tratamos o caso de PDF por enquanto.
  */
 export function parseIncomingMessage(
   update: TelegramUpdate,
-): { chatId: string; text: string | null; voiceFileId: string | null; photoFileId: string | null; caption: string | null } | null {
+): {
+  chatId: string;
+  text: string | null;
+  voiceFileId: string | null;
+  photoFileId: string | null;
+  pdfFileId: string | null;
+  caption: string | null;
+} | null {
   const msg = update.message;
   if (!msg) return null;
   return {
@@ -75,6 +85,7 @@ export function parseIncomingMessage(
     text: msg.text ? msg.text.trim() : null,
     voiceFileId: msg.voice?.file_id ?? null,
     photoFileId: msg.photo && msg.photo.length > 0 ? msg.photo[msg.photo.length - 1].file_id : null,
+    pdfFileId: msg.document?.mime_type === "application/pdf" ? msg.document.file_id : null,
     caption: msg.caption ? msg.caption.trim() : null,
   };
 }

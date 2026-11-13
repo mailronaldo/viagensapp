@@ -32,23 +32,26 @@ export async function runAgentTurn({
   system,
   history,
   userText,
-  image,
+  attachment,
   tools,
   execute,
 }: {
   system: string;
   history: AgentHistoryEntry[];
   userText: string;
-  /** Imagem anexada só ao turno atual — nunca persistida no histórico (que é só texto). */
-  image?: { base64: string; mediaType: string };
+  /** Imagem ou PDF anexado só ao turno atual — nunca persistido no histórico (que é só texto). */
+  attachment?: { kind: "image" | "document"; base64: string; mediaType: string };
   tools: AgentTool[];
   execute: (name: string, input: Record<string, unknown>) => Promise<string>;
 }): Promise<{ text: string } | { error: string }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return { error: "A integração de IA ainda não foi configurada (falta ANTHROPIC_API_KEY)." };
 
-  const userContent = image
-    ? [{ type: "image", source: { type: "base64", media_type: image.mediaType, data: image.base64 } }, { type: "text", text: userText }]
+  const userContent = attachment
+    ? [
+        { type: attachment.kind, source: { type: "base64", media_type: attachment.mediaType, data: attachment.base64 } },
+        { type: "text", text: userText },
+      ]
     : userText;
   const messages: AnthropicMessage[] = [
     ...history.map((h) => ({ role: h.role, content: h.text })),

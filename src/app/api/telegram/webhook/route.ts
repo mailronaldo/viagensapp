@@ -229,7 +229,16 @@ async function handleVoiceMessage(chatId: string, voiceFileId: string) {
  * reclassifica), e manda pro agente junto com a imagem pra ele extrair os
  * campos e pedir confirmação antes de gravar qualquer coisa.
  */
-async function handlePhotoMessage(chatId: string, photoFileId: string, caption: string | null) {
+type AttachmentKind = "image" | "document";
+
+/**
+ * Baixa o arquivo (foto ou PDF), guarda como `documents` (tipo provisório
+ * "OTHER" — a tool que grava o registro depois reclassifica) e manda pro
+ * agente junto com o anexo pra ele extrair os campos e pedir confirmação
+ * antes de gravar qualquer coisa. Compartilhado entre foto e PDF — só muda o
+ * nome/mime/rótulo da mensagem sintética que o agente recebe.
+ */
+async function handleAttachmentMessage(chatId: string, fileId: string, caption: string | null, kind: AttachmentKind, mimeType: string, fileName: string, label: string) {
   const [link] = await db.select().from(t.telegramLinks).where(eq(t.telegramLinks.chatId, chatId)).limit(1);
   if (!link) {
     await sendMessage(chatId, "Você ainda não está vinculado. Peça o link de convite ao seu agente de viagens.");
@@ -246,13 +255,13 @@ async function handlePhotoMessage(chatId: string, photoFileId: string, caption: 
   const { trip, name } = ctx;
 
   await sendChatAction(chatId, "typing");
-  const buffer = await downloadFile(photoFileId);
+  const buffer = await downloadFile(fileId);
 
-  const file = new File([new Uint8Array(buffer)], "foto.jpg", { type: "image/jpeg" });
+  const file = new File([new Uint8Array(buffer)], fileName, { type: mimeType });
   try {
     validateUpload(file);
   } catch (e) {
-    await sendMessage(chatId, e instanceof Error ? e.message : "Não consegui processar essa imagem.");
+    await sendMessage(chatId, e instanceof Error ? e.message : "Não consegui processar esse arquivo.");
     return;
   }
   const doc = await addDocument(trip.id, file, {
@@ -262,15 +271,23 @@ async function handlePhotoMessage(chatId: string, photoFileId: string, caption: 
     travelerId: link.travelerId,
   });
 
-  const userText = `[Foto recebida. id_documento=${doc.id}]\n${caption ?? ""}`.trim();
+  const userText = `[${label} recebido. id_documento=${doc.id}]\n${caption ?? ""}`.trim();
   const typingInterval = setInterval(() => sendChatAction(chatId, "typing"), 4000);
   let reply: string;
   try {
-    reply = await runAgentForMessage(link, name, trip, userText, { base64: buffer.toString("base64"), mediaType: "image/jpeg" });
+    reply = await runAgentForMessage(link, name, trip, userText, { kind, base64: buffer.toString("base64"), mediaType: mimeType });
   } finally {
     clearInterval(typingInterval);
   }
   await sendAgentReply(chatId, reply);
+}
+
+async function handlePhotoMessage(chatId: string, photoFileId: string, caption: string | null) {
+  await handleAttachmentMessage(chatId, photoFileId, caption, "image", "image/jpeg", "foto.jpg", "Foto");
+}
+
+async function handlePdfMessage(chatId: string, pdfFileId: string, caption: string | null) {
+  await handleAttachmentMessage(chatId, pdfFileId, caption, "document", "application/pdf", "documento.pdf", "PDF");
 }
 
 export async function POST(req: NextRequest) {
@@ -287,17 +304,19 @@ export async function POST(req: NextRequest) {
 
   const incoming = parseIncomingMessage(update);
   if (!incoming) return NextResponse.json({ ok: true });
-  const { chatId, text, voiceFileId, photoFileId, caption } = incoming;
+  const { chatId, text, voiceFileId, photoFileId, pdfFileId, caption } = incoming;
 
-  if (text === null && !voiceFileId && !photoFileId) {
-    // Figurinha, documento como arquivo, etc. — ainda não suportado (fica pra um próximo lote).
-    await sendMessage(chatId, "Por enquanto eu só entendo mensagens de texto, voz ou foto — manda sua pergunta que eu te ajudo 🙂").catch(() => {});
+  if (text === null && !voiceFileId && !photoFileId && !pdfFileId) {
+    // Figurinha, outros tipos de arquivo, etc. — ainda não suportado (fica pra um próximo lote).
+    await sendMessage(chatId, "Por enquanto eu só entendo mensagens de texto, voz, foto ou PDF — manda sua pergunta que eu te ajudo 🙂").catch(() => {});
     return NextResponse.json({ ok: true });
   }
 
   try {
     if (photoFileId) {
       await handlePhotoMessage(chatId, photoFileId, caption);
+    } else if (pdfFileId) {
+      await handlePdfMessage(chatId, pdfFileId, caption);
     } else if (voiceFileId) {
       await handleVoiceMessage(chatId, voiceFileId);
     } else if (text!.startsWith("/start")) {
