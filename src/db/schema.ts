@@ -29,6 +29,13 @@ export const valueStatus = pgEnum("value_status", ["ESTIMADO", "A_PAGAR", "PAGO"
 // Somente ida (1 trecho), ida e volta (2 trechos) ou múltiplos trechos
 // (N trechos, ex.: pacote com várias pernas) — ver tabela `booking_legs`.
 export const bookingTripType = pgEnum("booking_trip_type", ["ONE_WAY", "ROUND_TRIP", "MULTI_LEG"]);
+// Encomendas (tabela `errands`) têm três dimensões de status independentes,
+// diferente do resto do app (que usa `valueStatus` combinando valor+pagamento
+// num só campo): quanto o valor é conhecido, se já foi pago, e em que ponto
+// da compra em si está.
+export const errandValueStatus = pgEnum("errand_value_status", ["ESTIMADO", "ORCAMENTO", "REALIZADO"]);
+export const errandPaymentStatus = pgEnum("errand_payment_status", ["A_PAGAR", "PAGO"]);
+export const errandPurchaseStatus = pgEnum("errand_purchase_status", ["AGUARDANDO_COMPRA", "PEDIDO_APROVACAO", "COMPRA_EFETUADA"]);
 
 // ---------- Contas e acesso ----------
 
@@ -101,6 +108,26 @@ export const travelers = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("travelers_client_idx").on(t.clientId)],
+);
+
+// Quem pede uma encomenda (tabela `errands`) — amigo/família do cliente, não
+// necessariamente um viajante da viagem. Mesma forma de `travelers` de
+// propósito: se um dia isso se fundir num cadastro único de "pessoas" (a
+// mesma pessoa pode ser viajante numa viagem e solicitante em outra), a
+// migração é só de dados, não de estrutura.
+export const requesters = pgTable(
+  "requesters",
+  {
+    id: id(),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    email: text("email"),
+    phone: text("phone"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("requesters_client_idx").on(t.clientId)],
 );
 
 export const tripTravelers = pgTable(
@@ -816,6 +843,42 @@ export const expenses = pgTable(
   (t) => [index("expenses_trip_date_idx").on(t.tripId, t.date)],
 );
 
+// ---------- Encomendas (pedidos de compra de amigos/família) ----------
+
+// Custo fica fora da Central de Custos da viagem de propósito — não é gasto
+// da viagem em si, é um favor cobrado à parte. `travelerId` referencia o
+// cadastro global do viajante; nulo = o próprio dono da viagem como viajante
+// (mesma convenção de `chips`/`activityTickets`) — o formulário sempre exige
+// escolher alguém, só que "o próprio dono" é uma escolha válida que vira nulo
+// aqui, já que o dono não tem linha em `travelers`.
+export const errands = pgTable(
+  "errands",
+  {
+    id: id(),
+    tripId: text("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    travelerId: text("traveler_id").references(() => travelers.id, { onDelete: "cascade" }),
+    requesterId: text("requester_id")
+      .notNull()
+      .references(() => requesters.id, { onDelete: "cascade" }),
+    product: text("product").notNull(),
+    price: numeric("price", { precision: 12, scale: 2 }),
+    currency: text("currency"),
+    valueStatus: errandValueStatus("value_status").notNull().default("ESTIMADO"),
+    paymentStatus: errandPaymentStatus("payment_status").notNull().default("A_PAGAR"),
+    purchaseStatus: errandPurchaseStatus("purchase_status").notNull().default("AGUARDANDO_COMPRA"),
+    details: text("details"),
+    receiptDocumentId: text("receipt_document_id").references(() => documents.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("errands_trip_idx").on(t.tripId),
+    index("errands_traveler_idx").on(t.travelerId),
+    index("errands_requester_idx").on(t.requesterId),
+  ],
+);
+
 // ---------- Agente via Telegram (viajante conversa com o sistema) ----------
 
 export const telegramLinks = pgTable(
@@ -857,6 +920,8 @@ export const telegramLinkTokens = pgTable("telegram_link_tokens", {
 export type User = typeof users.$inferSelect;
 export type TripDay = typeof tripDays.$inferSelect;
 export type Traveler = typeof travelers.$inferSelect;
+export type Requester = typeof requesters.$inferSelect;
+export type Errand = typeof errands.$inferSelect;
 export type Trip = typeof trips.$inferSelect;
 export type City = typeof cities.$inferSelect;
 export type ItineraryItem = typeof itineraryItems.$inferSelect;

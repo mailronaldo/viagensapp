@@ -316,6 +316,13 @@
       "when": 1794485254793,
       "tag": "0044_seed_activity_types_shopping_walk",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1794784720837,
+      "tag": "0045_sloppy_wallflower",
+      "breakpoints": true
     }
   ]
 }

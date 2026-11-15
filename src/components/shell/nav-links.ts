@@ -1,4 +1,4 @@
-import { Briefcase, Coins, Copy, FolderCog, HandCoins, LifeBuoy, Lightbulb, MapPin, Settings2, Upload, Users, Wrench } from "lucide-react";
+import { Briefcase, Coins, Copy, FolderCog, HandCoins, LifeBuoy, Lightbulb, MapPin, Settings2, Upload, UserPlus, Users, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 // Ícones do lucide-react são componentes React: não dá pra passar por props de
@@ -19,7 +19,8 @@ const AGENCY_LINKS: NavItem[] = [
 
 // Menu global do cliente (independe de estar dentro de uma viagem ou não).
 // "Gestores" reúne cadastros do cliente usados em qualquer viagem — hoje
-// cidades (precisa de ao menos uma pra criar uma viagem) e viajantes.
+// cidades (precisa de ao menos uma pra criar uma viagem), viajantes e
+// solicitantes (quem pede encomendas).
 // Financeiro e Suporte ainda não têm página própria — ficam aqui só pra
 // reservar o lugar; apontam pra uma página "em breve".
 const CLIENT_LINKS: NavItem[] = [
@@ -31,6 +32,7 @@ const CLIENT_LINKS: NavItem[] = [
     children: [
       { href: "/cities", label: "Cidades", icon: MapPin },
       { href: "/travelers", label: "Viajantes", icon: Users },
+      { href: "/requesters", label: "Solicitantes", icon: UserPlus },
       { href: "/currencies", label: "Moedas", icon: Coins },
       { href: "/tips", label: "Dicas", icon: Lightbulb },
     ],

@@ -92,6 +92,31 @@ export function EmptyState({ children }: { children: ReactNode }) {
   );
 }
 
+/** <select> genérico pra um enum com rótulos em português (mapa {valor: rótulo}). */
+export function EnumSelect({
+  name,
+  options,
+  defaultValue,
+  className = inputCls,
+  form,
+}: {
+  name: string;
+  options: Record<string, string>;
+  defaultValue: string;
+  className?: string;
+  form?: string;
+}) {
+  return (
+    <select name={name} form={form} defaultValue={defaultValue} className={className}>
+      {Object.entries(options).map(([value, label]) => (
+        <option key={value} value={value}>
+          {label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 /** <select> de status do valor (ESTIMADO/A_PAGAR/PAGO), mesmas opções em todo lugar. */
 export function StatusSelect({
   name,
@@ -104,15 +129,7 @@ export function StatusSelect({
   className?: string;
   form?: string;
 }) {
-  return (
-    <select name={name} form={form} defaultValue={defaultValue} className={className}>
-      {Object.entries(VALUE_STATUS_LABEL).map(([value, label]) => (
-        <option key={value} value={value}>
-          {label}
-        </option>
-      ))}
-    </select>
-  );
+  return <EnumSelect name={name} options={VALUE_STATUS_LABEL} defaultValue={defaultValue} className={className} form={form} />;
 }
 
 /** <option>s de categoria de custo, a partir do cadastro (lista {id, name}). */

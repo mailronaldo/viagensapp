@@ -1,7 +1,8 @@
-import type { Booking, Chip, Expense, ItineraryItem, Lodging, TravelInsurance } from "@/db/schema";
-import { AddPanel, CategoryOptions, Field, StatusSelect, inputCls } from "@/components/ui";
+import type { Booking, Chip, Errand, Expense, ItineraryItem, Lodging, TravelInsurance } from "@/db/schema";
+import { AddPanel, CategoryOptions, EnumSelect, Field, StatusSelect, inputCls } from "@/components/ui";
 import { NeighborhoodSelect } from "@/components/NeighborhoodSelect";
 import { TripTypeToggle } from "@/components/TripTypeToggle";
+import { ERRAND_PAYMENT_STATUS_LABEL, ERRAND_PURCHASE_STATUS_LABEL, ERRAND_VALUE_STATUS_LABEL } from "@/lib/labels";
 
 type Category = { id: string; name: string };
 
@@ -938,6 +939,82 @@ export function TicketFields({
       />
       <Field label="Detalhes" className="sm:col-span-6">
         <textarea name="details" rows={2} defaultValue={ticket?.details ?? ""} className={inputCls} />
+      </Field>
+    </>
+  );
+}
+
+export function ErrandFields({
+  trip,
+  travelers,
+  requesters,
+  currencies,
+  errand,
+  attachment,
+}: {
+  trip: { baseCurrency: string };
+  travelers: { id: string | null; name: string }[];
+  requesters: { id: string; name: string }[];
+  currencies: string[];
+  errand?: Errand | null;
+  attachment?: { name: string; href: string } | null;
+}) {
+  return (
+    <>
+      <Field label="Viajante responsável" className="sm:col-span-3">
+        <select name="travelerId" required defaultValue={errand?.travelerId ?? ""} className={inputCls}>
+          <option value="" disabled>
+            Selecione…
+          </option>
+          {travelers.map((tr) => (
+            <option key={tr.id ?? "owner"} value={tr.id ?? "owner"}>
+              {tr.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Solicitante" className="sm:col-span-3">
+        <select name="requesterId" required defaultValue={errand?.requesterId ?? ""} className={inputCls}>
+          <option value="" disabled>
+            Selecione…
+          </option>
+          {requesters.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Produto" className="sm:col-span-4">
+        <input name="product" required defaultValue={errand?.product ?? ""} placeholder="Ex.: Tênis Nike tamanho 42" className={inputCls} />
+      </Field>
+      <Field label="Valor" className="sm:col-span-1">
+        <input name="price" inputMode="decimal" defaultValue={dec(errand?.price)} placeholder="0,00" className={inputCls} />
+      </Field>
+      <Field label="Moeda" className="sm:col-span-1">
+        <select name="currency" defaultValue={errand?.currency ?? trip.baseCurrency} className={inputCls}>
+          <CurrencyOptions currencies={currencies} />
+        </select>
+      </Field>
+      <Field label="Status do valor" className="sm:col-span-2">
+        <EnumSelect name="valueStatus" options={ERRAND_VALUE_STATUS_LABEL} defaultValue={errand?.valueStatus ?? "ESTIMADO"} />
+      </Field>
+      <Field label="Status de pagamento" className="sm:col-span-2">
+        <EnumSelect name="paymentStatus" options={ERRAND_PAYMENT_STATUS_LABEL} defaultValue={errand?.paymentStatus ?? "A_PAGAR"} />
+      </Field>
+      <Field label="Status da compra" className="sm:col-span-2">
+        <EnumSelect name="purchaseStatus" options={ERRAND_PURCHASE_STATUS_LABEL} defaultValue={errand?.purchaseStatus ?? "AGUARDANDO_COMPRA"} />
+      </Field>
+      <AttachmentField
+        label="Recibo de compra (foto ou PDF)"
+        name="receipt"
+        removeName="removeReceipt"
+        current={attachment?.name}
+        href={attachment?.href}
+        className="sm:col-span-3"
+      />
+      <Field label="Detalhes" className="sm:col-span-6">
+        <textarea name="details" rows={2} defaultValue={errand?.details ?? ""} className={inputCls} />
       </Field>
     </>
   );

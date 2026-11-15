@@ -42,6 +42,11 @@ export function parseStatus(input: string | null) {
   return input && VALUE_STATUSES.has(input) ? (input as "ESTIMADO" | "A_PAGAR" | "PAGO") : "ESTIMADO";
 }
 
+/** Igual a `parseStatus`, mas genérico pra qualquer enum de string — vazio ou fora da lista cai no padrão. */
+export function parseEnum<T extends string>(input: string | null, allowed: readonly T[], fallback: T): T {
+  return input && (allowed as readonly string[]).includes(input) ? (input as T) : fallback;
+}
+
 export function toWallClock(local: string | null) {
   return local ? `${local.replace("T", " ")}:00` : null;
 }

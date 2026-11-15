@@ -1,4 +1,4 @@
-import { LayoutDashboard, MapPin, Briefcase, Hotel, Users, Wallet, FileText, FolderCog } from "lucide-react";
+import { LayoutDashboard, MapPin, Briefcase, Hotel, Users, Wallet, FileText, FolderCog, ShoppingBag } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 type SideNavLeaf = { kind: "link"; href: string; label: string; icon: LucideIcon };
@@ -29,6 +29,7 @@ export const TRIP_NAV: SideNavItem[] = [
     children: [
       { href: "/cities", label: "Cidades", icon: MapPin },
       { href: "/documents", label: "Documentos", icon: FileText },
+      { href: "/errands", label: "Encomendas", icon: ShoppingBag },
     ],
   },
 ];
