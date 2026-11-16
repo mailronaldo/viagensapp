@@ -944,18 +944,14 @@ export function TicketFields({
   );
 }
 
-export function ErrandFields({
-  trip,
+export function ErrandBaseFields({
   travelers,
   requesters,
-  currencies,
   errand,
   attachment,
 }: {
-  trip: { baseCurrency: string };
   travelers: { id: string | null; name: string }[];
   requesters: { id: string; name: string }[];
-  currencies: string[];
   errand?: Errand | null;
   attachment?: { name: string; href: string } | null;
 }) {
@@ -985,25 +981,8 @@ export function ErrandFields({
           ))}
         </select>
       </Field>
-      <Field label="Produto" className="sm:col-span-4">
+      <Field label="Produto" className="sm:col-span-6">
         <input name="product" required defaultValue={errand?.product ?? ""} placeholder="Ex.: Tênis Nike tamanho 42" className={inputCls} />
-      </Field>
-      <Field label="Valor" className="sm:col-span-1">
-        <input name="price" inputMode="decimal" defaultValue={dec(errand?.price)} placeholder="0,00" className={inputCls} />
-      </Field>
-      <Field label="Moeda" className="sm:col-span-1">
-        <select name="currency" defaultValue={errand?.currency ?? trip.baseCurrency} className={inputCls}>
-          <CurrencyOptions currencies={currencies} />
-        </select>
-      </Field>
-      <Field label="Status do valor" className="sm:col-span-2">
-        <EnumSelect name="valueStatus" options={ERRAND_VALUE_STATUS_LABEL} defaultValue={errand?.valueStatus ?? "ESTIMADO"} />
-      </Field>
-      <Field label="Status de pagamento" className="sm:col-span-2">
-        <EnumSelect name="paymentStatus" options={ERRAND_PAYMENT_STATUS_LABEL} defaultValue={errand?.paymentStatus ?? "A_PAGAR"} />
-      </Field>
-      <Field label="Status da compra" className="sm:col-span-2">
-        <EnumSelect name="purchaseStatus" options={ERRAND_PURCHASE_STATUS_LABEL} defaultValue={errand?.purchaseStatus ?? "AGUARDANDO_COMPRA"} />
       </Field>
       <AttachmentField
         label="Recibo de compra (foto ou PDF)"
@@ -1015,6 +994,38 @@ export function ErrandFields({
       />
       <Field label="Detalhes" className="sm:col-span-6">
         <textarea name="details" rows={2} defaultValue={errand?.details ?? ""} className={inputCls} />
+      </Field>
+    </>
+  );
+}
+
+export function ErrandEntryFields({
+  trip,
+  currencies,
+  entry,
+}: {
+  trip: { baseCurrency: string };
+  currencies: string[];
+  entry?: { price: string | null; currency: string | null; valueStatus: string; paymentStatus: string; purchaseStatus: string } | null;
+}) {
+  return (
+    <>
+      <Field label="Valor" className="sm:col-span-1">
+        <input name="price" inputMode="decimal" defaultValue={dec(entry?.price)} placeholder="0,00" className={inputCls} />
+      </Field>
+      <Field label="Moeda" className="sm:col-span-1">
+        <select name="currency" defaultValue={entry?.currency ?? trip.baseCurrency} className={inputCls}>
+          <CurrencyOptions currencies={currencies} />
+        </select>
+      </Field>
+      <Field label="Status do valor" className="sm:col-span-2">
+        <EnumSelect name="valueStatus" options={ERRAND_VALUE_STATUS_LABEL} defaultValue={entry?.valueStatus ?? "ESTIMADO"} />
+      </Field>
+      <Field label="Status de pagamento" className="sm:col-span-2">
+        <EnumSelect name="paymentStatus" options={ERRAND_PAYMENT_STATUS_LABEL} defaultValue={entry?.paymentStatus ?? "A_PAGAR"} />
+      </Field>
+      <Field label="Status da compra" className="sm:col-span-2">
+        <EnumSelect name="purchaseStatus" options={ERRAND_PURCHASE_STATUS_LABEL} defaultValue={entry?.purchaseStatus ?? "AGUARDANDO_COMPRA"} />
       </Field>
     </>
   );

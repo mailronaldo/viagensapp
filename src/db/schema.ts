@@ -863,11 +863,6 @@ export const errands = pgTable(
       .notNull()
       .references(() => requesters.id, { onDelete: "cascade" }),
     product: text("product").notNull(),
-    price: numeric("price", { precision: 12, scale: 2 }),
-    currency: text("currency"),
-    valueStatus: errandValueStatus("value_status").notNull().default("ESTIMADO"),
-    paymentStatus: errandPaymentStatus("payment_status").notNull().default("A_PAGAR"),
-    purchaseStatus: errandPurchaseStatus("purchase_status").notNull().default("AGUARDANDO_COMPRA"),
     details: text("details"),
     receiptDocumentId: text("receipt_document_id").references(() => documents.id, { onDelete: "set null" }),
     createdAt: createdAt(),
@@ -877,6 +872,28 @@ export const errands = pgTable(
     index("errands_traveler_idx").on(t.travelerId),
     index("errands_requester_idx").on(t.requesterId),
   ],
+);
+
+// Histórico de valor/status de uma encomenda: cada lançamento é um
+// "retrato" (preço + os 3 status) num momento — nunca editado nem apagado,
+// só acumulado. A lista/tela principal mostra o lançamento mais recente
+// (ver `services/errands.ts`); produto/viajante/solicitante/recibo ficam no
+// cadastro em `errands`, não aqui.
+export const errandEntries = pgTable(
+  "errand_entries",
+  {
+    id: id(),
+    errandId: text("errand_id")
+      .notNull()
+      .references(() => errands.id, { onDelete: "cascade" }),
+    price: numeric("price", { precision: 12, scale: 2 }),
+    currency: text("currency"),
+    valueStatus: errandValueStatus("value_status").notNull().default("ESTIMADO"),
+    paymentStatus: errandPaymentStatus("payment_status").notNull().default("A_PAGAR"),
+    purchaseStatus: errandPurchaseStatus("purchase_status").notNull().default("AGUARDANDO_COMPRA"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("errand_entries_errand_idx").on(t.errandId)],
 );
 
 // ---------- Agente via Telegram (viajante conversa com o sistema) ----------
@@ -922,6 +939,7 @@ export type TripDay = typeof tripDays.$inferSelect;
 export type Traveler = typeof travelers.$inferSelect;
 export type Requester = typeof requesters.$inferSelect;
 export type Errand = typeof errands.$inferSelect;
+export type ErrandEntry = typeof errandEntries.$inferSelect;
 export type Trip = typeof trips.$inferSelect;
 export type City = typeof cities.$inferSelect;
 export type ItineraryItem = typeof itineraryItems.$inferSelect;

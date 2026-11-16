@@ -15,7 +15,7 @@ import {
   ERRAND_VALUE_STATUS_LABEL,
   ERRAND_VALUE_STATUS_TONE,
 } from "@/lib/labels";
-import { ErrandFields } from "@/components/TripFields";
+import { ErrandBaseFields, ErrandEntryFields } from "@/components/TripFields";
 import { addErrandAction, deleteErrandAction } from "@/app/actions/errands";
 import { AddPanel, Card, EmptyState, ErrorBanner, Tag, btnDanger, btnPrimary, btnGhost, inputCls } from "@/components/ui";
 
@@ -102,7 +102,8 @@ export default async function ErrandsPage({
             </p>
           ) : (
             <form action={addErrandAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-6">
-              <ErrandFields trip={trip} travelers={travelers} requesters={requesters} currencies={currencies} />
+              <ErrandBaseFields travelers={travelers} requesters={requesters} />
+              <ErrandEntryFields trip={trip} currencies={currencies} />
               <div className="sm:col-span-6">
                 <button className={btnPrimary}>Salvar encomenda</button>
               </div>
@@ -127,7 +128,7 @@ export default async function ErrandsPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {rows.map(({ errand: e, travelerName, requesterName }) => (
+              {rows.map(({ errand: e, latest, travelerName, requesterName }) => (
                 <tr key={e.id}>
                   <td className="px-4 py-2">
                     {e.product}
@@ -142,13 +143,19 @@ export default async function ErrandsPage({
                   <td className="px-4 py-2 text-slate-600">{travelerName}</td>
                   <td className="px-4 py-2 text-slate-600">{requesterName}</td>
                   <td className="px-4 py-2">
-                    <div className="flex flex-wrap gap-1">
-                      <Tag tone={ERRAND_VALUE_STATUS_TONE[e.valueStatus]}>{ERRAND_VALUE_STATUS_LABEL[e.valueStatus]}</Tag>
-                      <Tag tone={ERRAND_PAYMENT_STATUS_TONE[e.paymentStatus]}>{ERRAND_PAYMENT_STATUS_LABEL[e.paymentStatus]}</Tag>
-                      <Tag tone={ERRAND_PURCHASE_STATUS_TONE[e.purchaseStatus]}>{ERRAND_PURCHASE_STATUS_LABEL[e.purchaseStatus]}</Tag>
-                    </div>
+                    {latest ? (
+                      <div className="flex flex-wrap gap-1">
+                        <Tag tone={ERRAND_VALUE_STATUS_TONE[latest.valueStatus]}>{ERRAND_VALUE_STATUS_LABEL[latest.valueStatus]}</Tag>
+                        <Tag tone={ERRAND_PAYMENT_STATUS_TONE[latest.paymentStatus]}>{ERRAND_PAYMENT_STATUS_LABEL[latest.paymentStatus]}</Tag>
+                        <Tag tone={ERRAND_PURCHASE_STATUS_TONE[latest.purchaseStatus]}>{ERRAND_PURCHASE_STATUS_LABEL[latest.purchaseStatus]}</Tag>
+                      </div>
+                    ) : (
+                      "—"
+                    )}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums">{e.price ? formatMoney(e.price, e.currency ?? trip.baseCurrency) : "—"}</td>
+                  <td className="whitespace-nowrap px-4 py-2 text-right tabular-nums">
+                    {latest?.price ? formatMoney(latest.price, latest.currency ?? trip.baseCurrency) : "—"}
+                  </td>
                   <td className="px-4 py-2 text-right">
                     {canWrite && (
                       <div className="flex items-center justify-end gap-3">
