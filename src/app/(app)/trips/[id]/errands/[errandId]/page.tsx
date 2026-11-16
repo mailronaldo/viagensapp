@@ -13,12 +13,13 @@ import {
   ERRAND_VALUE_STATUS_TONE,
 } from "@/lib/labels";
 import { deleteErrandAction, updateErrandAction } from "@/app/actions/errands";
-import { addErrandEntryAction } from "@/app/actions/errand-entries";
+import { addErrandEntryAction, deleteErrandEntryAction } from "@/app/actions/errand-entries";
 import { listRequesters } from "@/services/requesters";
 import { listErrandEntries } from "@/services/errands";
 import { listTripTravelerOptions } from "@/services/trip-travelers";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import { ErrandBaseFields, ErrandEntryFields } from "@/components/TripFields";
+import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
 import { AddPanel, Card, EmptyState, ErrorBanner, Tag, btnDanger, btnGhost, btnPrimary } from "@/components/ui";
 
 export const metadata = { title: "Editar encomenda" };
@@ -32,7 +33,7 @@ export default async function EditErrandPage({
 }) {
   const { id, errandId } = await params;
   const { error } = await searchParams;
-  const { trip, canWrite } = await requireTripAccess(id);
+  const { trip, canWrite, role } = await requireTripAccess(id);
   if (!canWrite) redirect(`/trips/${id}/errands`);
 
   const [errand] = await db
@@ -81,10 +82,19 @@ export default async function EditErrandPage({
                     <p className="text-xs text-slate-400">{formatDate(entry.createdAt.toISOString().slice(0, 10))}</p>
                     <p className="font-medium tabular-nums">{entry.price ? formatMoney(entry.price, entry.currency ?? trip.baseCurrency) : "—"}</p>
                   </div>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap items-center gap-1">
                     <Tag tone={ERRAND_VALUE_STATUS_TONE[entry.valueStatus]}>{ERRAND_VALUE_STATUS_LABEL[entry.valueStatus]}</Tag>
                     <Tag tone={ERRAND_PAYMENT_STATUS_TONE[entry.paymentStatus]}>{ERRAND_PAYMENT_STATUS_LABEL[entry.paymentStatus]}</Tag>
                     <Tag tone={ERRAND_PURCHASE_STATUS_TONE[entry.purchaseStatus]}>{ERRAND_PURCHASE_STATUS_LABEL[entry.purchaseStatus]}</Tag>
+                    {role === "OWNER" && (
+                      <ConfirmDeleteButton
+                        label="Excluir lançamento"
+                        confirmTitle="Excluir este lançamento?"
+                        confirmDescription="Isso remove esse lançamento do histórico (ex.: erro de digitação). Não dá pra desfazer."
+                        deleteAction={deleteErrandEntryAction.bind(null, trip.id, errand.id, entry.id)}
+                        size="sm"
+                      />
+                    )}
                   </div>
                 </li>
               ))}
