@@ -5,9 +5,9 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { fail, str } from "@/lib/form";
+import { fail, files, str } from "@/lib/form";
 import { parseErrandEntry } from "@/lib/errands-form";
-import { addErrand } from "@/services/errands";
+import { addErrand, addErrandPhoto } from "@/services/errands";
 import { isInTripGroup } from "@/services/trip-travelers";
 
 async function requireOwnRequester(clientId: string, requesterId: string, back: string) {
@@ -17,6 +17,18 @@ async function requireOwnRequester(clientId: string, requesterId: string, back: 
     .where(and(eq(t.requesters.id, requesterId), eq(t.requesters.clientId, clientId)))
     .limit(1);
   if (!r) fail(back, "Solicitante inválido.");
+}
+
+async function parseStoreId(clientId: string, formData: FormData, back: string) {
+  const storeId = str(formData, "storeId");
+  if (!storeId) return null;
+  const [s] = await db
+    .select({ id: t.stores.id })
+    .from(t.stores)
+    .where(and(eq(t.stores.id, storeId), eq(t.stores.clientId, clientId)))
+    .limit(1);
+  if (!s) fail(back, "Loja inválida.");
+  return storeId;
 }
 
 async function parseErrandBase(trip: { ownerId: string; id: string; ownerIsTraveler: boolean }, formData: FormData, back: string) {
@@ -30,8 +42,9 @@ async function parseErrandBase(trip: { ownerId: string; id: string; ownerIsTrave
   const travelerId = travelerRaw === "owner" ? null : travelerRaw;
   if (!(await isInTripGroup(trip, travelerId))) fail(back, "Esse viajante não está nesta viagem.");
   await requireOwnRequester(trip.ownerId, requesterId, back);
+  const storeId = await parseStoreId(trip.ownerId, formData, back);
 
-  return { travelerId, requesterId, product, details: str(formData, "details") };
+  return { travelerId, requesterId, product, storeId, details: str(formData, "details") };
 }
 
 export async function addErrandAction(tripId: string, formData: FormData) {
@@ -49,7 +62,10 @@ export async function addErrandAction(tripId: string, formData: FormData) {
     current: null,
   });
 
-  await addErrand(tripId, { ...base, receiptDocumentId, entry });
+  const errand = await addErrand(tripId, { ...base, receiptDocumentId, entry });
+  for (const photo of files(formData, "photos")) {
+    await addErrandPhoto(tripId, errand.id, photo);
+  }
   redirect(back);
 }
 

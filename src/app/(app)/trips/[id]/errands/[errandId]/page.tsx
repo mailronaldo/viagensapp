@@ -14,13 +14,16 @@ import {
 } from "@/lib/labels";
 import { deleteErrandAction, updateErrandAction } from "@/app/actions/errands";
 import { addErrandEntryAction, deleteErrandEntryAction } from "@/app/actions/errand-entries";
+import { addErrandPhotosAction, deleteErrandPhotoAction } from "@/app/actions/errand-photos";
 import { listRequesters } from "@/services/requesters";
-import { listErrandEntries } from "@/services/errands";
+import { listErrandEntries, listErrandPhotos } from "@/services/errands";
+import { listStoresForTrip } from "@/services/stores";
+import { getTripCities } from "@/services/cities";
 import { listTripTravelerOptions } from "@/services/trip-travelers";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import { ErrandBaseFields, ErrandEntryFields } from "@/components/TripFields";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
-import { AddPanel, Card, EmptyState, ErrorBanner, Tag, btnDanger, btnGhost, btnPrimary } from "@/components/ui";
+import { AddPanel, Card, EmptyState, ErrorBanner, Field, Tag, btnDanger, btnGhost, btnPrimary, inputCls } from "@/components/ui";
 
 export const metadata = { title: "Editar encomenda" };
 
@@ -29,10 +32,10 @@ export default async function EditErrandPage({
   searchParams,
 }: {
   params: Promise<{ id: string; errandId: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; newStoreId?: string }>;
 }) {
   const { id, errandId } = await params;
-  const { error } = await searchParams;
+  const { error, newStoreId } = await searchParams;
   const { trip, canWrite, role } = await requireTripAccess(id);
   if (!canWrite) redirect(`/trips/${id}/errands`);
 
@@ -47,12 +50,16 @@ export default async function EditErrandPage({
     ? await db.select({ fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.id, errand.receiptDocumentId)).limit(1)
     : [];
   const attachment = doc ? { name: doc.fileName, href: `/api/files/${trip.id}/${errand.receiptDocumentId}` } : null;
-  const [requesters, travelers, currencies, entries] = await Promise.all([
+  const [requesters, travelers, currencies, entries, stores, cities, photos] = await Promise.all([
     listRequesters(trip.ownerId),
     listTripTravelerOptions(trip),
     listClientCurrencyCodes(trip.ownerId),
     listErrandEntries(errand.id),
+    listStoresForTrip(trip),
+    getTripCities(trip.id),
+    listErrandPhotos(errand.id),
   ]);
+  const back = `/trips/${trip.id}/errands/${errand.id}`;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -60,7 +67,17 @@ export default async function EditErrandPage({
       <Card>
         <ErrorBanner message={error} />
         <form action={updateErrandAction.bind(null, trip.id, errand.id)} className="grid gap-3 sm:grid-cols-6">
-          <ErrandBaseFields errand={errand} travelers={travelers} requesters={requesters} attachment={attachment} />
+          <ErrandBaseFields
+            tripId={trip.id}
+            back={back}
+            errand={errand}
+            travelers={travelers}
+            requesters={requesters}
+            stores={stores}
+            cities={cities}
+            defaultStoreId={newStoreId}
+            attachment={attachment}
+          />
           <div className="flex gap-2 sm:col-span-6">
             <button className={btnPrimary}>Salvar alterações</button>
             <Link href={`/trips/${trip.id}/errands`} className={btnGhost}>
@@ -105,6 +122,40 @@ export default async function EditErrandPage({
             <ErrandEntryFields trip={trip} currencies={currencies} />
             <div className="sm:col-span-6">
               <button className={btnPrimary}>Lançar atualização</button>
+            </div>
+          </form>
+        </AddPanel>
+      </div>
+
+      <div className="mt-6">
+        <AddPanel title={`Fotos do produto${photos.length > 0 ? ` (${photos.length})` : ""}`} defaultOpen={photos.length === 0}>
+          {photos.length > 0 && (
+            <div className="mb-4 grid grid-cols-3 gap-3 sm:grid-cols-4">
+              {photos.map((photo) => (
+                <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-lg border border-slate-200">
+                  <a href={`/api/files/${trip.id}/${photo.id}`} target="_blank" rel="noreferrer">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- foto enviada pelo cliente, servida por rota autenticada (não dá pra usar next/image aqui) */}
+                    <img src={`/api/files/${trip.id}/${photo.id}`} alt={photo.title} className="size-full object-cover" />
+                  </a>
+                  <div className="absolute right-1 top-1">
+                    <ConfirmDeleteButton
+                      label="Excluir foto"
+                      confirmTitle="Excluir esta foto?"
+                      confirmDescription="Isso remove a foto do produto. Não dá pra desfazer."
+                      deleteAction={deleteErrandPhotoAction.bind(null, trip.id, errand.id, photo.id)}
+                      size="sm"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <form action={addErrandPhotosAction.bind(null, trip.id, errand.id)} className="grid gap-3">
+            <Field label="Adicionar fotos (uma ou mais imagens)">
+              <input type="file" name="photos" multiple accept="image/*" className={inputCls} />
+            </Field>
+            <div>
+              <button className={btnPrimary}>Adicionar fotos</button>
             </div>
           </form>
         </AddPanel>

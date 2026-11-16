@@ -843,6 +843,28 @@ export const expenses = pgTable(
   (t) => [index("expenses_trip_date_idx").on(t.tripId, t.date)],
 );
 
+export const storeType = pgEnum("store_type", ["PHYSICAL", "ONLINE"]);
+
+// Catálogo do cliente (reutilizável entre viagens, como cities/travelers/
+// requesters) — de onde um produto de encomenda foi/será comprado. `cityId`
+// só faz sentido pra type=PHYSICAL (fica nulo em ONLINE); ao vincular a loja
+// numa encomenda, só entram as físicas cuja cidade está nesta viagem, mais
+// as online (ver `listStoresForTrip` em services/stores.ts).
+export const stores = pgTable(
+  "stores",
+  {
+    id: id(),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    type: storeType("type").notNull().default("PHYSICAL"),
+    cityId: text("city_id").references(() => cities.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("stores_client_idx").on(t.clientId), index("stores_city_idx").on(t.cityId)],
+);
+
 // ---------- Encomendas (pedidos de compra de amigos/família) ----------
 
 // Custo fica fora da Central de Custos da viagem de propósito — não é gasto
@@ -863,6 +885,7 @@ export const errands = pgTable(
       .notNull()
       .references(() => requesters.id, { onDelete: "cascade" }),
     product: text("product").notNull(),
+    storeId: text("store_id").references(() => stores.id, { onDelete: "set null" }),
     details: text("details"),
     receiptDocumentId: text("receipt_document_id").references(() => documents.id, { onDelete: "set null" }),
     createdAt: createdAt(),
@@ -871,6 +894,7 @@ export const errands = pgTable(
     index("errands_trip_idx").on(t.tripId),
     index("errands_traveler_idx").on(t.travelerId),
     index("errands_requester_idx").on(t.requesterId),
+    index("errands_store_idx").on(t.storeId),
   ],
 );
 
@@ -894,6 +918,26 @@ export const errandEntries = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("errand_entries_errand_idx").on(t.errandId)],
+);
+
+// Fotos do produto — só pra consulta, diferente do recibo de compra
+// (`receiptDocumentId`). Vínculo N:1 com um documento cada (mesmo padrão de
+// `itineraryItemTips`): uma tabela de junção em vez de uma coluna
+// `errandId` direto em `documents`, pra não criar referência circular entre
+// as duas tabelas (`documents.receiptDocumentId`-like já aponta pra lá).
+export const errandPhotos = pgTable(
+  "errand_photos",
+  {
+    id: id(),
+    errandId: text("errand_id")
+      .notNull()
+      .references(() => errands.id, { onDelete: "cascade" }),
+    documentId: text("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("errand_photos_errand_idx").on(t.errandId), index("errand_photos_document_idx").on(t.documentId)],
 );
 
 // ---------- Agente via Telegram (viajante conversa com o sistema) ----------
@@ -940,6 +984,7 @@ export type Traveler = typeof travelers.$inferSelect;
 export type Requester = typeof requesters.$inferSelect;
 export type Errand = typeof errands.$inferSelect;
 export type ErrandEntry = typeof errandEntries.$inferSelect;
+export type Store = typeof stores.$inferSelect;
 export type Trip = typeof trips.$inferSelect;
 export type City = typeof cities.$inferSelect;
 export type ItineraryItem = typeof itineraryItems.$inferSelect;

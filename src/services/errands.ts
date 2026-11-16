@@ -2,6 +2,7 @@ import "server-only";
 import { desc, eq, inArray } from "drizzle-orm";
 import { db, t } from "@/db";
 import type { ErrandEntry } from "@/db/schema";
+import { addDocument } from "./documents";
 
 export type NewErrandEntry = {
   price: string | null;
@@ -16,6 +17,7 @@ export type NewErrand = {
   travelerId: string | null;
   requesterId: string;
   product: string;
+  storeId: string | null;
   details: string | null;
   receiptDocumentId?: string | null;
   /** Primeiro lançamento do histórico de valor/status. */
@@ -44,6 +46,23 @@ export async function listErrandEntries(errandId: string) {
   return db.select().from(t.errandEntries).where(eq(t.errandEntries.errandId, errandId)).orderBy(desc(t.errandEntries.createdAt));
 }
 
+/** Fotos do produto — só pra consulta, diferente do recibo de compra. */
+export async function addErrandPhoto(tripId: string, errandId: string, file: File) {
+  const doc = await addDocument(tripId, file, { type: "PRODUCT_PHOTO", title: file.name });
+  await db.insert(t.errandPhotos).values({ errandId, documentId: doc.id });
+  return doc;
+}
+
+export async function listErrandPhotos(errandId: string) {
+  const rows = await db
+    .select({ document: t.documents })
+    .from(t.errandPhotos)
+    .innerJoin(t.documents, eq(t.documents.id, t.errandPhotos.documentId))
+    .where(eq(t.errandPhotos.errandId, errandId))
+    .orderBy(desc(t.documents.createdAt));
+  return rows.map((r) => r.document);
+}
+
 /** Pra cada errandId, o lançamento mais recente (ou nenhum, se ainda não tiver). */
 async function latestEntriesByErrand(errandIds: string[]): Promise<Map<string, ErrandEntry>> {
   if (errandIds.length === 0) return new Map();
@@ -66,10 +85,12 @@ export async function listErrands(tripId: string, ownerName: string) {
       errand: t.errands,
       travelerName: t.travelers.name,
       requesterName: t.requesters.name,
+      storeName: t.stores.name,
     })
     .from(t.errands)
     .leftJoin(t.travelers, eq(t.travelers.id, t.errands.travelerId))
     .innerJoin(t.requesters, eq(t.requesters.id, t.errands.requesterId))
+    .leftJoin(t.stores, eq(t.stores.id, t.errands.storeId))
     .where(eq(t.errands.tripId, tripId))
     .orderBy(desc(t.errands.createdAt));
   const latestByErrand = await latestEntriesByErrand(rows.map((r) => r.errand.id));

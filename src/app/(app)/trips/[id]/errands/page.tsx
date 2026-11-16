@@ -3,6 +3,8 @@ import { requireTripAccess } from "@/lib/access";
 import { formatMoney } from "@/lib/format";
 import { listErrands, getErrandSummary } from "@/services/errands";
 import { listRequesters } from "@/services/requesters";
+import { listStoresForTrip } from "@/services/stores";
+import { getTripCities } from "@/services/cities";
 import { listTripTravelerOptions } from "@/services/trip-travelers";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import { db, t } from "@/db";
@@ -17,33 +19,37 @@ import {
 } from "@/lib/labels";
 import { ErrandBaseFields, ErrandEntryFields } from "@/components/TripFields";
 import { addErrandAction, deleteErrandAction } from "@/app/actions/errands";
-import { AddPanel, Card, EmptyState, ErrorBanner, Tag, btnDanger, btnPrimary, btnGhost, inputCls } from "@/components/ui";
+import { AddPanel, Card, EmptyState, ErrorBanner, Field, Tag, btnDanger, btnPrimary, btnGhost, inputCls } from "@/components/ui";
 
 export default async function ErrandsPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; travelerId?: string; requesterId?: string }>;
+  searchParams: Promise<{ error?: string; travelerId?: string; requesterId?: string; storeId?: string; newStoreId?: string }>;
 }) {
   const { id } = await params;
-  const { error, travelerId: travelerFilter, requesterId: requesterFilter } = await searchParams;
+  const { error, travelerId: travelerFilter, requesterId: requesterFilter, storeId: storeFilter, newStoreId } = await searchParams;
   const { trip, canWrite } = await requireTripAccess(id);
+  const back = `/trips/${trip.id}/errands`;
 
   const [owner] = await db.select({ name: t.users.name }).from(t.users).where(eq(t.users.id, trip.ownerId)).limit(1);
   const ownerName = owner?.name ?? "Dono da viagem";
 
-  const [allRows, summary, requesters, travelers, currencies] = await Promise.all([
+  const [allRows, summary, requesters, travelers, currencies, stores, cities] = await Promise.all([
     listErrands(trip.id, ownerName),
     getErrandSummary(trip.id),
     listRequesters(trip.ownerId),
     listTripTravelerOptions(trip),
     listClientCurrencyCodes(trip.ownerId),
+    listStoresForTrip(trip),
+    getTripCities(trip.id),
   ]);
 
   const rows = allRows.filter((r) => {
     if (travelerFilter && (r.errand.travelerId ?? "owner") !== travelerFilter) return false;
     if (requesterFilter && r.errand.requesterId !== requesterFilter) return false;
+    if (storeFilter && r.errand.storeId !== storeFilter) return false;
     return true;
   });
 
@@ -82,9 +88,18 @@ export default async function ErrandsPage({
             </option>
           ))}
         </select>
+        <select name="storeId" defaultValue={storeFilter ?? ""} className={inputCls} style={{ maxWidth: 220 }}>
+          <option value="">Todas as lojas</option>
+          {stores.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+              {s.type === "ONLINE" ? " (online)" : ""}
+            </option>
+          ))}
+        </select>
         <button className={btnGhost}>Filtrar</button>
-        {(travelerFilter || requesterFilter) && (
-          <Link href={`/trips/${trip.id}/errands`} className={btnGhost}>
+        {(travelerFilter || requesterFilter || storeFilter) && (
+          <Link href={back} className={btnGhost}>
             Limpar
           </Link>
         )}
@@ -102,8 +117,19 @@ export default async function ErrandsPage({
             </p>
           ) : (
             <form action={addErrandAction.bind(null, trip.id)} className="grid gap-3 sm:grid-cols-6">
-              <ErrandBaseFields travelers={travelers} requesters={requesters} />
+              <ErrandBaseFields
+                tripId={trip.id}
+                back={back}
+                travelers={travelers}
+                requesters={requesters}
+                stores={stores}
+                cities={cities}
+                defaultStoreId={newStoreId}
+              />
               <ErrandEntryFields trip={trip} currencies={currencies} />
+              <Field label="Fotos do produto (opcional, uma ou mais imagens)" className="sm:col-span-6">
+                <input type="file" name="photos" multiple accept="image/*" className={inputCls} />
+              </Field>
               <div className="sm:col-span-6">
                 <button className={btnPrimary}>Salvar encomenda</button>
               </div>
@@ -113,7 +139,7 @@ export default async function ErrandsPage({
       )}
 
       {rows.length === 0 ? (
-        <EmptyState>Nenhuma encomenda {travelerFilter || requesterFilter ? "encontrada com esse filtro" : "cadastrada ainda"}.</EmptyState>
+        <EmptyState>Nenhuma encomenda {travelerFilter || requesterFilter || storeFilter ? "encontrada com esse filtro" : "cadastrada ainda"}.</EmptyState>
       ) : (
         <Card className="overflow-x-auto p-0">
           <table className="w-full text-sm">
@@ -122,13 +148,14 @@ export default async function ErrandsPage({
                 <th className="px-4 py-2 font-medium">Produto</th>
                 <th className="px-4 py-2 font-medium">Viajante</th>
                 <th className="px-4 py-2 font-medium">Solicitante</th>
+                <th className="px-4 py-2 font-medium">Loja</th>
                 <th className="px-4 py-2 font-medium">Status</th>
                 <th className="px-4 py-2 text-right font-medium">Valor</th>
                 <th className="px-4 py-2" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {rows.map(({ errand: e, latest, travelerName, requesterName }) => (
+              {rows.map(({ errand: e, latest, travelerName, requesterName, storeName }) => (
                 <tr key={e.id}>
                   <td className="px-4 py-2">
                     {e.product}
@@ -142,6 +169,7 @@ export default async function ErrandsPage({
                   </td>
                   <td className="px-4 py-2 text-slate-600">{travelerName}</td>
                   <td className="px-4 py-2 text-slate-600">{requesterName}</td>
+                  <td className="px-4 py-2 text-slate-600">{storeName ?? "—"}</td>
                   <td className="px-4 py-2">
                     {latest ? (
                       <div className="flex flex-wrap gap-1">

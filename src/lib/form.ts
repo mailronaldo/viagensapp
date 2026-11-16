@@ -13,6 +13,11 @@ export function file(fd: FormData, key: string): File | null {
   return v instanceof File && v.size > 0 ? v : null;
 }
 
+/** Igual a `file`, mas pra campos `<input multiple>` com mais de um arquivo. */
+export function files(fd: FormData, key: string): File[] {
+  return fd.getAll(key).filter((v): v is File => v instanceof File && v.size > 0);
+}
+
 export const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 export const HH_MM = /^([01]\d|2[0-3]):[0-5]\d$/;
 export const LOCAL_DATETIME = /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/;

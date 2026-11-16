@@ -2,6 +2,7 @@ import type { Booking, Chip, Errand, Expense, ItineraryItem, Lodging, TravelInsu
 import { AddPanel, CategoryOptions, EnumSelect, Field, StatusSelect, inputCls } from "@/components/ui";
 import { NeighborhoodSelect } from "@/components/NeighborhoodSelect";
 import { TripTypeToggle } from "@/components/TripTypeToggle";
+import { AddStoreButton } from "@/components/AddStoreButton";
 import { ERRAND_PAYMENT_STATUS_LABEL, ERRAND_PURCHASE_STATUS_LABEL, ERRAND_VALUE_STATUS_LABEL } from "@/lib/labels";
 
 type Category = { id: string; name: string };
@@ -945,14 +946,24 @@ export function TicketFields({
 }
 
 export function ErrandBaseFields({
+  tripId,
+  back,
   travelers,
   requesters,
+  stores,
+  cities,
   errand,
+  defaultStoreId,
   attachment,
 }: {
+  tripId: string;
+  back: string;
   travelers: { id: string | null; name: string }[];
   requesters: { id: string; name: string }[];
+  stores: { id: string; name: string; type: "PHYSICAL" | "ONLINE" }[];
+  cities: { id: string; name: string }[];
   errand?: Errand | null;
+  defaultStoreId?: string | null;
   attachment?: { name: string; href: string } | null;
 }) {
   return (
@@ -981,8 +992,22 @@ export function ErrandBaseFields({
           ))}
         </select>
       </Field>
-      <Field label="Produto" className="sm:col-span-6">
+      <Field label="Produto" className="sm:col-span-4">
         <input name="product" required defaultValue={errand?.product ?? ""} placeholder="Ex.: Tênis Nike tamanho 42" className={inputCls} />
+      </Field>
+      <Field label="Loja" className="sm:col-span-2">
+        <div className="flex gap-2">
+          <select name="storeId" defaultValue={defaultStoreId ?? errand?.storeId ?? ""} className={inputCls}>
+            <option value="">Nenhuma</option>
+            {stores.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+                {s.type === "ONLINE" ? " (online)" : ""}
+              </option>
+            ))}
+          </select>
+          <AddStoreButton tripId={tripId} back={back} cities={cities} />
+        </div>
       </Field>
       <AttachmentField
         label="Recibo de compra (foto ou PDF)"

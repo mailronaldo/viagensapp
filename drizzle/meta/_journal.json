@@ -330,6 +330,13 @@
       "when": 1794836209717,
       "tag": "0046_dapper_fenris",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1794841116234,
+      "tag": "0047_dashing_owl",
+      "breakpoints": true
     }
   ]
 }
