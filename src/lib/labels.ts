@@ -47,6 +47,18 @@ export const ERRAND_PURCHASE_STATUS_TONE = {
 } as const;
 
 
+export const PAYMENT_METHOD_LABEL = {
+  PIX: "Pix",
+  CREDITO: "Cartão de Crédito",
+  DEBITO: "Cartão de Débito",
+  DINHEIRO: "Dinheiro",
+} as const;
+
+export const PAYMENT_FORM_LABEL = {
+  AVISTA: "À vista",
+  PARCELADO: "Parcelado",
+} as const;
+
 export const TRIP_TYPE_LABEL = {
   ONE_WAY: "Somente ida",
   ROUND_TRIP: "Ida e volta",

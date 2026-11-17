@@ -36,6 +36,10 @@ export const bookingTripType = pgEnum("booking_trip_type", ["ONE_WAY", "ROUND_TR
 export const errandValueStatus = pgEnum("errand_value_status", ["ESTIMADO", "ORCAMENTO", "REALIZADO"]);
 export const errandPaymentStatus = pgEnum("errand_payment_status", ["A_PAGAR", "PAGO"]);
 export const errandPurchaseStatus = pgEnum("errand_purchase_status", ["AGUARDANDO_COMPRA", "PEDIDO_APROVACAO", "COMPRA_EFETUADA"]);
+// Pagamentos de uma despesa (tabela `expense_payments`): meio usado e se foi
+// à vista ou parcelado.
+export const paymentMethodType = pgEnum("payment_method_type", ["PIX", "CREDITO", "DEBITO", "DINHEIRO"]);
+export const paymentForm = pgEnum("payment_form", ["AVISTA", "PARCELADO"]);
 
 // ---------- Contas e acesso ----------
 
@@ -831,7 +835,6 @@ export const expenses = pgTable(
     status: valueStatus("status").notNull().default("ESTIMADO"),
     // Cotação para a moeda base da viagem (opcional)
     exchangeRate: numeric("exchange_rate", { precision: 14, scale: 6 }),
-    paymentMethod: text("payment_method"),
     receiptDocumentId: text("receipt_document_id").references(
       () => documents.id,
       { onDelete: "set null" },
@@ -842,6 +845,33 @@ export const expenses = pgTable(
   },
   (t) => [index("expenses_trip_date_idx").on(t.tripId, t.date)],
 );
+
+// Pagamentos lançados contra uma despesa: cada um é um retrato de quem pagou
+// (viajante), quando, por qual meio e quanto — nunca editado nem apagado, só
+// acumulado. `status` em `expenses` é recalculado a partir da soma destes
+// pagamentos (ver `recomputeExpenseStatus` em services/expense-payments.ts),
+// não é mais escolhido manualmente.
+export const expensePayments = pgTable(
+  "expense_payments",
+  {
+    id: id(),
+    expenseId: text("expense_id")
+      .notNull()
+      .references(() => expenses.id, { onDelete: "cascade" }),
+    // null = dono da viagem, mesma convenção de errands.travelerId
+    payerTravelerId: text("payer_traveler_id").references(() => travelers.id, { onDelete: "set null" }),
+    paymentDate: date("payment_date").notNull(),
+    method: paymentMethodType("method").notNull(),
+    form: paymentForm("form").notNull().default("AVISTA"),
+    installments: text("installments"),
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    // Sempre igual à moeda da despesa no momento do lançamento (sem câmbio por pagamento).
+    currency: text("currency").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("expense_payments_expense_idx").on(t.expenseId)],
+);
+export type ExpensePayment = typeof expensePayments.$inferSelect;
 
 export const storeType = pgEnum("store_type", ["PHYSICAL", "ONLINE"]);
 

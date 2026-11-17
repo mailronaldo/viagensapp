@@ -1,6 +1,8 @@
 import { requireTripAccess } from "@/lib/access";
 import { formatDate, formatMoney, todayIn } from "@/lib/format";
 import { getExpenseSummary, listExpenses } from "@/services/expenses";
+import { getExpenseSummaryByPayer } from "@/services/expense-payments";
+import { listTripTravelerOptions } from "@/services/trip-travelers";
 import { listExpenseCategories, toNameMap } from "@/services/catalogs";
 import { ensureTodayRates, listClientCurrencyCodes } from "@/services/currencies";
 import { VALUE_STATUS_LABEL, VALUE_STATUS_TONE } from "@/lib/labels";
@@ -14,7 +16,9 @@ import {
   ErrorBanner,
   Tag,
   btnDanger,
+  btnGhost,
   btnPrimary,
+  inputCls,
 } from "@/components/ui";
 
 export default async function ExpensesPage({
@@ -22,21 +26,29 @@ export default async function ExpensesPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; payerId?: string }>;
 }) {
   const { id } = await params;
-  const { error } = await searchParams;
+  const { error, payerId: payerFilter } = await searchParams;
   const { trip, canWrite } = await requireTripAccess(id);
+  const back = `/trips/${trip.id}/expenses`;
 
-  const [rows, summary, categories, currencies] = await Promise.all([
+  const [allRows, summary, summaryByPayer, categories, currencies, travelers] = await Promise.all([
     listExpenses(trip.id),
     getExpenseSummary(trip.id, trip.baseCurrency),
+    getExpenseSummaryByPayer(trip),
     listExpenseCategories(),
     listClientCurrencyCodes(trip.ownerId),
+    listTripTravelerOptions(trip),
   ]);
   await ensureTodayRates(currencies);
   const categoryNames = toNameMap(categories);
   const maxCat = Math.max(1, ...summary.byCategory.map((c) => c.totalBase));
+  const rows = allRows.filter((r) => {
+    if (payerFilter && !r.payerIds.includes(payerFilter === "owner" ? null : payerFilter)) return false;
+    return true;
+  });
+  const travelerName = new Map(travelers.map((tr) => [tr.id ?? "owner", tr.name]));
 
   return (
     <>
@@ -90,6 +102,39 @@ export default async function ExpensesPage({
         </Card>
       </div>
 
+      {summaryByPayer.length > 0 && (
+        <Card className="mb-6">
+          <h2 className="mb-3 text-sm font-medium">Por pagador</h2>
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {summaryByPayer.map((s) => (
+              <li key={s.payer.id ?? "owner"} className="flex items-center justify-between text-sm">
+                <span>{s.payer.name}</span>
+                <span className="tabular-nums text-slate-600">
+                  {s.byCurrency.map((c) => formatMoney(c.total, c.currency)).join(" · ")}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      <form className="mb-4 flex flex-wrap gap-3" method="get">
+        <select name="payerId" defaultValue={payerFilter ?? ""} className={inputCls} style={{ maxWidth: 220 }}>
+          <option value="">Todos os pagadores</option>
+          {travelers.map((tr) => (
+            <option key={tr.id ?? "owner"} value={tr.id ?? "owner"}>
+              {tr.name}
+            </option>
+          ))}
+        </select>
+        <button className={btnGhost}>Filtrar</button>
+        {payerFilter && (
+          <Link href={back} className={btnGhost}>
+            Limpar
+          </Link>
+        )}
+      </form>
+
       {canWrite && (
         <AddPanel title="Novo lançamento" defaultOpen={rows.length === 0}>
           <form
@@ -105,7 +150,7 @@ export default async function ExpensesPage({
       )}
 
       {rows.length === 0 ? (
-        <EmptyState>Nenhum custo lançado ainda.</EmptyState>
+        <EmptyState>Nenhum custo {payerFilter ? "encontrado com esse filtro" : "lançado ainda"}.</EmptyState>
       ) : (
         <Card className="overflow-x-auto p-0">
           <table className="w-full text-sm">
@@ -120,7 +165,7 @@ export default async function ExpensesPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {rows.map(({ expense: e, paidByName }) => (
+              {rows.map(({ expense: e, paidByName, payerIds }) => (
                 <tr key={e.id}>
                   <td className="whitespace-nowrap px-4 py-2 text-slate-500">
                     {formatDate(e.date, { day: "2-digit", month: "short" })}
@@ -128,7 +173,11 @@ export default async function ExpensesPage({
                   <td className="px-4 py-2">
                     {e.description}
                     <span className="block text-xs text-slate-400">
-                      {[paidByName, e.paymentMethod, e.source === "telegram" ? "via Telegram" : e.source === "whatsapp" ? "via WhatsApp" : null]
+                      {[
+                        paidByName,
+                        payerIds.length > 0 ? `pago por ${payerIds.map((pid) => travelerName.get(pid ?? "owner") ?? "—").join(", ")}` : null,
+                        e.source === "telegram" ? "via Telegram" : e.source === "whatsapp" ? "via WhatsApp" : null,
+                      ]
                         .filter(Boolean)
                         .join(" · ")}
                       {e.receiptDocumentId && (

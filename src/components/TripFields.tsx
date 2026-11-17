@@ -3,7 +3,7 @@ import { AddPanel, CategoryOptions, EnumSelect, Field, StatusSelect, inputCls } 
 import { NeighborhoodSelect } from "@/components/NeighborhoodSelect";
 import { TripTypeToggle } from "@/components/TripTypeToggle";
 import { AddStoreButton } from "@/components/AddStoreButton";
-import { ERRAND_PAYMENT_STATUS_LABEL, ERRAND_PURCHASE_STATUS_LABEL, ERRAND_VALUE_STATUS_LABEL } from "@/lib/labels";
+import { ERRAND_PAYMENT_STATUS_LABEL, ERRAND_PURCHASE_STATUS_LABEL, ERRAND_VALUE_STATUS_LABEL, PAYMENT_FORM_LABEL, PAYMENT_METHOD_LABEL } from "@/lib/labels";
 
 type Category = { id: string; name: string };
 
@@ -842,21 +842,18 @@ export function ExpenseFields({
           ))}
         </select>
       </Field>
-      <Field label="Status do valor" className="sm:col-span-2">
-        <StatusSelect name="status" defaultValue={expense?.status ?? "ESTIMADO"} />
-      </Field>
       <Field label="Data" className="sm:col-span-2">
         <input name="date" type="date" required defaultValue={expense?.date ?? defaultDate} className={inputCls} />
       </Field>
-      <Field label="Valor" className="sm:col-span-2">
+      <Field label="Valor total" className="sm:col-span-2">
         <input name="amount" required inputMode="decimal" defaultValue={dec(expense?.amount)} placeholder="0,00" className={inputCls} />
       </Field>
-      <Field label="Moeda" className="sm:col-span-1">
+      <Field label="Moeda" className="sm:col-span-2">
         <select name="currency" defaultValue={expense?.currency ?? trip.baseCurrency} className={inputCls}>
           <CurrencyOptions currencies={currencies} />
         </select>
       </Field>
-      <Field label={`Cotação → ${trip.baseCurrency}`} hint="Só se a moeda for diferente." className="sm:col-span-1">
+      <Field label={`Cotação → ${trip.baseCurrency}`} hint="Só se a moeda for diferente." className="sm:col-span-2">
         <input
           name="exchangeRate"
           inputMode="decimal"
@@ -865,17 +862,57 @@ export function ExpenseFields({
           className={inputCls}
         />
       </Field>
-      <Field label="Forma de pagamento" className="sm:col-span-3">
-        <input name="paymentMethod" defaultValue={expense?.paymentMethod ?? ""} placeholder="Cartão, dinheiro, Pix…" className={inputCls} />
-      </Field>
       <AttachmentField
         label="Nota / recibo (foto ou PDF)"
         name="receipt"
         removeName="removeReceipt"
         current={attachment?.name}
         href={attachment?.href}
-        className="sm:col-span-3"
+        className="sm:col-span-4"
       />
+    </>
+  );
+}
+
+export function ExpensePaymentFields({
+  travelers,
+  expenseCurrency,
+}: {
+  travelers: { id: string | null; name: string }[];
+  expenseCurrency: string;
+}) {
+  return (
+    <>
+      <Field label="Pagador" className="sm:col-span-2">
+        <select name="payerTravelerId" required defaultValue="" className={inputCls}>
+          <option value="" disabled>
+            Selecione…
+          </option>
+          {travelers.map((tr) => (
+            <option key={tr.id ?? "owner"} value={tr.id ?? "owner"}>
+              {tr.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Data do pagamento" className="sm:col-span-2">
+        <input name="paymentDate" type="date" required className={inputCls} />
+      </Field>
+      <Field label="Meio de pagamento" className="sm:col-span-2">
+        <EnumSelect name="method" options={PAYMENT_METHOD_LABEL} defaultValue="PIX" />
+      </Field>
+      <Field label="Forma de pagamento" className="sm:col-span-2">
+        <EnumSelect name="form" options={PAYMENT_FORM_LABEL} defaultValue="AVISTA" />
+      </Field>
+      <Field label="Parcelas" hint="Opcional." className="sm:col-span-2">
+        <input name="installments" placeholder="Ex.: 3x" className={inputCls} />
+      </Field>
+      <Field label="Valor" className="sm:col-span-1">
+        <input name="amount" required inputMode="decimal" placeholder="0,00" className={inputCls} />
+      </Field>
+      <Field label="Moeda" className="sm:col-span-1">
+        <input value={expenseCurrency} disabled className={inputCls} />
+      </Field>
     </>
   );
 }

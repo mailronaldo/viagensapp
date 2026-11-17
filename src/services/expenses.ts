@@ -1,17 +1,16 @@
 import "server-only";
 import { desc, eq } from "drizzle-orm";
 import { db, t } from "@/db";
+import { payerIdsByExpense } from "./expense-payments";
 
 export type NewExpense = {
   date: string;
   /** Id de uma linha de `expense_categories` (cadastro da agência, não mais um enum fixo). */
   category: string;
-  status: "ESTIMADO" | "A_PAGAR" | "PAGO";
   description: string;
   amount: string; // decimal em string, ex.: "123.45"
   currency: string;
   exchangeRate?: string | null;
-  paymentMethod?: string | null;
   receiptDocumentId?: string | null;
 };
 
@@ -28,12 +27,12 @@ export async function addExpense(
       paidById,
       date: input.date,
       category: input.category,
-      status: input.status,
+      // Sem pagamento ainda — vira "PAGO" sozinho quando a soma dos pagamentos bater com o total.
+      status: "A_PAGAR",
       description: input.description,
       amount: input.amount,
       currency: input.currency,
       exchangeRate: input.exchangeRate || null,
-      paymentMethod: input.paymentMethod || null,
       receiptDocumentId: input.receiptDocumentId || null,
       source,
     })
@@ -42,7 +41,7 @@ export async function addExpense(
 }
 
 export async function listExpenses(tripId: string) {
-  return db
+  const rows = await db
     .select({
       expense: t.expenses,
       paidByName: t.users.name,
@@ -53,6 +52,8 @@ export async function listExpenses(tripId: string) {
     .leftJoin(t.documents, eq(t.documents.id, t.expenses.receiptDocumentId))
     .where(eq(t.expenses.tripId, tripId))
     .orderBy(desc(t.expenses.date), desc(t.expenses.createdAt));
+  const payerIds = await payerIdsByExpense(rows.map((r) => r.expense.id));
+  return rows.map((r) => ({ ...r, payerIds: payerIds.get(r.expense.id) ?? [] }));
 }
 
 export type ExpenseSummary = {

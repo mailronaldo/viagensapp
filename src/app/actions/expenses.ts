@@ -5,8 +5,9 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { ISO_DATE, fail, parseDecimal, parseRate, parseStatus, str } from "@/lib/form";
+import { ISO_DATE, fail, parseDecimal, parseRate, str } from "@/lib/form";
 import { addExpense } from "@/services/expenses";
+import { recomputeExpenseStatus } from "@/services/expense-payments";
 import { listClientCurrencyCodes } from "@/services/currencies";
 
 async function parseExpense(
@@ -36,12 +37,10 @@ async function parseExpense(
   return {
     date,
     category,
-    status: parseStatus(str(formData, "status")),
     description,
     amount,
     currency,
     exchangeRate: currency === trip.baseCurrency ? null : exchangeRate,
-    paymentMethod: str(formData, "paymentMethod"),
   };
 }
 
@@ -85,11 +84,13 @@ export async function updateExpenseAction(tripId: string, expenseId: string, for
     current: current.receiptDocumentId,
   });
 
-  // paidById e source (origem do lançamento) permanecem como foram criados.
+  // paidById, status e source (origem do lançamento) permanecem como foram criados/calculados.
   await db
     .update(t.expenses)
     .set({ ...v, receiptDocumentId })
     .where(and(eq(t.expenses.id, expenseId), eq(t.expenses.tripId, tripId)));
+  // O total pode ter mudado — recalcula se ainda bate com os pagamentos já lançados.
+  await recomputeExpenseStatus(expenseId);
   redirect(`/trips/${tripId}/expenses`);
 }
 

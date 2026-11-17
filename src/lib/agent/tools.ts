@@ -88,7 +88,6 @@ export const AGENT_TOOLS: AgentTool[] = [
         amount: { type: "string", description: "Valor, ex.: '123.45' ou '123,45'." },
         date: { type: "string", description: "Data no formato AAAA-MM-DD. Sem isso, usa hoje." },
         category: { type: "string", description: "Nome livre da categoria. Opcional." },
-        status: { type: "string", enum: ["ESTIMADO", "A_PAGAR", "PAGO"], description: "Opcional, padrão ESTIMADO." },
         documentId: { type: "string", description: "Id do documento (recibo) já recebido, quando o lançamento vem de uma foto confirmada. Opcional." },
       },
       required: ["description", "amount"],
@@ -402,17 +401,12 @@ async function execAddExpense(ctx: AgentContext, input: Record<string, unknown>)
   const category = match ?? categories.find((c) => c.id === "OTHER") ?? categories[0];
   if (!category) return "Não há categorias de despesa cadastradas.";
 
-  const status =
-    typeof input.status === "string" && ["ESTIMADO", "A_PAGAR", "PAGO"].includes(input.status)
-      ? (input.status as "ESTIMADO" | "A_PAGAR" | "PAGO")
-      : "ESTIMADO";
-
   const documentId = typeof input.documentId === "string" && input.documentId ? input.documentId : null;
   const paidById = await resolvePaidBy(ctx);
   await addExpense(
     ctx.trip.id,
     paidById,
-    { date, category: category.id, status, description, amount, currency: ctx.trip.baseCurrency, receiptDocumentId: documentId },
+    { date, category: category.id, description, amount, currency: ctx.trip.baseCurrency, receiptDocumentId: documentId },
     "telegram",
   );
   if (documentId) await reclassifyDocument(ctx.trip.id, documentId, "RECEIPT", `Recibo — ${description}`);
