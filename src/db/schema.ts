@@ -38,7 +38,9 @@ export const errandPaymentStatus = pgEnum("errand_payment_status", ["A_PAGAR", "
 export const errandPurchaseStatus = pgEnum("errand_purchase_status", ["AGUARDANDO_COMPRA", "PEDIDO_APROVACAO", "COMPRA_EFETUADA"]);
 // Pagamentos de uma despesa (tabela `expense_payments`): meio usado e se foi
 // à vista ou parcelado.
-export const paymentMethodType = pgEnum("payment_method_type", ["PIX", "CREDITO", "DEBITO", "DINHEIRO"]);
+// "OUTRO" só é usado em pagamentos de backfill (migração de registros
+// antigos sem meio de pagamento conhecido) — nunca escolhido à mão.
+export const paymentMethodType = pgEnum("payment_method_type", ["PIX", "CREDITO", "DEBITO", "DINHEIRO", "OUTRO"]);
 export const paymentForm = pgEnum("payment_form", ["AVISTA", "PARCELADO"]);
 
 // ---------- Contas e acesso ----------
@@ -846,18 +848,40 @@ export const expenses = pgTable(
   (t) => [index("expenses_trip_date_idx").on(t.tripId, t.date)],
 );
 
-// Pagamentos lançados contra uma despesa: cada um é um retrato de quem pagou
-// (viajante), quando, por qual meio e quanto — nunca editado nem apagado, só
-// acumulado. `status` em `expenses` é recalculado a partir da soma destes
-// pagamentos (ver `recomputeExpenseStatus` em services/expense-payments.ts),
-// não é mais escolhido manualmente.
-export const expensePayments = pgTable(
-  "expense_payments",
+// De onde um pagamento vem — cada módulo de custo da viagem tem seu próprio
+// registro "mestre" (expenses, itineraryItems, activityTickets, passes,
+// transportVouchers, lodgingVouchers, travelInsurances); `payments.sourceId`
+// aponta pro id da linha certa conforme `sourceType`, sem FK de banco (é
+// polimórfico) — por isso toda ação que apaga uma dessas linhas (ou que
+// apaga em cascata linhas filhas, ex.: apagar uma atividade apaga seus
+// ingressos) precisa chamar `deletePaymentsFor` (services/payments.ts) pra
+// não deixar pagamento órfão.
+export const paymentSourceType = pgEnum("payment_source_type", [
+  "EXPENSE",
+  "ITEM_COST",
+  "ITEM_RESERVATION",
+  "ACTIVITY_TICKET",
+  "PASS",
+  "TRANSPORT_VOUCHER",
+  "LODGING_VOUCHER",
+  "TRAVEL_INSURANCE",
+]);
+
+// Pagamentos lançados contra um custo de qualquer módulo da viagem: cada um
+// é um retrato de quem pagou (viajante), quando, por qual meio e quanto —
+// nunca editado nem apagado, só acumulado. O status do registro de origem é
+// recalculado a partir da soma destes pagamentos (ver `addPayment`/
+// `recomputeStatus` em services/payments.ts), não é mais escolhido
+// manualmente.
+export const payments = pgTable(
+  "payments",
   {
     id: id(),
-    expenseId: text("expense_id")
+    tripId: text("trip_id")
       .notNull()
-      .references(() => expenses.id, { onDelete: "cascade" }),
+      .references(() => trips.id, { onDelete: "cascade" }),
+    sourceType: paymentSourceType("source_type").notNull(),
+    sourceId: text("source_id").notNull(),
     // null = dono da viagem, mesma convenção de errands.travelerId
     payerTravelerId: text("payer_traveler_id").references(() => travelers.id, { onDelete: "set null" }),
     paymentDate: date("payment_date").notNull(),
@@ -865,13 +889,13 @@ export const expensePayments = pgTable(
     form: paymentForm("form").notNull().default("AVISTA"),
     installments: text("installments"),
     amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
-    // Sempre igual à moeda da despesa no momento do lançamento (sem câmbio por pagamento).
+    // Sempre igual à moeda da origem no momento do lançamento (sem câmbio por pagamento).
     currency: text("currency").notNull(),
     createdAt: createdAt(),
   },
-  (t) => [index("expense_payments_expense_idx").on(t.expenseId)],
+  (t) => [index("payments_source_idx").on(t.sourceType, t.sourceId), index("payments_trip_idx").on(t.tripId)],
 );
-export type ExpensePayment = typeof expensePayments.$inferSelect;
+export type Payment = typeof payments.$inferSelect;
 
 export const storeType = pgEnum("store_type", ["PHYSICAL", "ONLINE"]);
 

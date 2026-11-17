@@ -5,10 +5,11 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { fail, parseDecimal, parseStatus, str } from "@/lib/form";
+import { fail, parseDecimal, str } from "@/lib/form";
 import { isInTripGroup } from "@/services/trip-travelers";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import { getTicketCategoryId } from "@/services/catalogs";
+import { deletePaymentsFor, recomputeStatus } from "@/services/payments";
 
 function itemEditPath(tripId: string, itemId: string) {
   return `/trips/${tripId}/itinerary/items/${itemId}`;
@@ -72,7 +73,8 @@ export async function addTicketAction(tripId: string, itemId: string, formData: 
       ticketNumber: str(formData, "ticketNumber"),
       price,
       currency: price ? (currency ?? "BRL") : null,
-      status: parseStatus(str(formData, "status")),
+      // Sem status manual — vira "Pago" sozinho quando a soma dos pagamentos bater com o total.
+      status: "A_PAGAR",
       category: await getTicketCategoryId(),
       voucherDocumentId,
       details: str(formData, "details"),
@@ -121,12 +123,13 @@ export async function updateTicketAction(tripId: string, itemId: string, ticketI
       ticketNumber: str(formData, "ticketNumber"),
       price,
       currency: price ? (currency ?? "BRL") : null,
-      status: parseStatus(str(formData, "status")),
       category: await getTicketCategoryId(),
       voucherDocumentId,
       details: str(formData, "details"),
     })
     .where(eq(t.activityTickets.id, ticketId));
+  // O valor pode ter mudado — recalcula se ainda bate com os pagamentos já lançados.
+  await recomputeStatus("ACTIVITY_TICKET", ticketId);
   redirect(back);
 }
 
@@ -135,5 +138,6 @@ export async function deleteTicketAction(tripId: string, itemId: string, ticketI
   await db
     .delete(t.activityTickets)
     .where(and(eq(t.activityTickets.id, ticketId), eq(t.activityTickets.itemId, itemId)));
+  await deletePaymentsFor("ACTIVITY_TICKET", ticketId);
   redirect(itemEditPath(tripId, itemId));
 }

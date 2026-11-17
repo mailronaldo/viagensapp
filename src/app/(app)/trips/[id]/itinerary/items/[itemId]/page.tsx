@@ -5,6 +5,8 @@ import { ArrowLeft, Pencil } from "lucide-react";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { formatMoney } from "@/lib/format";
+import { listPayments } from "@/services/payments";
+import { addPaymentAction } from "@/app/actions/payments";
 import { getTripCities, listNeighborhoodsForCities } from "@/services/cities";
 import { listItemTips, searchTipsForCity } from "@/services/tips";
 import { listActivityTypes, listExpenseCategories, listTipCategories } from "@/services/catalogs";
@@ -16,7 +18,7 @@ import { deleteItemAction, removeReservationAction, updateItemAction } from "@/a
 import { createAndLinkTipAction, linkExistingTipAction, unlinkTipAction } from "@/app/actions/tips";
 import { addTicketAction, deleteTicketAction, updateTicketAction } from "@/app/actions/tickets";
 import { removeItemPassUsageAction, updatePassFromItemAction, useItemPassAction } from "@/app/actions/passes";
-import { ItemMainFields, PassFields, ReservationFields, TicketFields } from "@/components/TripFields";
+import { ItemMainFields, PassFields, PaymentFields, PaymentList, ReservationFields, TicketFields } from "@/components/TripFields";
 import { ActivityTipsCard } from "@/components/ActivityTipsCard";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
 import { SavedModal } from "@/components/SavedModal";
@@ -82,6 +84,14 @@ export default async function EditItemPage({
   const ticketedTravelerIds = new Set(tickets.map((ti) => ti.travelerId));
   const travelersWithoutTicket = travelerOptions.filter((tr) => !ticketedTravelerIds.has(tr.id));
   const back = `/trips/${trip.id}/itinerary/day/${item.date}`;
+  const editBack = `/trips/${trip.id}/itinerary/items/${itemId}`;
+  const travelerName = new Map(travelerOptions.map((tr) => [tr.id ?? "owner", tr.name]));
+  const [itemCostPayments, itemReservationPayments, ticketPaymentsEntries] = await Promise.all([
+    listPayments("ITEM_COST", item.id),
+    listPayments("ITEM_RESERVATION", item.id),
+    Promise.all(tickets.map(async (ti) => [ti.id, await listPayments("ACTIVITY_TICKET", ti.id)] as const)),
+  ]);
+  const ticketPaymentsByTicket = new Map(ticketPaymentsEntries);
   const hasReservation = !!(
     item.reservationProvider ||
     item.reservationCode ||
@@ -164,6 +174,37 @@ export default async function EditItemPage({
           </div>
 
           <div className="mt-6">
+            <AddPanel title={`Pagamentos — custo da atividade${itemCostPayments.length > 0 ? ` (${itemCostPayments.length})` : ""}`} defaultOpen={false}>
+              <PaymentList payments={itemCostPayments} travelerName={travelerName} />
+              <p className="mb-2 text-sm font-medium">Lançar pagamento</p>
+              <form action={addPaymentAction.bind(null, trip.id, "ITEM_COST", item.id, editBack)} className="grid gap-3 sm:grid-cols-6">
+                <PaymentFields travelers={travelerOptions} currency={trip.baseCurrency} />
+                <div className="sm:col-span-6">
+                  <button className={btnPrimary}>Lançar pagamento</button>
+                </div>
+              </form>
+            </AddPanel>
+          </div>
+
+          {hasReservation && (
+            <div className="mt-6">
+              <AddPanel
+                title={`Pagamentos — reserva${itemReservationPayments.length > 0 ? ` (${itemReservationPayments.length})` : ""}`}
+                defaultOpen={false}
+              >
+                <PaymentList payments={itemReservationPayments} travelerName={travelerName} />
+                <p className="mb-2 text-sm font-medium">Lançar pagamento</p>
+                <form action={addPaymentAction.bind(null, trip.id, "ITEM_RESERVATION", item.id, editBack)} className="grid gap-3 sm:grid-cols-6">
+                  <PaymentFields travelers={travelerOptions} currency={item.reservationCurrency ?? trip.baseCurrency} />
+                  <div className="sm:col-span-6">
+                    <button className={btnPrimary}>Lançar pagamento</button>
+                  </div>
+                </form>
+              </AddPanel>
+            </div>
+          )}
+
+          <div className="mt-6">
             <AddPanel title={`Ingressos${tickets.length > 0 ? ` (${tickets.length})` : ""}`} defaultOpen={false}>
               {tickets.length > 0 && (
                 <ul className="mb-4 space-y-2">
@@ -208,6 +249,18 @@ export default async function EditItemPage({
                               <button className={btnPrimary}>Salvar ingresso</button>
                             </div>
                           </form>
+                          <div className="mt-4 border-t border-slate-100 pt-3">
+                            <p className="mb-2 text-xs font-medium text-slate-600">
+                              Pagamentos{(ticketPaymentsByTicket.get(ti.id)?.length ?? 0) > 0 ? ` (${ticketPaymentsByTicket.get(ti.id)!.length})` : ""}
+                            </p>
+                            <PaymentList payments={ticketPaymentsByTicket.get(ti.id) ?? []} travelerName={travelerName} />
+                            <form action={addPaymentAction.bind(null, trip.id, "ACTIVITY_TICKET", ti.id, editBack)} className="grid gap-3 sm:grid-cols-6">
+                              <PaymentFields travelers={travelerOptions} currency={ti.currency ?? trip.baseCurrency} />
+                              <div className="sm:col-span-6">
+                                <button className={btnPrimary}>Lançar pagamento</button>
+                              </div>
+                            </form>
+                          </div>
                         </div>
                       </details>
                     </li>

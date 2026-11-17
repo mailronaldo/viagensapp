@@ -4,10 +4,11 @@ import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
-import { fail, parseDecimal, parseStatus, str } from "@/lib/form";
+import { fail, parseDecimal, str } from "@/lib/form";
 import { isInTripGroup } from "@/services/trip-travelers";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import { getTicketCategoryId } from "@/services/catalogs";
+import { deletePaymentsFor, recomputeStatus } from "@/services/payments";
 
 function travelerHubPath(tripId: string, travelerId: string | null) {
   return travelerId === null ? `/trips/${tripId}/travelers/owner` : `/trips/${tripId}/travelers/${travelerId}`;
@@ -64,7 +65,8 @@ export async function addPassAction(tripId: string, travelerId: string, formData
     maxUses,
     price,
     currency: price ? (currency ?? "BRL") : null,
-    status: parseStatus(str(formData, "status")),
+    // Sem status manual — vira "Pago" sozinho quando a soma dos pagamentos bater com o total.
+    status: "A_PAGAR",
     category: await getTicketCategoryId(),
     passNumber: str(formData, "passNumber"),
     details: str(formData, "details"),
@@ -115,12 +117,13 @@ async function updatePass(tripId: string, ownerId: string, passId: string, formD
       maxUses,
       price,
       currency: price ? (currency ?? "BRL") : null,
-      status: parseStatus(str(formData, "status")),
       category: await getTicketCategoryId(),
       passNumber: str(formData, "passNumber"),
       details: str(formData, "details"),
     })
     .where(eq(t.passes.id, passId));
+  // O valor pode ter mudado — recalcula se ainda bate com os pagamentos já lançados.
+  await recomputeStatus("PASS", passId);
 }
 
 export async function updatePassAction(tripId: string, travelerId: string, passId: string, formData: FormData) {
@@ -151,6 +154,7 @@ export async function deletePassAction(tripId: string, travelerId: string, passI
   if (usages.length > 0) fail(back, "Esse passe já tem usos lançados em atividades — remova os usos antes de excluir.");
 
   await db.delete(t.passes).where(and(eq(t.passes.id, passId), eq(t.passes.tripId, tripId)));
+  await deletePaymentsFor("PASS", passId);
   redirect(back);
 }
 

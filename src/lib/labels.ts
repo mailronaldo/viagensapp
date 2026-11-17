@@ -47,11 +47,15 @@ export const ERRAND_PURCHASE_STATUS_TONE = {
 } as const;
 
 
+// "OUTRO" só aparece em pagamentos de backfill (migração de registros
+// antigos) — nunca oferecido como opção num formulário (ver PaymentFields
+// em TripFields.tsx, que exclui essa chave das opções do <select>).
 export const PAYMENT_METHOD_LABEL = {
   PIX: "Pix",
   CREDITO: "Cartão de Crédito",
   DEBITO: "Cartão de Débito",
   DINHEIRO: "Dinheiro",
+  OUTRO: "Outro/Não informado",
 } as const;
 
 export const PAYMENT_FORM_LABEL = {

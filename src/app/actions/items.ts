@@ -5,10 +5,12 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { HH_MM, ISO_DATE, fail, parseDecimal, parseStatus, str } from "@/lib/form";
+import { HH_MM, ISO_DATE, fail, parseDecimal, str } from "@/lib/form";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import { parseOptionalCategory } from "@/services/catalogs";
 import { getActivityRouteUrls } from "@/services/routes";
+import { deletePaymentsFor, recomputeStatus } from "@/services/payments";
+import { listTicketIdsForItem } from "@/services/tickets";
 
 async function parseItem(
   tripId: string,
@@ -81,7 +83,8 @@ async function parseItem(
     reservationPrice,
     // Sem valor, a moeda não é guardada.
     reservationCurrency: reservationPrice ? (resCurrency ?? "BRL") : null,
-    reservationStatus: parseStatus(str(formData, "reservationStatus")),
+    // Sem status manual (nem no cadastro nem na edição) — vira "Pago" sozinho
+    // quando a soma dos pagamentos bater com o total (ver addItemAction/updateItemAction).
     reservationCategory: await parseOptionalCategory(str(formData, "reservationCategory")),
     reservationDetails: str(formData, "reservationDetails"),
     cityId,
@@ -95,7 +98,6 @@ async function parseItem(
     address: str(formData, "address"),
     notes: str(formData, "notes"),
     costEstimate,
-    costStatus: parseStatus(str(formData, "costStatus")),
     costCategory: await parseOptionalCategory(str(formData, "costCategory")),
   };
 }
@@ -128,7 +130,8 @@ export async function addItemAction(tripId: string, formData: FormData) {
 
   const [item] = await db
     .insert(t.itineraryItems)
-    .values({ tripId, ...v, ticketDocumentId, reservationDocumentId })
+    // Sem pagamento ainda — vira "PAGO" sozinho quando a soma dos pagamentos bater com o total.
+    .values({ tripId, ...v, costStatus: "A_PAGAR", reservationStatus: "A_PAGAR", ticketDocumentId, reservationDocumentId })
     .returning({ id: t.itineraryItems.id });
   // Leva direto pro editar: é lá que aparecem os boxes de Ingressos, Passe, Pontos de
   // interesse, Tips e Região — todos dependem do id da atividade já existir.
@@ -171,6 +174,9 @@ export async function updateItemAction(tripId: string, itemId: string, formData:
     .update(t.itineraryItems)
     .set({ ...v, ticketDocumentId, reservationDocumentId })
     .where(and(eq(t.itineraryItems.id, itemId), eq(t.itineraryItems.tripId, tripId)));
+  // Os totais podem ter mudado — recalcula se ainda bate com os pagamentos já lançados.
+  await recomputeStatus("ITEM_COST", itemId);
+  await recomputeStatus("ITEM_RESERVATION", itemId);
 
   // "Salvar alterações" e "Salvar reserva" mandam ficar na tela de edição
   // (com um aviso de qual coisa foi salva), em vez de voltar pro roteiro.
@@ -183,9 +189,13 @@ export async function updateItemAction(tripId: string, itemId: string, formData:
 
 export async function deleteItemAction(tripId: string, itemId: string, day: string) {
   await requireTripAccess(tripId, { write: true });
+  const ticketIds = await listTicketIdsForItem(itemId);
   await db
     .delete(t.itineraryItems)
     .where(and(eq(t.itineraryItems.id, itemId), eq(t.itineraryItems.tripId, tripId)));
+  await deletePaymentsFor("ITEM_COST", itemId);
+  await deletePaymentsFor("ITEM_RESERVATION", itemId);
+  if (ticketIds.length > 0) await deletePaymentsFor("ACTIVITY_TICKET", ticketIds);
   redirect(
     ISO_DATE.test(day) ? `/trips/${tripId}/itinerary/day/${day}` : `/trips/${tripId}/itinerary`,
   );
@@ -208,6 +218,7 @@ export async function removeReservationAction(tripId: string, itemId: string, re
     })
     .where(and(eq(t.itineraryItems.id, itemId), eq(t.itineraryItems.tripId, tripId)))
     .returning({ date: t.itineraryItems.date });
+  await deletePaymentsFor("ITEM_RESERVATION", itemId);
   const day = `/trips/${tripId}/itinerary/day/${item?.date ?? ""}`;
   redirect(returnTo === "edit" ? `/trips/${tripId}/itinerary/items/${itemId}` : item ? day : `/trips/${tripId}/itinerary`);
 }

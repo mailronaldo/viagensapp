@@ -8,6 +8,9 @@ import { getLoginUrl } from "@/lib/origin";
 import { listTravelerPasses } from "@/services/passes";
 import { listTravelerTickets } from "@/services/tickets";
 import { listClientCurrencyCodes } from "@/services/currencies";
+import { listTripTravelerOptions } from "@/services/trip-travelers";
+import { listPayments } from "@/services/payments";
+import { addPaymentAction } from "@/app/actions/payments";
 import { deleteChipAction, upsertChipAction } from "@/app/actions/chips";
 import {
   setTravelerAccessActiveFromTripAction,
@@ -17,7 +20,7 @@ import {
 import { addPassAction, deletePassAction, updatePassAction } from "@/app/actions/passes";
 import { deleteInsuranceAction, upsertInsuranceAction } from "@/app/actions/travel-insurance";
 import { getTravelerInsurance } from "@/services/travel-insurance";
-import { ChipFields, InsuranceFields, PassFields } from "@/components/TripFields";
+import { ChipFields, InsuranceFields, PassFields, PaymentFields, PaymentList } from "@/components/TripFields";
 import { TravelerAccessForm } from "@/components/TravelerAccess";
 import { SavedModal } from "@/components/SavedModal";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
@@ -46,7 +49,7 @@ export default async function TravelerHubPage({
   if (!linked) notFound();
   const { traveler, permission } = linked;
 
-  const [chip, [login], tickets, passes, currencies, insurance] = await Promise.all([
+  const [chip, [login], tickets, passes, currencies, insurance, travelerOptions] = await Promise.all([
     db.select().from(t.chips).where(and(eq(t.chips.tripId, trip.id), eq(t.chips.travelerId, travelerId))).limit(1).then(([c]) => c),
     traveler.userId
       ? db.select({ active: t.users.active, mustChangePassword: t.users.mustChangePassword }).from(t.users).where(eq(t.users.id, traveler.userId)).limit(1)
@@ -55,7 +58,14 @@ export default async function TravelerHubPage({
     listTravelerPasses(trip.id, travelerId),
     listClientCurrencyCodes(trip.ownerId),
     getTravelerInsurance(trip.id, travelerId),
+    listTripTravelerOptions(trip),
   ]);
+  const travelerPayerName = new Map(travelerOptions.map((tr) => [tr.id ?? "owner", tr.name]));
+  const [insurancePayments, passPaymentsEntries] = await Promise.all([
+    insurance ? listPayments("TRAVEL_INSURANCE", insurance.id) : Promise.resolve([]),
+    Promise.all(passes.map(async (p) => [p.id, await listPayments("PASS", p.id)] as const)),
+  ]);
+  const passPaymentsByPass = new Map(passPaymentsEntries);
   const attachment = chip?.receiptDocumentId
     ? await db
         .select({ fileName: t.documents.fileName })
@@ -151,6 +161,23 @@ export default async function TravelerHubPage({
               ) : (
                 <p className="text-sm text-slate-500">Você não tem permissão para editar esta viagem.</p>
               )}
+              {insurance && canWrite && (
+                <div className="mt-4 border-t border-slate-100 pt-3">
+                  <p className="mb-2 text-xs font-medium text-slate-600">
+                    Pagamentos{insurancePayments.length > 0 ? ` (${insurancePayments.length})` : ""}
+                  </p>
+                  <PaymentList payments={insurancePayments} travelerName={travelerPayerName} />
+                  <form
+                    action={addPaymentAction.bind(null, trip.id, "TRAVEL_INSURANCE", insurance.id, `/trips/${trip.id}/travelers/${travelerId}`)}
+                    className="grid gap-3 sm:grid-cols-6"
+                  >
+                    <PaymentFields travelers={travelerOptions} currency={insurance.currency ?? trip.baseCurrency} />
+                    <div className="sm:col-span-6">
+                      <button className={btnPrimary}>Lançar pagamento</button>
+                    </div>
+                  </form>
+                </div>
+              )}
             </AddPanel>
           </div>
 
@@ -242,6 +269,21 @@ export default async function TravelerHubPage({
                               <button className={btnPrimary}>Salvar passe</button>
                             </div>
                           </form>
+                          <div className="mt-4 border-t border-slate-100 pt-3">
+                            <p className="mb-2 text-xs font-medium text-slate-600">
+                              Pagamentos{(passPaymentsByPass.get(p.id)?.length ?? 0) > 0 ? ` (${passPaymentsByPass.get(p.id)!.length})` : ""}
+                            </p>
+                            <PaymentList payments={passPaymentsByPass.get(p.id) ?? []} travelerName={travelerPayerName} />
+                            <form
+                              action={addPaymentAction.bind(null, trip.id, "PASS", p.id, `/trips/${trip.id}/travelers/${travelerId}`)}
+                              className="grid gap-3 sm:grid-cols-6"
+                            >
+                              <PaymentFields travelers={travelerOptions} currency={p.currency ?? trip.baseCurrency} />
+                              <div className="sm:col-span-6">
+                                <button className={btnPrimary}>Lançar pagamento</button>
+                              </div>
+                            </form>
+                          </div>
                         </div>
                       )}
                     </details>

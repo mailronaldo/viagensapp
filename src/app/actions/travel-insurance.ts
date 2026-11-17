@@ -5,9 +5,10 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { ISO_DATE, fail, parseDecimal, parseStatus, str } from "@/lib/form";
+import { ISO_DATE, fail, parseDecimal, str } from "@/lib/form";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import { getInsuranceCategoryId } from "@/services/catalogs";
+import { deletePaymentsFor, recomputeStatus } from "@/services/payments";
 
 async function requireLinkedTraveler(tripId: string, travelerId: string) {
   const [link] = await db
@@ -49,7 +50,6 @@ async function parseInsurance(ownerId: string, formData: FormData, back: string)
     endDate,
     price,
     currency: price ? (currency ?? "BRL") : null,
-    status: parseStatus(str(formData, "status")),
     category: await getInsuranceCategoryId(),
     notes: str(formData, "notes"),
   };
@@ -77,22 +77,28 @@ export async function upsertInsuranceAction(tripId: string, travelerId: string, 
     current: current?.policyDocumentId ?? null,
   });
 
-  await db
+  const [row] = await db
     .insert(t.travelInsurances)
-    .values({ tripId, travelerId, ...v, policyDocumentId })
+    // Sem status manual — vira "Pago" sozinho quando a soma dos pagamentos bater com o total.
+    .values({ tripId, travelerId, ...v, status: "A_PAGAR", policyDocumentId })
     .onConflictDoUpdate({
       target: [t.travelInsurances.tripId, t.travelInsurances.travelerId],
       targetWhere: sql`${t.travelInsurances.travelerId} IS NOT NULL`,
       set: { ...v, policyDocumentId },
-    });
+    })
+    .returning({ id: t.travelInsurances.id });
+  // O valor pode ter mudado — recalcula se ainda bate com os pagamentos já lançados.
+  await recomputeStatus("TRAVEL_INSURANCE", row.id);
   redirect(`${back}?saved=seguro`);
 }
 
 export async function deleteInsuranceAction(tripId: string, travelerId: string) {
   await requireTripAccess(tripId, { write: true });
-  await db
+  const [row] = await db
     .delete(t.travelInsurances)
-    .where(and(eq(t.travelInsurances.tripId, tripId), eq(t.travelInsurances.travelerId, travelerId)));
+    .where(and(eq(t.travelInsurances.tripId, tripId), eq(t.travelInsurances.travelerId, travelerId)))
+    .returning({ id: t.travelInsurances.id });
+  if (row) await deletePaymentsFor("TRAVEL_INSURANCE", row.id);
   redirect(`/trips/${tripId}/travelers/${travelerId}`);
 }
 
@@ -120,19 +126,25 @@ export async function upsertOwnerInsuranceAction(tripId: string, formData: FormD
     current: current?.policyDocumentId ?? null,
   });
 
-  await db
+  const [row] = await db
     .insert(t.travelInsurances)
-    .values({ tripId, travelerId: null, ...v, policyDocumentId })
+    .values({ tripId, travelerId: null, ...v, status: "A_PAGAR", policyDocumentId })
     .onConflictDoUpdate({
       target: [t.travelInsurances.tripId],
       targetWhere: sql`${t.travelInsurances.travelerId} IS NULL`,
       set: { ...v, policyDocumentId },
-    });
+    })
+    .returning({ id: t.travelInsurances.id });
+  await recomputeStatus("TRAVEL_INSURANCE", row.id);
   redirect(`${back}?saved=seguro`);
 }
 
 export async function deleteOwnerInsuranceAction(tripId: string) {
   await requireTripAccess(tripId, { write: true });
-  await db.delete(t.travelInsurances).where(and(eq(t.travelInsurances.tripId, tripId), isNull(t.travelInsurances.travelerId)));
+  const [row] = await db
+    .delete(t.travelInsurances)
+    .where(and(eq(t.travelInsurances.tripId, tripId), isNull(t.travelInsurances.travelerId)))
+    .returning({ id: t.travelInsurances.id });
+  if (row) await deletePaymentsFor("TRAVEL_INSURANCE", row.id);
   redirect(`/trips/${tripId}/travelers/owner`);
 }

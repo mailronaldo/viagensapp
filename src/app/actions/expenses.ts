@@ -7,7 +7,7 @@ import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
 import { ISO_DATE, fail, parseDecimal, parseRate, str } from "@/lib/form";
 import { addExpense } from "@/services/expenses";
-import { recomputeExpenseStatus } from "@/services/expense-payments";
+import { deletePaymentsFor, recomputeStatus } from "@/services/payments";
 import { listClientCurrencyCodes } from "@/services/currencies";
 
 async function parseExpense(
@@ -90,7 +90,7 @@ export async function updateExpenseAction(tripId: string, expenseId: string, for
     .set({ ...v, receiptDocumentId })
     .where(and(eq(t.expenses.id, expenseId), eq(t.expenses.tripId, tripId)));
   // O total pode ter mudado — recalcula se ainda bate com os pagamentos já lançados.
-  await recomputeExpenseStatus(expenseId);
+  await recomputeStatus("EXPENSE", expenseId);
   redirect(`/trips/${tripId}/expenses`);
 }
 
@@ -99,5 +99,6 @@ export async function deleteExpenseAction(tripId: string, expenseId: string) {
   await db
     .delete(t.expenses)
     .where(and(eq(t.expenses.id, expenseId), eq(t.expenses.tripId, tripId)));
+  await deletePaymentsFor("EXPENSE", expenseId);
   redirect(`/trips/${tripId}/expenses`);
 }

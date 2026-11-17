@@ -5,10 +5,11 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { fail, parseDecimal, parseStatus, str } from "@/lib/form";
+import { fail, parseDecimal, str } from "@/lib/form";
 import { isInTripGroup } from "@/services/trip-travelers";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import { getTransportCategoryId } from "@/services/catalogs";
+import { deletePaymentsFor, recomputeStatus } from "@/services/payments";
 
 function bookingEditPath(tripId: string, bookingId: string) {
   return `/trips/${tripId}/transports/${bookingId}`;
@@ -38,7 +39,6 @@ async function parseVoucherValues(ownerId: string, formData: FormData, back: str
     reservationCode: str(formData, "reservationCode"),
     price,
     currency: price ? (currency ?? "BRL") : null,
-    status: parseStatus(str(formData, "status")),
     category: await getTransportCategoryId(),
     notes: str(formData, "notes"),
   };
@@ -68,7 +68,8 @@ export async function addVoucherAction(tripId: string, bookingId: string, formDa
   });
 
   try {
-    await db.insert(t.transportVouchers).values({ bookingId, isGroup, travelerId, ...v, voucherDocumentId });
+    // Sem status manual — vira "Pago" sozinho quando a soma dos pagamentos bater com o total.
+    await db.insert(t.transportVouchers).values({ bookingId, isGroup, travelerId, ...v, status: "A_PAGAR", voucherDocumentId });
   } catch {
     fail(back, isGroup ? "Já existe um voucher do grupo para este transporte." : "Esse viajante já tem um voucher cadastrado para este transporte.");
   }
@@ -102,6 +103,8 @@ export async function updateVoucherAction(tripId: string, bookingId: string, vou
     .update(t.transportVouchers)
     .set({ ...v, voucherDocumentId })
     .where(eq(t.transportVouchers.id, voucherId));
+  // O valor pode ter mudado — recalcula se ainda bate com os pagamentos já lançados.
+  await recomputeStatus("TRANSPORT_VOUCHER", voucherId);
   redirect(back);
 }
 
@@ -110,5 +113,6 @@ export async function deleteVoucherAction(tripId: string, bookingId: string, vou
   await db
     .delete(t.transportVouchers)
     .where(and(eq(t.transportVouchers.id, voucherId), eq(t.transportVouchers.bookingId, bookingId)));
+  await deletePaymentsFor("TRANSPORT_VOUCHER", voucherId);
   redirect(bookingEditPath(tripId, bookingId));
 }

@@ -1,7 +1,7 @@
 import "server-only";
 import { desc, eq } from "drizzle-orm";
 import { db, t } from "@/db";
-import { payerIdsByExpense } from "./expense-payments";
+import { payerIdsBySource } from "./payments";
 
 export type NewExpense = {
   date: string;
@@ -52,7 +52,7 @@ export async function listExpenses(tripId: string) {
     .leftJoin(t.documents, eq(t.documents.id, t.expenses.receiptDocumentId))
     .where(eq(t.expenses.tripId, tripId))
     .orderBy(desc(t.expenses.date), desc(t.expenses.createdAt));
-  const payerIds = await payerIdsByExpense(rows.map((r) => r.expense.id));
+  const payerIds = await payerIdsBySource("EXPENSE", rows.map((r) => r.expense.id));
   return rows.map((r) => ({ ...r, payerIds: payerIds.get(r.expense.id) ?? [] }));
 }
 

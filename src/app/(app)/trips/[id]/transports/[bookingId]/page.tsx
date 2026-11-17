@@ -11,10 +11,12 @@ import { listClientCurrencyCodes } from "@/services/currencies";
 import { listTripTravelerOptions } from "@/services/trip-travelers";
 import { listBookingVouchers } from "@/services/transport-vouchers";
 import { listBookingLegs } from "@/services/booking-legs";
+import { listPayments } from "@/services/payments";
 import { deleteBookingAction, updateBookingAction } from "@/app/actions/bookings";
 import { addVoucherAction, deleteVoucherAction, updateVoucherAction } from "@/app/actions/transport-vouchers";
 import { addLegAction, deleteLegAction, updateLegAction } from "@/app/actions/booking-legs";
-import { BookingFields, LegFields, TransportVoucherFields } from "@/components/TripFields";
+import { addPaymentAction } from "@/app/actions/payments";
+import { BookingFields, LegFields, PaymentFields, PaymentList, TransportVoucherFields } from "@/components/TripFields";
 import { SavedModal } from "@/components/SavedModal";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
 import { AddPanel, Card, EmptyState, ErrorBanner, Tag, btnGhost, btnPrimary } from "@/components/ui";
@@ -64,6 +66,11 @@ export default async function EditBookingPage({
   const usedTravelerIds = new Set(vouchers.filter((v) => !v.isGroup).map((v) => v.travelerId));
   const availableTravelerOptions = travelerOptions.filter((tr) => !usedTravelerIds.has(tr.id));
   const groupVoucherExists = vouchers.some((v) => v.isGroup);
+  const travelerPayerName = new Map(travelerOptions.map((tr) => [tr.id ?? "owner", tr.name]));
+  const voucherPaymentsByVoucher = new Map(
+    await Promise.all(vouchers.map(async (v) => [v.id, await listPayments("TRANSPORT_VOUCHER", v.id)] as const)),
+  );
+  const editBack = `/trips/${trip.id}/transports/${booking.id}${day ? `?day=${day}` : ""}`;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -210,6 +217,18 @@ export default async function EditBookingPage({
                           <button className={btnPrimary}>Salvar voucher</button>
                         </div>
                       </form>
+                      <div className="mt-4 border-t border-slate-100 pt-3">
+                        <p className="mb-2 text-xs font-medium text-slate-600">
+                          Pagamentos{(voucherPaymentsByVoucher.get(v.id)?.length ?? 0) > 0 ? ` (${voucherPaymentsByVoucher.get(v.id)!.length})` : ""}
+                        </p>
+                        <PaymentList payments={voucherPaymentsByVoucher.get(v.id) ?? []} travelerName={travelerPayerName} />
+                        <form action={addPaymentAction.bind(null, trip.id, "TRANSPORT_VOUCHER", v.id, editBack)} className="grid gap-3 sm:grid-cols-6">
+                          <PaymentFields travelers={travelerOptions} currency={v.currency ?? trip.baseCurrency} />
+                          <div className="sm:col-span-6">
+                            <button className={btnPrimary}>Lançar pagamento</button>
+                          </div>
+                        </form>
+                      </div>
                     </div>
                   </details>
                 </li>

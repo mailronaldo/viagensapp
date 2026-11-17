@@ -6,6 +6,7 @@ import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
 import { LOCAL_DATETIME, fail, str, toWallClock } from "@/lib/form";
+import { deletePaymentsFor } from "@/services/payments";
 
 const TRIP_TYPES = new Set(["ONE_WAY", "ROUND_TRIP", "MULTI_LEG"]);
 
@@ -176,8 +177,12 @@ export async function updateBookingAction(tripId: string, bookingId: string, for
 
 export async function deleteBookingAction(tripId: string, bookingId: string) {
   await requireTripAccess(tripId, { write: true });
+  const voucherIds = (await db.select({ id: t.transportVouchers.id }).from(t.transportVouchers).where(eq(t.transportVouchers.bookingId, bookingId))).map(
+    (r) => r.id,
+  );
   await db
     .delete(t.bookings)
     .where(and(eq(t.bookings.id, bookingId), eq(t.bookings.tripId, tripId)));
+  if (voucherIds.length > 0) await deletePaymentsFor("TRANSPORT_VOUCHER", voucherIds);
   redirect(`/trips/${tripId}/transports`);
 }

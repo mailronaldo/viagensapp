@@ -5,10 +5,11 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { fail, parseDecimal, parseStatus, str } from "@/lib/form";
+import { fail, parseDecimal, str } from "@/lib/form";
 import { isInTripGroup } from "@/services/trip-travelers";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import { getLodgingCategoryId } from "@/services/catalogs";
+import { deletePaymentsFor, recomputeStatus } from "@/services/payments";
 
 function lodgingEditPath(tripId: string, lodgingId: string) {
   return `/trips/${tripId}/lodgings/${lodgingId}`;
@@ -82,7 +83,6 @@ async function parseVoucherValues(
     pin: str(formData, "pin"),
     price,
     currency: price ? (currency ?? "BRL") : null,
-    status: parseStatus(str(formData, "status")),
     category: await getLodgingCategoryId(),
     notes: str(formData, "notes"),
   };
@@ -105,7 +105,8 @@ export async function addVoucherAction(tripId: string, lodgingId: string, formDa
   });
 
   await db.transaction(async (tx) => {
-    const [row] = await tx.insert(t.lodgingVouchers).values({ lodgingId, ...v, voucherDocumentId }).returning({ id: t.lodgingVouchers.id });
+    // Sem status manual — vira "Pago" sozinho quando a soma dos pagamentos bater com o total.
+    const [row] = await tx.insert(t.lodgingVouchers).values({ lodgingId, ...v, status: "A_PAGAR", voucherDocumentId }).returning({ id: t.lodgingVouchers.id });
     if (!v.isGroup) {
       await tx.insert(t.lodgingVoucherTravelers).values(travelerIds.map((travelerId) => ({ voucherId: row.id, travelerId })));
     }
@@ -144,11 +145,14 @@ export async function updateVoucherAction(tripId: string, lodgingId: string, vou
       await tx.insert(t.lodgingVoucherTravelers).values(travelerIds.map((travelerId) => ({ voucherId, travelerId })));
     }
   });
+  // O valor pode ter mudado — recalcula se ainda bate com os pagamentos já lançados.
+  await recomputeStatus("LODGING_VOUCHER", voucherId);
   redirect(back);
 }
 
 export async function deleteVoucherAction(tripId: string, lodgingId: string, voucherId: string) {
   await requireTripAccess(tripId, { write: true });
   await db.delete(t.lodgingVouchers).where(and(eq(t.lodgingVouchers.id, voucherId), eq(t.lodgingVouchers.lodgingId, lodgingId)));
+  await deletePaymentsFor("LODGING_VOUCHER", voucherId);
   redirect(lodgingEditPath(tripId, lodgingId));
 }

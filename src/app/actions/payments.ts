@@ -1,31 +1,23 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { and, eq } from "drizzle-orm";
-import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { ISO_DATE, fail, parseDecimal, str } from "@/lib/form";
 import { isInTripGroup } from "@/services/trip-travelers";
-import { addExpensePayment } from "@/services/expense-payments";
+import { addPayment, sourceBelongsToTrip, type PaymentSourceType } from "@/services/payments";
 
 const PAYMENT_METHODS = ["PIX", "CREDITO", "DEBITO", "DINHEIRO"] as const;
 const PAYMENT_FORMS = ["AVISTA", "PARCELADO"] as const;
 
-async function ownExpense(tripId: string, expenseId: string) {
-  const [row] = await db
-    .select({ id: t.expenses.id })
-    .from(t.expenses)
-    .where(and(eq(t.expenses.id, expenseId), eq(t.expenses.tripId, tripId)))
-    .limit(1);
-  return row ?? null;
-}
-
-/** Lança um pagamento novo contra uma despesa — nunca edita/apaga um pagamento anterior. */
-export async function addExpensePaymentAction(tripId: string, expenseId: string, formData: FormData) {
+/**
+ * Lança um pagamento novo contra qualquer origem de custo da viagem
+ * (despesa, custo/reserva de atividade, ingresso, passe, voucher de
+ * transporte/hospedagem, seguro) — nunca edita/apaga um pagamento anterior.
+ * "OUTRO" não entra nas opções do form (só existe em pagamentos de backfill).
+ */
+export async function addPaymentAction(tripId: string, sourceType: PaymentSourceType, sourceId: string, back: string, formData: FormData) {
   const { trip } = await requireTripAccess(tripId, { write: true });
-  const back = `/trips/${tripId}/expenses/${expenseId}`;
-  const expense = await ownExpense(tripId, expenseId);
-  if (!expense) redirect(`/trips/${tripId}/expenses`);
+  if (!(await sourceBelongsToTrip(sourceType, sourceId, tripId))) redirect(`/trips/${tripId}`);
 
   const travelerRaw = str(formData, "payerTravelerId");
   const payerTravelerId = travelerRaw === "owner" ? null : travelerRaw;
@@ -44,13 +36,17 @@ export async function addExpensePaymentAction(tripId: string, expenseId: string,
   const amount = parseDecimal(str(formData, "amount"), { positive: true });
   if (amount === null) fail(back, "Informe um valor válido maior que zero.");
 
-  await addExpensePayment(expenseId, {
-    payerTravelerId,
-    paymentDate,
-    method,
-    form,
-    installments: str(formData, "installments"),
-    amount,
-  });
+  try {
+    await addPayment(sourceType, sourceId, {
+      payerTravelerId,
+      paymentDate,
+      method,
+      form,
+      installments: str(formData, "installments"),
+      amount,
+    });
+  } catch {
+    fail(back, "Não foi possível lançar o pagamento — registro de origem não encontrado.");
+  }
   redirect(back);
 }

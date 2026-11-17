@@ -1,7 +1,7 @@
 import { requireTripAccess } from "@/lib/access";
 import { formatDate, formatMoney, todayIn } from "@/lib/format";
 import { getExpenseSummary, listExpenses } from "@/services/expenses";
-import { getExpenseSummaryByPayer } from "@/services/expense-payments";
+import { getTripPaymentSummaryByPayer } from "@/services/payments";
 import { listTripTravelerOptions } from "@/services/trip-travelers";
 import { listExpenseCategories, toNameMap } from "@/services/catalogs";
 import { ensureTodayRates, listClientCurrencyCodes } from "@/services/currencies";
@@ -36,7 +36,7 @@ export default async function ExpensesPage({
   const [allRows, summary, summaryByPayer, categories, currencies, travelers] = await Promise.all([
     listExpenses(trip.id),
     getExpenseSummary(trip.id, trip.baseCurrency),
-    getExpenseSummaryByPayer(trip),
+    getTripPaymentSummaryByPayer(trip),
     listExpenseCategories(),
     listClientCurrencyCodes(trip.ownerId),
     listTripTravelerOptions(trip),
@@ -104,7 +104,7 @@ export default async function ExpensesPage({
 
       {summaryByPayer.length > 0 && (
         <Card className="mb-6">
-          <h2 className="mb-3 text-sm font-medium">Por pagador</h2>
+          <h2 className="mb-3 text-sm font-medium">Por pagador (toda a viagem)</h2>
           <ul className="grid gap-2 sm:grid-cols-2">
             {summaryByPayer.map((s) => (
               <li key={s.payer.id ?? "owner"} className="flex items-center justify-between text-sm">

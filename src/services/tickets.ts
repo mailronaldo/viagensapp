@@ -2,6 +2,12 @@ import "server-only";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { db, t } from "@/db";
 
+/** Ids dos ingressos de uma atividade — usado pra limpar pagamentos órfãos quando a atividade é apagada. */
+export async function listTicketIdsForItem(itemId: string): Promise<string[]> {
+  const rows = await db.select({ id: t.activityTickets.id }).from(t.activityTickets).where(eq(t.activityTickets.itemId, itemId));
+  return rows.map((r) => r.id);
+}
+
 /** Ingressos já lançados numa atividade, com o nome do viajante (ou "dono da viagem"). */
 export async function getActivityTickets(itemId: string, ownerName: string) {
   const rows = await db

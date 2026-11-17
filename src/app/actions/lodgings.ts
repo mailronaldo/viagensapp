@@ -7,6 +7,7 @@ import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
 import { HH_MM, ISO_DATE, fail, str } from "@/lib/form";
 import { getLodgingRouteUrls } from "@/services/routes";
+import { deletePaymentsFor } from "@/services/payments";
 
 async function parseLodging(tripId: string, formData: FormData, back: string) {
   const name = str(formData, "name");
@@ -98,9 +99,13 @@ export async function updateLodgingAction(tripId: string, lodgingId: string, for
 
 export async function deleteLodgingAction(tripId: string, lodgingId: string) {
   await requireTripAccess(tripId, { write: true });
+  const voucherIds = (await db.select({ id: t.lodgingVouchers.id }).from(t.lodgingVouchers).where(eq(t.lodgingVouchers.lodgingId, lodgingId))).map(
+    (r) => r.id,
+  );
   await db
     .delete(t.lodgings)
     .where(and(eq(t.lodgings.id, lodgingId), eq(t.lodgings.tripId, tripId)));
+  if (voucherIds.length > 0) await deletePaymentsFor("LODGING_VOUCHER", voucherIds);
   redirect(`/trips/${tripId}/lodgings`);
 }
 

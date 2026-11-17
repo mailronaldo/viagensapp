@@ -1,8 +1,9 @@
-import type { Booking, Chip, Errand, Expense, ItineraryItem, Lodging, TravelInsurance } from "@/db/schema";
-import { AddPanel, CategoryOptions, EnumSelect, Field, StatusSelect, inputCls } from "@/components/ui";
+import type { Booking, Chip, Errand, Expense, ItineraryItem, Lodging, Payment, TravelInsurance } from "@/db/schema";
+import { AddPanel, CategoryOptions, EmptyState, EnumSelect, Field, StatusSelect, inputCls } from "@/components/ui";
 import { NeighborhoodSelect } from "@/components/NeighborhoodSelect";
 import { TripTypeToggle } from "@/components/TripTypeToggle";
 import { AddStoreButton } from "@/components/AddStoreButton";
+import { formatDate, formatMoney } from "@/lib/format";
 import { ERRAND_PAYMENT_STATUS_LABEL, ERRAND_PURCHASE_STATUS_LABEL, ERRAND_VALUE_STATUS_LABEL, PAYMENT_FORM_LABEL, PAYMENT_METHOD_LABEL } from "@/lib/labels";
 
 type Category = { id: string; name: string };
@@ -129,9 +130,6 @@ export function ItemMainFields({
       <Field label="Custo estimado" className="sm:col-span-2">
         <input name="costEstimate" inputMode="decimal" defaultValue={dec(item?.costEstimate)} placeholder="0,00" className={inputCls} />
       </Field>
-      <Field label="Status do custo" className="sm:col-span-1">
-        <StatusSelect name="costStatus" defaultValue={item?.costStatus ?? "ESTIMADO"} />
-      </Field>
       <Field label="Categoria do custo" className="sm:col-span-2">
         <select name="costCategory" defaultValue={item?.costCategory ?? ""} className={inputCls}>
           <CategoryOptions categories={categories} />
@@ -194,9 +192,6 @@ export function ReservationFields({
         <select name="reservationCurrency" form={formId} defaultValue={item?.reservationCurrency ?? trip.baseCurrency} className={inputCls}>
           <CurrencyOptions currencies={currencies} />
         </select>
-      </Field>
-      <Field label="Status do valor">
-        <StatusSelect name="reservationStatus" form={formId} defaultValue={item?.reservationStatus ?? "ESTIMADO"} />
       </Field>
       <Field label="Categoria">
         <select name="reservationCategory" form={formId} defaultValue={item?.reservationCategory ?? ""} className={inputCls}>
@@ -403,9 +398,6 @@ export function LodgingVoucherFields({
         <select name="currency" defaultValue={voucher?.currency ?? trip.baseCurrency} className={inputCls}>
           <CurrencyOptions currencies={currencies} />
         </select>
-      </Field>
-      <Field label="Status do valor" className="sm:col-span-2">
-        <StatusSelect name="status" defaultValue={voucher?.status ?? "ESTIMADO"} />
       </Field>
       <fieldset className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:col-span-6 sm:grid-cols-6">
         <legend className="px-1 text-xs font-medium text-slate-600">Voucher da reserva</legend>
@@ -729,9 +721,6 @@ export function TransportVoucherFields({
           <CurrencyOptions currencies={currencies} />
         </select>
       </Field>
-      <Field label="Status do valor" className="sm:col-span-2">
-        <StatusSelect name="status" defaultValue={voucher?.status ?? "ESTIMADO"} />
-      </Field>
       <AttachmentField
         label="Comprovante (PDF ou imagem)"
         name="voucher"
@@ -874,12 +863,18 @@ export function ExpenseFields({
   );
 }
 
-export function ExpensePaymentFields({
+// "OUTRO" é só pra pagamentos de backfill — nunca uma opção escolhível aqui.
+const MANUAL_PAYMENT_METHOD_LABEL = Object.fromEntries(
+  Object.entries(PAYMENT_METHOD_LABEL).filter(([key]) => key !== "OUTRO"),
+) as Omit<typeof PAYMENT_METHOD_LABEL, "OUTRO">;
+
+/** Formulário de "lançar pagamento", reusado por despesas, encomendas (não), atividades, ingressos, passes, vouchers e seguro — qualquer origem com `services/payments.ts`. */
+export function PaymentFields({
   travelers,
-  expenseCurrency,
+  currency,
 }: {
   travelers: { id: string | null; name: string }[];
-  expenseCurrency: string;
+  currency: string;
 }) {
   return (
     <>
@@ -899,7 +894,7 @@ export function ExpensePaymentFields({
         <input name="paymentDate" type="date" required className={inputCls} />
       </Field>
       <Field label="Meio de pagamento" className="sm:col-span-2">
-        <EnumSelect name="method" options={PAYMENT_METHOD_LABEL} defaultValue="PIX" />
+        <EnumSelect name="method" options={MANUAL_PAYMENT_METHOD_LABEL} defaultValue="PIX" />
       </Field>
       <Field label="Forma de pagamento" className="sm:col-span-2">
         <EnumSelect name="form" options={PAYMENT_FORM_LABEL} defaultValue="AVISTA" />
@@ -911,9 +906,32 @@ export function ExpensePaymentFields({
         <input name="amount" required inputMode="decimal" placeholder="0,00" className={inputCls} />
       </Field>
       <Field label="Moeda" className="sm:col-span-1">
-        <input value={expenseCurrency} disabled className={inputCls} />
+        <input value={currency} disabled className={inputCls} />
       </Field>
     </>
+  );
+}
+
+/** Histórico de pagamentos (append-only) de qualquer origem — mesma lista reusada em todo lugar que tem `PaymentFields`. */
+export function PaymentList({ payments, travelerName }: { payments: Payment[]; travelerName: Map<string, string> }) {
+  if (payments.length === 0) return <EmptyState>Nenhum pagamento lançado ainda.</EmptyState>;
+  return (
+    <ul className="mb-4 space-y-2">
+      {payments.map((payment) => (
+        <li key={payment.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 p-3 text-sm">
+          <div className="min-w-0">
+            <p className="text-xs text-slate-400">
+              {formatDate(payment.paymentDate)} · {travelerName.get(payment.payerTravelerId ?? "owner") ?? "Viajante removido"}
+            </p>
+            <p className="font-medium tabular-nums">{formatMoney(payment.amount, payment.currency)}</p>
+          </div>
+          <p className="text-xs text-slate-500">
+            {PAYMENT_METHOD_LABEL[payment.method]} · {PAYMENT_FORM_LABEL[payment.form]}
+            {payment.installments ? ` · ${payment.installments}` : ""}
+          </p>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -963,9 +981,6 @@ export function TicketFields({
         <select name="currency" defaultValue={ticket?.currency ?? trip.baseCurrency} className={inputCls}>
           <CurrencyOptions currencies={currencies} />
         </select>
-      </Field>
-      <Field label="Status do valor" className="sm:col-span-2">
-        <StatusSelect name="status" defaultValue={ticket?.status ?? "ESTIMADO"} />
       </Field>
       <AttachmentField
         label="Voucher (PDF ou imagem)"
@@ -1137,9 +1152,6 @@ export function PassFields({
           <CurrencyOptions currencies={currencies} />
         </select>
       </Field>
-      <Field label="Status do valor" className="sm:col-span-2">
-        <StatusSelect name="status" defaultValue={pass?.status ?? "ESTIMADO"} />
-      </Field>
       <Field label="Detalhes" className="sm:col-span-6">
         <textarea name="details" rows={2} defaultValue={pass?.details ?? ""} className={inputCls} />
       </Field>
@@ -1187,9 +1199,6 @@ export function InsuranceFields({
         <select name="currency" defaultValue={insurance?.currency ?? trip.baseCurrency} className={inputCls}>
           <CurrencyOptions currencies={currencies} />
         </select>
-      </Field>
-      <Field label="Status do valor" className="sm:col-span-1">
-        <StatusSelect name="status" defaultValue={insurance?.status ?? "ESTIMADO"} />
       </Field>
       <AttachmentField
         label="Apólice (PDF ou imagem)"
