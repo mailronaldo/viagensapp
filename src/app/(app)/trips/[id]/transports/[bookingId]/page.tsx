@@ -122,7 +122,10 @@ export default async function EditBookingPage({
                     <details className="group">
                       <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 p-3 text-sm">
                         <div className="min-w-0">
-                          <p className="font-medium">Trecho {i + 1}</p>
+                          <p className="font-medium">
+                            Trecho {i + 1}
+                            {leg.code ? <span className="font-normal text-slate-500"> — {leg.code}</span> : null}
+                          </p>
                           <p className="text-xs text-slate-500">
                             {[leg.originLocation, leg.originAt ? formatDateTime(leg.originAt) : null].filter(Boolean).join(" · ") || "Origem não definida"}
                             {" → "}

@@ -408,6 +408,10 @@ export const bookingLegs = pgTable(
     destinationCityId: text("destination_city_id").references(() => cities.id, { onDelete: "set null" }),
     originNeighborhoodId: text("origin_neighborhood_id").references(() => cityNeighborhoods.id, { onDelete: "set null" }),
     destinationNeighborhoodId: text("destination_neighborhood_id").references(() => cityNeighborhoods.id, { onDelete: "set null" }),
+    // Genérico de propósito ("Código da viagem"): número do voo, linha de
+    // trem, número do ônibus etc. — por trecho, porque ida/volta/cada perna
+    // de um multi-trechos pode ter um código diferente.
+    code: text("code"),
   },
   (t) => [
     index("booking_legs_booking_idx").on(t.bookingId, t.legOrder),

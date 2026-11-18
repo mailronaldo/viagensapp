@@ -50,6 +50,7 @@ async function parseLegPair(
   tripId: string,
   originPrefix: string,
   destinationPrefix: string,
+  codeField: string,
   back: string,
 ) {
   const origin = await parseLeg(formData, tripId, originPrefix, back);
@@ -66,6 +67,7 @@ async function parseLegPair(
     destinationLocation: destination.location,
     destinationCityId: destination.cityId,
     destinationNeighborhoodId: destination.neighborhoodId,
+    code: str(formData, codeField),
   };
 }
 
@@ -76,14 +78,14 @@ async function parseLegPair(
 async function parseLegs(formData: FormData, tripId: string, tripType: string, back: string) {
   if (tripType === "MULTI_LEG") return [];
   if (tripType === "ROUND_TRIP") {
-    const outbound = await parseLegPair(formData, tripId, "origin", "destination", back);
-    const inbound = await parseLegPair(formData, tripId, "returnOrigin", "returnDestination", back);
+    const outbound = await parseLegPair(formData, tripId, "origin", "destination", "code", back);
+    const inbound = await parseLegPair(formData, tripId, "returnOrigin", "returnDestination", "returnCode", back);
     return [
       { legOrder: 1, ...outbound },
       { legOrder: 2, ...inbound },
     ];
   }
-  const oneWay = await parseLegPair(formData, tripId, "origin", "destination", back);
+  const oneWay = await parseLegPair(formData, tripId, "origin", "destination", "code", back);
   return [{ legOrder: 1, ...oneWay }];
 }
 

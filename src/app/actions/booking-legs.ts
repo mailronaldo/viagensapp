@@ -59,6 +59,7 @@ async function parseLegValues(formData: FormData, tripId: string, back: string) 
     destinationLocation: destination.location,
     destinationCityId: destination.cityId,
     destinationNeighborhoodId: destination.neighborhoodId,
+    code: str(formData, "code"),
   };
 }
 

@@ -222,7 +222,9 @@ export async function getAgenda(
         type: b.type,
         location: origin || destination ? `${origin} → ${destination}` : null,
         address: null,
-        notes: groupVoucher?.reservationCode ? `Código: ${groupVoucher.reservationCode}` : b.details,
+        notes:
+          [leg.code, groupVoucher?.reservationCode ? `Código reserva: ${groupVoucher.reservationCode}` : null].filter(Boolean).join(" · ") ||
+          b.details,
         cityName: null,
         hasTicket: !!groupVoucher?.voucherDocumentId,
         ticketDocumentId: groupVoucher?.voucherDocumentId ?? null,
@@ -243,7 +245,9 @@ export async function getAgenda(
         type: b.type,
         location: destination || origin || null,
         address: null,
-        notes: groupVoucher?.reservationCode ? `Código: ${groupVoucher.reservationCode}` : b.details,
+        notes:
+          [leg.code, groupVoucher?.reservationCode ? `Código reserva: ${groupVoucher.reservationCode}` : null].filter(Boolean).join(" · ") ||
+          b.details,
         cityName: null,
         hasTicket: !!groupVoucher?.voucherDocumentId,
         ticketDocumentId: groupVoucher?.voucherDocumentId ?? null,

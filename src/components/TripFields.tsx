@@ -416,6 +416,7 @@ type LegValue = {
   destinationLocation: string | null;
   destinationCityId: string | null;
   destinationNeighborhoodId: string | null;
+  code?: string | null;
 };
 
 /**
@@ -484,6 +485,9 @@ export function LegFields({
 }) {
   return (
     <>
+      <Field label="Código da viagem" hint="Número do voo, linha de trem, ônibus etc." className="sm:col-span-6">
+        <input name="code" defaultValue={leg?.code ?? ""} className={inputCls} />
+      </Field>
       <LegHalfFields legLabel="Origem" kind="origin" namePrefix="origin" cities={cities} neighborhoods={neighborhoods} leg={leg} defaultDateTime={defaultDateTime} />
       <LegHalfFields legLabel="Destino" kind="destination" namePrefix="destination" cities={cities} neighborhoods={neighborhoods} leg={leg} />
     </>
@@ -533,14 +537,23 @@ export function BookingFields({
         initialTripType={booking?.tripType}
         oneWay={
           <>
+            <Field label="Código da viagem" hint="Número do voo, linha de trem, ônibus etc." className="sm:col-span-6">
+              <input name="code" defaultValue={outbound?.code ?? ""} className={inputCls} />
+            </Field>
             <LegHalfFields legLabel="Origem" kind="origin" namePrefix="origin" cities={cities} neighborhoods={neighborhoods} leg={outbound} defaultDateTime={defaultDateTime} />
             <LegHalfFields legLabel="Destino" kind="destination" namePrefix="destination" cities={cities} neighborhoods={neighborhoods} leg={outbound} />
           </>
         }
         roundTrip={
           <>
+            <Field label="Código da viagem (ida)" hint="Número do voo, linha de trem, ônibus etc." className="sm:col-span-6">
+              <input name="code" defaultValue={outbound?.code ?? ""} className={inputCls} />
+            </Field>
             <LegHalfFields legLabel="Origem (ida)" kind="origin" namePrefix="origin" cities={cities} neighborhoods={neighborhoods} leg={outbound} defaultDateTime={defaultDateTime} />
             <LegHalfFields legLabel="Destino (ida)" kind="destination" namePrefix="destination" cities={cities} neighborhoods={neighborhoods} leg={outbound} />
+            <Field label="Código da viagem (volta)" hint="Número do voo, linha de trem, ônibus etc." className="sm:col-span-6">
+              <input name="returnCode" defaultValue={inbound?.code ?? ""} className={inputCls} />
+            </Field>
             <LegHalfFields legLabel="Origem (volta)" kind="origin" namePrefix="returnOrigin" cities={cities} neighborhoods={neighborhoods} leg={inbound} />
             <LegHalfFields legLabel="Destino (volta)" kind="destination" namePrefix="returnDestination" cities={cities} neighborhoods={neighborhoods} leg={inbound} />
           </>
@@ -595,6 +608,9 @@ export function QuickBookingFields({
       </Field>
       <Field label="Número do pedido" className="sm:col-span-3">
         <input name="orderNumber" className={inputCls} />
+      </Field>
+      <Field label="Código da viagem" hint="Número do voo, linha de trem, ônibus etc." className="sm:col-span-6">
+        <input name="code" className={inputCls} />
       </Field>
       <LegHalfFields legLabel="Origem" kind="origin" namePrefix="origin" cities={cities} neighborhoods={neighborhoods} defaultDateTime={defaultDate ? `${defaultDate}T09:00` : undefined} />
       <LegHalfFields legLabel="Destino" kind="destination" namePrefix="destination" cities={cities} neighborhoods={neighborhoods} />
