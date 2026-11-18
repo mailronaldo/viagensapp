@@ -11,12 +11,25 @@ import { listClientCurrencyCodes } from "@/services/currencies";
 import { listTripTravelerOptions } from "@/services/trip-travelers";
 import { listBookingVouchers } from "@/services/transport-vouchers";
 import { listBookingLegs } from "@/services/booking-legs";
+import { listBookingSeats } from "@/services/booking-seats";
+import { listBookingBaggages } from "@/services/booking-baggages";
 import { listPayments } from "@/services/payments";
 import { deleteBookingAction, updateBookingAction } from "@/app/actions/bookings";
 import { addVoucherAction, deleteVoucherAction, updateVoucherAction } from "@/app/actions/transport-vouchers";
 import { addLegAction, deleteLegAction, updateLegAction } from "@/app/actions/booking-legs";
+import { addSeatAction, deleteSeatAction, updateSeatAction } from "@/app/actions/booking-seats";
+import { addBaggageAction, deleteBaggageAction, updateBaggageAction } from "@/app/actions/booking-baggages";
 import { addPaymentAction, updatePaymentAction } from "@/app/actions/payments";
-import { BookingFields, LegFields, PaymentFields, PaymentList, TransportVoucherFields } from "@/components/TripFields";
+import {
+  BookingBaggageFields,
+  BookingFields,
+  BookingSeatFields,
+  LegFields,
+  PaymentFields,
+  PaymentList,
+  TransportVoucherFields,
+  legOptionLabel,
+} from "@/components/TripFields";
 import { SavedModal } from "@/components/SavedModal";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
 import { AddPanel, Card, EmptyState, ErrorBanner, Tag, btnGhost, btnPrimary } from "@/components/ui";
@@ -53,6 +66,9 @@ export default async function EditBookingPage({
   ]);
   const neighborhoods = await listNeighborhoodsForCities(cities.map((c) => c.id));
   const legs = await listBookingLegs(bookingId);
+  const legIds = legs.map((leg) => leg.id);
+  const [seats, baggages] = await Promise.all([listBookingSeats(legIds), listBookingBaggages(legIds)]);
+  const legLabelById = new Map(legs.map((leg, i) => [leg.id, legOptionLabel(leg, i)]));
   const vouchers = await listBookingVouchers(bookingId, owner?.name ?? "Dono");
   const voucherDocIds = vouchers.map((v) => v.voucherDocumentId).filter((docId): docId is string => !!docId);
   const voucherDocs = voucherDocIds.length
@@ -258,6 +274,137 @@ export default async function EditBookingPage({
             </form>
           ) : (
             <EmptyState>Já existe um voucher do grupo e de cada viajante deste transporte.</EmptyState>
+          )}
+        </AddPanel>
+      </div>
+
+      <div className="mt-6">
+        <AddPanel title={`Assentos${seats.length > 0 ? ` (${seats.length})` : ""}`} defaultOpen={false}>
+          {legs.length === 0 ? (
+            <EmptyState>Adicione um trecho no painel “Trechos” antes de lançar assentos.</EmptyState>
+          ) : (
+            <>
+              {seats.length > 0 && (
+                <ul className="mb-4 space-y-2">
+                  {seats.map((s) => (
+                    <li key={s.id} className="rounded-lg border border-slate-200">
+                      <details className="group">
+                        <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 p-3 text-sm">
+                          <div className="min-w-0">
+                            <p className="font-medium">{s.seat}</p>
+                            <p className="text-xs text-slate-500">
+                              {legLabelById.get(s.bookingLegId) ?? "Trecho"} · {travelerPayerName.get(s.travelerId ?? "owner") ?? "Viajante removido"}
+                            </p>
+                          </div>
+                          <span className="flex shrink-0 items-center gap-1">
+                            <Pencil className="size-4 text-slate-400" aria-hidden />
+                            <ConfirmDeleteButton
+                              label="Excluir"
+                              confirmTitle="Excluir este assento?"
+                              confirmDescription="Isso remove este assento lançado."
+                              deleteAction={deleteSeatAction.bind(null, trip.id, booking.id, s.id)}
+                              size="sm"
+                            />
+                          </span>
+                        </summary>
+                        <div className="border-t border-slate-100 p-3">
+                          <form action={updateSeatAction.bind(null, trip.id, booking.id, s.id)} className="grid gap-3 sm:grid-cols-6">
+                            <BookingSeatFields
+                              legs={legs}
+                              travelers={travelerOptions}
+                              seat={{
+                                legLabel: legLabelById.get(s.bookingLegId) ?? "Trecho",
+                                travelerName: travelerPayerName.get(s.travelerId ?? "owner") ?? "Viajante removido",
+                                seat: s.seat,
+                              }}
+                            />
+                            <div className="sm:col-span-6">
+                              <button className={btnPrimary}>Salvar assento</button>
+                            </div>
+                          </form>
+                        </div>
+                      </details>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <form action={addSeatAction.bind(null, trip.id, booking.id)} className="grid gap-3 sm:grid-cols-6">
+                <BookingSeatFields legs={legs} travelers={travelerOptions} />
+                <div className="sm:col-span-6">
+                  <button className={btnPrimary}>Adicionar assento</button>
+                </div>
+              </form>
+            </>
+          )}
+        </AddPanel>
+      </div>
+
+      <div className="mt-6">
+        <AddPanel title={`Bagagens${baggages.length > 0 ? ` (${baggages.length})` : ""}`} defaultOpen={false}>
+          {legs.length === 0 ? (
+            <EmptyState>Adicione um trecho no painel “Trechos” antes de lançar bagagens.</EmptyState>
+          ) : (
+            <>
+              {baggages.length > 0 && (
+                <ul className="mb-4 space-y-2">
+                  {baggages.map((bg) => (
+                    <li key={bg.id} className="rounded-lg border border-slate-200">
+                      <details className="group">
+                        <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 p-3 text-sm">
+                          <div className="min-w-0">
+                            <p className="font-medium">{travelerPayerName.get(bg.travelerId ?? "owner") ?? "Viajante removido"}</p>
+                            <p className="text-xs text-slate-500">
+                              {legLabelById.get(bg.bookingLegId) ?? "Trecho"} ·{" "}
+                              {[
+                                bg.bagIncluded ? "Bolsa/mochila" : null,
+                                bg.smallSuitcaseIncluded ? "Mala pequena" : null,
+                                bg.checkedSuitcaseCount > 0 ? `${bg.checkedSuitcaseCount}x mala despachada` : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ") || "Sem bagagem incluída"}
+                            </p>
+                          </div>
+                          <span className="flex shrink-0 items-center gap-1">
+                            <Pencil className="size-4 text-slate-400" aria-hidden />
+                            <ConfirmDeleteButton
+                              label="Excluir"
+                              confirmTitle="Excluir esta bagagem?"
+                              confirmDescription="Isso remove este lançamento de bagagem."
+                              deleteAction={deleteBaggageAction.bind(null, trip.id, booking.id, bg.id)}
+                              size="sm"
+                            />
+                          </span>
+                        </summary>
+                        <div className="border-t border-slate-100 p-3">
+                          <form action={updateBaggageAction.bind(null, trip.id, booking.id, bg.id)} className="grid gap-3 sm:grid-cols-6">
+                            <BookingBaggageFields
+                              legs={legs}
+                              travelers={travelerOptions}
+                              baggage={{
+                                legLabel: legLabelById.get(bg.bookingLegId) ?? "Trecho",
+                                travelerName: travelerPayerName.get(bg.travelerId ?? "owner") ?? "Viajante removido",
+                                bagIncluded: bg.bagIncluded,
+                                smallSuitcaseIncluded: bg.smallSuitcaseIncluded,
+                                checkedSuitcaseCount: bg.checkedSuitcaseCount,
+                              }}
+                            />
+                            <div className="sm:col-span-6">
+                              <button className={btnPrimary}>Salvar bagagem</button>
+                            </div>
+                          </form>
+                        </div>
+                      </details>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <form action={addBaggageAction.bind(null, trip.id, booking.id)} className="grid gap-3 sm:grid-cols-6">
+                <BookingBaggageFields legs={legs} travelers={travelerOptions} />
+                <div className="sm:col-span-6">
+                  <button className={btnPrimary}>Adicionar bagagem</button>
+                </div>
+              </form>
+            </>
           )}
         </AddPanel>
       </div>

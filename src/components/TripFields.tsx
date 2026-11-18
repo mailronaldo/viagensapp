@@ -698,6 +698,146 @@ export function TransportVoucherFields({
   );
 }
 
+type LegOption = { id: string; legOrder: number; code: string | null; originLocation: string | null; destinationLocation: string | null };
+
+/** Rótulo de um trecho pra selects de Assentos/Bagagens: "Trecho 1 — LA8084 — GRU → LIS". */
+export function legOptionLabel(leg: LegOption, index: number) {
+  const route = [leg.originLocation, leg.destinationLocation].filter(Boolean).join(" → ");
+  return [`Trecho ${index + 1}`, leg.code, route].filter(Boolean).join(" — ");
+}
+
+/** Select do trecho (só aparece quando há mais de 1 — somente ida fica escondido/fixo). */
+function LegSelect({ legs }: { legs: LegOption[] }) {
+  if (legs.length <= 1) {
+    return <input type="hidden" name="legId" value={legs[0]?.id ?? ""} />;
+  }
+  return (
+    <Field label="Trecho" className="sm:col-span-3">
+      <select name="legId" required className={inputCls}>
+        <option value="">Selecione…</option>
+        {legs.map((leg, i) => (
+          <option key={leg.id} value={leg.id}>
+            {legOptionLabel(leg, i)}
+          </option>
+        ))}
+      </select>
+    </Field>
+  );
+}
+
+/** Formulário de "adicionar/editar assento" — trecho + viajante (ou fixos, lendo-se no modo edição) + o assento. */
+export function BookingSeatFields({
+  legs,
+  travelers,
+  seat,
+}: {
+  legs: LegOption[];
+  travelers: { id: string | null; name: string }[];
+  /** Pré-preenche pra editar um assento já lançado — trecho/viajante ficam fixos. */
+  seat?: { legLabel: string; travelerName: string; seat: string } | null;
+}) {
+  return (
+    <>
+      {seat ? (
+        <>
+          <Field label="Trecho" className="sm:col-span-3">
+            <input value={seat.legLabel} disabled className={inputCls} />
+          </Field>
+          <Field label="Viajante" className="sm:col-span-3">
+            <input value={seat.travelerName} disabled className={inputCls} />
+          </Field>
+        </>
+      ) : (
+        <>
+          <LegSelect legs={legs} />
+          <Field label="Viajante" className="sm:col-span-3">
+            <select name="travelerId" required className={inputCls}>
+              <option value="">Selecione…</option>
+              {travelers.map((tr) => (
+                <option key={tr.id ?? "owner"} value={tr.id ?? "owner"}>
+                  {tr.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </>
+      )}
+      <Field label="Assento" hint="Ex.: 12A" className="sm:col-span-6">
+        <input name="seat" required defaultValue={seat?.seat ?? ""} className={inputCls} />
+      </Field>
+    </>
+  );
+}
+
+const INCLUDED_LABEL = { true: "Incluso", false: "Não incluso" } as const;
+
+/** Formulário de "adicionar/editar bagagem" — trecho + viajante (ou fixos, no modo edição) + as 3 opções de bagagem. */
+export function BookingBaggageFields({
+  legs,
+  travelers,
+  baggage,
+}: {
+  legs: LegOption[];
+  travelers: { id: string | null; name: string }[];
+  /** Pré-preenche pra editar uma bagagem já lançada — trecho/viajante ficam fixos. */
+  baggage?: {
+    legLabel: string;
+    travelerName: string;
+    bagIncluded: boolean;
+    smallSuitcaseIncluded: boolean;
+    checkedSuitcaseCount: number;
+  } | null;
+}) {
+  return (
+    <>
+      {baggage ? (
+        <>
+          <Field label="Trecho" className="sm:col-span-3">
+            <input value={baggage.legLabel} disabled className={inputCls} />
+          </Field>
+          <Field label="Viajante" className="sm:col-span-3">
+            <input value={baggage.travelerName} disabled className={inputCls} />
+          </Field>
+        </>
+      ) : (
+        <>
+          <LegSelect legs={legs} />
+          <Field label="Viajante" className="sm:col-span-3">
+            <select name="travelerId" required className={inputCls}>
+              <option value="">Selecione…</option>
+              {travelers.map((tr) => (
+                <option key={tr.id ?? "owner"} value={tr.id ?? "owner"}>
+                  {tr.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </>
+      )}
+      <Field label="Bolsa ou mochila" className="sm:col-span-2">
+        <select name="bagIncluded" defaultValue={String(baggage?.bagIncluded ?? false)} className={inputCls}>
+          <option value="true">{INCLUDED_LABEL.true}</option>
+          <option value="false">{INCLUDED_LABEL.false}</option>
+        </select>
+      </Field>
+      <Field label="Mala pequena (12kg)" className="sm:col-span-2">
+        <select name="smallSuitcaseIncluded" defaultValue={String(baggage?.smallSuitcaseIncluded ?? false)} className={inputCls}>
+          <option value="true">{INCLUDED_LABEL.true}</option>
+          <option value="false">{INCLUDED_LABEL.false}</option>
+        </select>
+      </Field>
+      <Field label="Mala despachada (23kg)" className="sm:col-span-2">
+        <select name="checkedSuitcaseCount" defaultValue={String(baggage?.checkedSuitcaseCount ?? 0)} className={inputCls}>
+          <option value="0">0</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+        </select>
+      </Field>
+    </>
+  );
+}
+
 export function ChipFields({
   trip,
   chip,

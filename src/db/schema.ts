@@ -420,6 +420,49 @@ export const bookingLegs = pgTable(
   ],
 );
 
+// Assento de cada viajante em cada trecho (1 somente ida, 2 ida/volta, ou N
+// num multi-trechos) — `travelerId` nulo = dono da viagem como viajante,
+// mesma convenção de chips/ingressos/seguro.
+export const bookingSeats = pgTable(
+  "booking_seats",
+  {
+    id: id(),
+    bookingLegId: text("booking_leg_id")
+      .notNull()
+      .references(() => bookingLegs.id, { onDelete: "cascade" }),
+    travelerId: text("traveler_id").references(() => travelers.id, { onDelete: "cascade" }),
+    seat: text("seat").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("booking_seats_leg_traveler_unique").on(t.bookingLegId, t.travelerId).where(sql`${t.travelerId} IS NOT NULL`),
+    uniqueIndex("booking_seats_leg_owner_unique").on(t.bookingLegId).where(sql`${t.travelerId} IS NULL`),
+  ],
+);
+export type BookingSeat = typeof bookingSeats.$inferSelect;
+
+// Bagagem contratada de cada viajante em cada trecho. `checkedSuitcaseCount`
+// é a mala despachada (23kg, 0 a 3); as outras duas são só incluso/não.
+export const bookingBaggages = pgTable(
+  "booking_baggages",
+  {
+    id: id(),
+    bookingLegId: text("booking_leg_id")
+      .notNull()
+      .references(() => bookingLegs.id, { onDelete: "cascade" }),
+    travelerId: text("traveler_id").references(() => travelers.id, { onDelete: "cascade" }),
+    bagIncluded: boolean("bag_included").notNull().default(false),
+    smallSuitcaseIncluded: boolean("small_suitcase_included").notNull().default(false),
+    checkedSuitcaseCount: integer("checked_suitcase_count").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("booking_baggages_leg_traveler_unique").on(t.bookingLegId, t.travelerId).where(sql`${t.travelerId} IS NOT NULL`),
+    uniqueIndex("booking_baggages_leg_owner_unique").on(t.bookingLegId).where(sql`${t.travelerId} IS NULL`),
+  ],
+);
+export type BookingBaggage = typeof bookingBaggages.$inferSelect;
+
 // Custo do transporte, lançado por partes: um voucher do grupo (custo
 // compartilhado) e/ou um voucher por viajante (custo individual, com seu
 // próprio código de reserva). `travelerId` nulo com `isGroup` falso = dono da
