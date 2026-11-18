@@ -820,6 +820,7 @@ export function PaymentFields({
   currency,
   categories,
   payment,
+  defaultCostWho,
 }: {
   travelers: { id: string | null; name: string }[];
   currency: string;
@@ -827,7 +828,10 @@ export function PaymentFields({
   categories?: Category[];
   /** Pré-preenche o formulário pra editar um pagamento já lançado. */
   payment?: Payment;
+  /** Pré-seleção de "quem gerou o custo" num lançamento novo: id do viajante, "owner" ou "group" (padrão). */
+  defaultCostWho?: string | null;
 }) {
+  const costWhoValue = payment ? (payment.costIsGroup ? "group" : payment.costTravelerId ?? "owner") : defaultCostWho ?? "group";
   return (
     <>
       <Field label="Pagador" className="sm:col-span-2">
@@ -835,6 +839,16 @@ export function PaymentFields({
           <option value="" disabled>
             Selecione…
           </option>
+          {travelers.map((tr) => (
+            <option key={tr.id ?? "owner"} value={tr.id ?? "owner"}>
+              {tr.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Quem gerou o custo" className="sm:col-span-2">
+        <select name="costWho" required defaultValue={costWhoValue} className={inputCls}>
+          <option value="group">Grupo / viagem toda</option>
           {travelers.map((tr) => (
             <option key={tr.id ?? "owner"} value={tr.id ?? "owner"}>
               {tr.name}
@@ -901,7 +915,8 @@ export function PaymentList({
           <div className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
             <div className="min-w-0">
               <p className="text-xs text-slate-400">
-                {formatDate(payment.paymentDate)} · {travelerName.get(payment.payerTravelerId ?? "owner") ?? "Viajante removido"}
+                {formatDate(payment.paymentDate)} · pago por {travelerName.get(payment.payerTravelerId ?? "owner") ?? "Viajante removido"} · custo de{" "}
+                {payment.costIsGroup ? "Grupo" : travelerName.get(payment.costTravelerId ?? "owner") ?? "Viajante removido"}
               </p>
               <p className="font-medium tabular-nums">{formatMoney(payment.amount, payment.currency)}</p>
             </div>

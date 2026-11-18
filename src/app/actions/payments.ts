@@ -18,9 +18,10 @@ const PAYMENT_FORMS = ["AVISTA", "PARCELADO"] as const;
 
 /**
  * Parse comum entre lançar e editar um pagamento — confere acesso de
- * escrita, que a origem pertence à viagem, pagador, data, meio, forma,
- * parcelas, valor e categoria (categoria é ignorada pela origem quando ela
- * já tem categoria própria — ver `addPayment`/`updatePayment`).
+ * escrita, que a origem pertence à viagem, pagador, quem gerou o custo
+ * (grupo ou viajante), data, meio, forma, parcelas, valor e categoria
+ * (categoria é ignorada pela origem quando ela já tem categoria própria —
+ * ver `addPayment`/`updatePayment`).
  */
 async function parsePaymentInput(tripId: string, sourceType: PaymentSourceType, sourceId: string, back: string, formData: FormData) {
   const { trip } = await requireTripAccess(tripId, { write: true });
@@ -29,6 +30,11 @@ async function parsePaymentInput(tripId: string, sourceType: PaymentSourceType, 
   const travelerRaw = str(formData, "payerTravelerId");
   const payerTravelerId = travelerRaw === "owner" ? null : travelerRaw;
   if (!(await isInTripGroup(trip, payerTravelerId))) fail(back, "Esse pagador não está nesta viagem.");
+
+  const costWhoRaw = str(formData, "costWho");
+  const costIsGroup = costWhoRaw === "group";
+  const costTravelerId = costIsGroup ? null : costWhoRaw === "owner" ? null : costWhoRaw;
+  if (!costIsGroup && !(await isInTripGroup(trip, costTravelerId))) fail(back, "Esse responsável pelo custo não está nesta viagem.");
 
   const paymentDate = str(formData, "paymentDate");
   if (!paymentDate || !ISO_DATE.test(paymentDate)) fail(back, "Data de pagamento inválida.");
@@ -53,6 +59,8 @@ async function parsePaymentInput(tripId: string, sourceType: PaymentSourceType, 
 
   return {
     payerTravelerId,
+    costIsGroup,
+    costTravelerId,
     paymentDate,
     method,
     form,

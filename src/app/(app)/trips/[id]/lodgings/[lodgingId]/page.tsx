@@ -174,7 +174,11 @@ export default async function EditLodgingPage({
                           editAction={(paymentId) => updatePaymentAction.bind(null, trip.id, "LODGING_VOUCHER", v.id, paymentId, editBack)}
                         />
                         <form action={addPaymentAction.bind(null, trip.id, "LODGING_VOUCHER", v.id, editBack)} className="grid gap-3 sm:grid-cols-6">
-                          <PaymentFields travelers={travelerOptions} currency={v.currency ?? trip.baseCurrency} />
+                          <PaymentFields
+                            travelers={travelerOptions}
+                            currency={v.currency ?? trip.baseCurrency}
+                            defaultCostWho={v.isGroup ? "group" : v.travelerIds.length === 1 ? v.travelerIds[0] : "group"}
+                          />
                           <div className="sm:col-span-6">
                             <button className={btnPrimary}>Lançar pagamento</button>
                           </div>

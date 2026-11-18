@@ -179,7 +179,7 @@ export default async function TravelerHubPage({
                     action={addPaymentAction.bind(null, trip.id, "TRAVEL_INSURANCE", insurance.id, `/trips/${trip.id}/travelers/${travelerId}`)}
                     className="grid gap-3 sm:grid-cols-6"
                   >
-                    <PaymentFields travelers={travelerOptions} currency={insurance.currency ?? trip.baseCurrency} />
+                    <PaymentFields travelers={travelerOptions} currency={insurance.currency ?? trip.baseCurrency} defaultCostWho={travelerId} />
                     <div className="sm:col-span-6">
                       <button className={btnPrimary}>Lançar pagamento</button>
                     </div>
@@ -292,7 +292,7 @@ export default async function TravelerHubPage({
                               action={addPaymentAction.bind(null, trip.id, "PASS", p.id, `/trips/${trip.id}/travelers/${travelerId}`)}
                               className="grid gap-3 sm:grid-cols-6"
                             >
-                              <PaymentFields travelers={travelerOptions} currency={p.currency ?? trip.baseCurrency} />
+                              <PaymentFields travelers={travelerOptions} currency={p.currency ?? trip.baseCurrency} defaultCostWho={travelerId} />
                               <div className="sm:col-span-6">
                                 <button className={btnPrimary}>Lançar pagamento</button>
                               </div>

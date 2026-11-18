@@ -225,7 +225,11 @@ export default async function EditBookingPage({
                           editAction={(paymentId) => updatePaymentAction.bind(null, trip.id, "TRANSPORT_VOUCHER", v.id, paymentId, editBack)}
                         />
                         <form action={addPaymentAction.bind(null, trip.id, "TRANSPORT_VOUCHER", v.id, editBack)} className="grid gap-3 sm:grid-cols-6">
-                          <PaymentFields travelers={travelerOptions} currency={v.currency ?? trip.baseCurrency} />
+                          <PaymentFields
+                            travelers={travelerOptions}
+                            currency={v.currency ?? trip.baseCurrency}
+                            defaultCostWho={v.isGroup ? "group" : v.travelerId ?? "owner"}
+                          />
                           <div className="sm:col-span-6">
                             <button className={btnPrimary}>Lançar pagamento</button>
                           </div>

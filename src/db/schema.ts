@@ -907,6 +907,12 @@ export const payments = pgTable(
     sourceId: text("source_id").notNull(),
     // null = dono da viagem, mesma convenção de errands.travelerId
     payerTravelerId: text("payer_traveler_id").references(() => travelers.id, { onDelete: "set null" }),
+    // Quem gerou o custo (distinto de quem pagou, acima). `costIsGroup` true
+    // = custo do grupo inteiro (ignora `costTravelerId`); false + nulo = dono
+    // da viagem como viajante; false + preenchido = aquele viajante — mesma
+    // convenção de isGroup/travelerId já usada em bookings/vouchers.
+    costIsGroup: boolean("cost_is_group").notNull().default(false),
+    costTravelerId: text("cost_traveler_id").references(() => travelers.id, { onDelete: "set null" }),
     paymentDate: date("payment_date").notNull(),
     method: paymentMethodType("method").notNull(),
     form: paymentForm("form").notNull().default("AVISTA"),

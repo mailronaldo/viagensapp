@@ -23,6 +23,9 @@ export const PAYMENT_SOURCE_TYPES_WITH_OWN_CATEGORY = ["ITEM_RESERVATION", "ITEM
 
 export type NewPayment = {
   payerTravelerId: string | null;
+  /** Quem gerou o custo — true = grupo inteiro (ignora `costTravelerId`). */
+  costIsGroup: boolean;
+  costTravelerId: string | null;
   paymentDate: string;
   method: "PIX" | "CREDITO" | "DEBITO" | "DINHEIRO" | "OUTRO";
   form: "AVISTA" | "PARCELADO";
@@ -168,6 +171,8 @@ export async function addPayment(sourceType: PaymentSourceType, sourceId: string
 
 export type PaymentPatch = {
   payerTravelerId: string | null;
+  costIsGroup: boolean;
+  costTravelerId: string | null;
   paymentDate: string;
   method: "PIX" | "CREDITO" | "DEBITO" | "DINHEIRO" | "OUTRO";
   form: "AVISTA" | "PARCELADO";
