@@ -888,6 +888,7 @@ export const paymentSourceType = pgEnum("payment_source_type", [
   "LODGING_VOUCHER",
   "TRAVEL_INSURANCE",
   "ITEM_EXPENSE",
+  "CHIP",
 ]);
 
 // Pagamentos lançados contra um custo de qualquer módulo da viagem: cada um

@@ -15,7 +15,8 @@ export type PaymentSourceType =
   | "TRANSPORT_VOUCHER"
   | "LODGING_VOUCHER"
   | "TRAVEL_INSURANCE"
-  | "ITEM_EXPENSE";
+  | "ITEM_EXPENSE"
+  | "CHIP";
 
 // Origens sem categoria própria (Reserva/Voucher da atividade e custo
 // avulso) deixam o pagador escolher a categoria no formulário.
@@ -110,6 +111,11 @@ async function getSource(tx: Tx | typeof db, sourceType: PaymentSourceType, sour
       if (!row) return null;
       return { tripId: row.tripId, amount: row.price, currency: row.currency ?? (await baseCurrencyOf(tx, row.tripId)), category: row.category };
     }
+    case "CHIP": {
+      const [row] = await tx.select().from(t.chips).where(eq(t.chips.id, sourceId)).limit(1);
+      if (!row) return null;
+      return { tripId: row.tripId, amount: row.cost, currency: row.currency ?? (await baseCurrencyOf(tx, row.tripId)), category: row.category };
+    }
   }
 }
 
@@ -131,6 +137,8 @@ async function setSourceStatus(tx: Tx | typeof db, sourceType: PaymentSourceType
       return void (await tx.update(t.lodgingVouchers).set({ status }).where(eq(t.lodgingVouchers.id, sourceId)));
     case "TRAVEL_INSURANCE":
       return void (await tx.update(t.travelInsurances).set({ status }).where(eq(t.travelInsurances.id, sourceId)));
+    case "CHIP":
+      return void (await tx.update(t.chips).set({ status }).where(eq(t.chips.id, sourceId)));
   }
 }
 

@@ -44,8 +44,9 @@ export default async function OwnerTravelerHubPage({
     listTripTravelerOptions(trip),
   ]);
   const travelerPayerName = new Map(travelerOptions.map((tr) => [tr.id ?? "owner", tr.name]));
-  const [insurancePayments, passPaymentsEntries] = await Promise.all([
+  const [insurancePayments, chipPayments, passPaymentsEntries] = await Promise.all([
     insurance ? listPayments("TRAVEL_INSURANCE", insurance.id) : Promise.resolve([]),
+    chip ? listPayments("CHIP", chip.id) : Promise.resolve([]),
     Promise.all(passes.map(async (p) => [p.id, await listPayments("PASS", p.id)] as const)),
   ]);
   const passPaymentsByPass = new Map(passPaymentsEntries);
@@ -153,6 +154,26 @@ export default async function OwnerTravelerHubPage({
               </form>
             ) : (
               <p className="text-sm text-slate-500">Você não tem permissão para editar esta viagem.</p>
+            )}
+            {chip && canWrite && (
+              <div className="mt-4 border-t border-slate-100 pt-3">
+                <p className="mb-2 text-xs font-medium text-slate-600">
+                  Pagamentos{chipPayments.length > 0 ? ` (${chipPayments.length})` : ""}
+                </p>
+                <PaymentList
+                  payments={chipPayments}
+                  travelerName={travelerPayerName}
+                  travelers={travelerOptions}
+                  currency={chip.currency ?? trip.baseCurrency}
+                  editAction={(paymentId) => updatePaymentAction.bind(null, trip.id, "CHIP", chip.id, paymentId, `/trips/${trip.id}/travelers/owner`)}
+                />
+                <form action={addPaymentAction.bind(null, trip.id, "CHIP", chip.id, `/trips/${trip.id}/travelers/owner`)} className="grid gap-3 sm:grid-cols-6">
+                  <PaymentFields travelers={travelerOptions} currency={chip.currency ?? trip.baseCurrency} defaultCostWho="owner" />
+                  <div className="sm:col-span-6">
+                    <button className={btnPrimary}>Lançar pagamento</button>
+                  </div>
+                </form>
+              </div>
             )}
           </AddPanel>
 

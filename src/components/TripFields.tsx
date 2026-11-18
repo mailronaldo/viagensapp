@@ -1,5 +1,5 @@
 import type { Booking, Chip, Errand, Expense, ItineraryItem, Lodging, Payment, TravelInsurance } from "@/db/schema";
-import { AddPanel, CategoryOptions, EmptyState, EnumSelect, Field, StatusSelect, btnPrimary, inputCls } from "@/components/ui";
+import { AddPanel, CategoryOptions, EmptyState, EnumSelect, Field, btnPrimary, inputCls } from "@/components/ui";
 import { NeighborhoodSelect } from "@/components/NeighborhoodSelect";
 import { TripTypeToggle } from "@/components/TripTypeToggle";
 import { AddStoreButton } from "@/components/AddStoreButton";
@@ -714,9 +714,6 @@ export function ChipFields({
         <select name="currency" defaultValue={chip?.currency ?? trip.baseCurrency} className={inputCls}>
           <CurrencyOptions currencies={currencies} />
         </select>
-      </Field>
-      <Field label="Status do valor" className="sm:col-span-2">
-        <StatusSelect name="status" defaultValue={chip?.status ?? "ESTIMADO"} />
       </Field>
       <AttachmentField
         label="Recibo (PDF ou imagem)"

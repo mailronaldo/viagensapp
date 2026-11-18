@@ -15,10 +15,10 @@ export default async function CostCenterPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ category?: string; traveler?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ category?: string; traveler?: string; payer?: string; from?: string; to?: string }>;
 }) {
   const { id } = await params;
-  const { category, traveler, from, to } = await searchParams;
+  const { category, traveler, payer, from, to } = await searchParams;
   const { trip } = await requireTripAccess(id);
 
   const [entries, categories, travelerOptions, clientCurrencies] = await Promise.all([
@@ -37,6 +37,10 @@ export default async function CostCenterPage({
     if (traveler && traveler !== "group" && traveler !== "") {
       const wanted = traveler === "owner" ? null : traveler;
       if (!e.travelerIds.includes(wanted)) return false;
+    }
+    if (payer) {
+      const wanted = payer === "owner" ? null : payer;
+      if (!e.payerIds.includes(wanted)) return false;
     }
     const day = e.createdAt.slice(0, 10);
     if (from && day < from) return false;
@@ -70,7 +74,7 @@ export default async function CostCenterPage({
       </div>
 
       <Card className="mb-6">
-        <form method="get" className="grid gap-3 sm:grid-cols-4">
+        <form method="get" className="grid gap-3 sm:grid-cols-5">
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-600">Categoria</label>
             <select name="category" defaultValue={category ?? ""} className={inputCls}>
@@ -83,10 +87,21 @@ export default async function CostCenterPage({
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">Viajante</label>
+            <label className="mb-1 block text-xs font-medium text-slate-600">Viajante (gerou o custo)</label>
             <select name="traveler" defaultValue={traveler ?? ""} className={inputCls}>
               <option value="">Todos</option>
               <option value="group">Grupo</option>
+              {travelerOptions.map((tr) => (
+                <option key={tr.id ?? "owner"} value={tr.id ?? "owner"}>
+                  {tr.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">Pagador</label>
+            <select name="payer" defaultValue={payer ?? ""} className={inputCls}>
+              <option value="">Todos</option>
               {travelerOptions.map((tr) => (
                 <option key={tr.id ?? "owner"} value={tr.id ?? "owner"}>
                   {tr.name}
@@ -102,9 +117,9 @@ export default async function CostCenterPage({
             <label className="mb-1 block text-xs font-medium text-slate-600">Até</label>
             <input type="date" name="to" defaultValue={to ?? ""} className={inputCls} />
           </div>
-          <div className="sm:col-span-4">
+          <div className="sm:col-span-5">
             <button className={btnPrimary}>Filtrar</button>
-            {(category || traveler || from || to) && (
+            {(category || traveler || payer || from || to) && (
               <Link href={`/trips/${trip.id}/costs`} className="ml-3 text-sm text-slate-500 hover:underline">
                 Limpar filtros
               </Link>

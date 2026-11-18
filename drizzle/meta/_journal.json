@@ -421,6 +421,20 @@
       "when": 1795015105122,
       "tag": "0059_backfill_payments_cost_responsibility",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1795017212460,
+      "tag": "0060_chip_payment_source_type",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1795017232773,
+      "tag": "0061_backfill_chip_payments",
+      "breakpoints": true
     }
   ]
 }

@@ -5,9 +5,10 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
-import { ISO_DATE, fail, parseDecimal, parseStatus, str } from "@/lib/form";
+import { ISO_DATE, fail, parseDecimal, str } from "@/lib/form";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import { getChipCategoryId } from "@/services/catalogs";
+import { deletePaymentsFor, recomputeStatus } from "@/services/payments";
 
 const EID = /^\d{32}$/;
 const IMEI2 = /^\d{15}$/;
@@ -50,7 +51,6 @@ async function parseChip(ownerId: string, formData: FormData, back: string) {
     plan: str(formData, "plan"),
     cost,
     currency: cost ? (currency ?? "BRL") : null,
-    status: parseStatus(str(formData, "status")),
     category: await getChipCategoryId(),
     startDate,
     endDate,
@@ -82,20 +82,27 @@ export async function upsertChipAction(tripId: string, travelerId: string, formD
     current: current?.receiptDocumentId ?? null,
   });
 
-  await db
+  const [row] = await db
     .insert(t.chips)
-    .values({ tripId, travelerId, ...v, receiptDocumentId })
+    .values({ tripId, travelerId, ...v, status: "A_PAGAR", receiptDocumentId })
     .onConflictDoUpdate({
       target: [t.chips.tripId, t.chips.travelerId],
       targetWhere: sql`${t.chips.travelerId} IS NOT NULL`,
       set: { ...v, receiptDocumentId },
-    });
+    })
+    .returning({ id: t.chips.id });
+  // O custo pode ter mudado — recalcula se ainda bate com os pagamentos já lançados.
+  await recomputeStatus("CHIP", row.id);
   redirect(`${back}?saved=1`);
 }
 
 export async function deleteChipAction(tripId: string, travelerId: string) {
   await requireTripAccess(tripId, { write: true });
-  await db.delete(t.chips).where(and(eq(t.chips.tripId, tripId), eq(t.chips.travelerId, travelerId)));
+  const [row] = await db
+    .delete(t.chips)
+    .where(and(eq(t.chips.tripId, tripId), eq(t.chips.travelerId, travelerId)))
+    .returning({ id: t.chips.id });
+  if (row) await deletePaymentsFor("CHIP", row.id);
   redirect(`/trips/${tripId}/travelers/${travelerId}`);
 }
 
@@ -123,19 +130,25 @@ export async function upsertOwnerChipAction(tripId: string, formData: FormData) 
     current: current?.receiptDocumentId ?? null,
   });
 
-  await db
+  const [row] = await db
     .insert(t.chips)
-    .values({ tripId, travelerId: null, ...v, receiptDocumentId })
+    .values({ tripId, travelerId: null, ...v, status: "A_PAGAR", receiptDocumentId })
     .onConflictDoUpdate({
       target: [t.chips.tripId],
       targetWhere: sql`${t.chips.travelerId} IS NULL`,
       set: { ...v, receiptDocumentId },
-    });
+    })
+    .returning({ id: t.chips.id });
+  await recomputeStatus("CHIP", row.id);
   redirect(`${back}?saved=1`);
 }
 
 export async function deleteOwnerChipAction(tripId: string) {
   await requireTripAccess(tripId, { write: true });
-  await db.delete(t.chips).where(and(eq(t.chips.tripId, tripId), isNull(t.chips.travelerId)));
+  const [row] = await db
+    .delete(t.chips)
+    .where(and(eq(t.chips.tripId, tripId), isNull(t.chips.travelerId)))
+    .returning({ id: t.chips.id });
+  if (row) await deletePaymentsFor("CHIP", row.id);
   redirect(`/trips/${tripId}/travelers/owner`);
 }

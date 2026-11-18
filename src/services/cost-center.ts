@@ -2,6 +2,7 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { BRL, getLatestRates } from "@/services/currencies";
+import { payerIdsBySource, type PaymentSourceType } from "@/services/payments";
 
 export type CostSource =
   | "expense"
@@ -26,8 +27,23 @@ export type CostEntry = {
   travelerLabel: string;
   /** ids dos viajantes cobertos (vazio = grupo/todos); usado pro filtro "por viajante". */
   travelerIds: (string | null)[];
+  /** ids distintos de quem pagou (via pagamentos já lançados); usado pro filtro "por pagador". */
+  payerIds: (string | null)[];
   createdAt: string;
   editHref: string;
+};
+
+/** De qual `sourceType` de `payments` cada origem da Central de Custos lê os pagamentos. */
+const PAYMENT_SOURCE_BY_COST_SOURCE: Record<CostSource, PaymentSourceType> = {
+  expense: "EXPENSE",
+  transport: "TRANSPORT_VOUCHER",
+  lodging: "LODGING_VOUCHER",
+  chip: "CHIP",
+  ticket: "ACTIVITY_TICKET",
+  pass: "PASS",
+  insurance: "TRAVEL_INSURANCE",
+  activity_cost: "ITEM_EXPENSE",
+  activity_reservation: "ITEM_RESERVATION",
 };
 
 export const SOURCE_LABEL: Record<CostSource, string> = {
@@ -116,6 +132,7 @@ export async function listCostEntries(tripId: string): Promise<CostEntry[]> {
       currency: e.currency,
       travelerLabel: "Grupo",
       travelerIds: [],
+      payerIds: [],
       createdAt: e.createdAt.toISOString(),
       editHref: `/trips/${tripId}/expenses/${e.id}`,
     });
@@ -133,6 +150,7 @@ export async function listCostEntries(tripId: string): Promise<CostEntry[]> {
       currency: v.currency,
       travelerLabel: v.isGroup ? "Grupo" : nameOrOwner(v.travelerId),
       travelerIds: v.isGroup ? [] : [v.travelerId],
+      payerIds: [],
       createdAt: v.createdAt.toISOString(),
       editHref: `/trips/${tripId}/transports/${v.bookingId}`,
     });
@@ -151,6 +169,7 @@ export async function listCostEntries(tripId: string): Promise<CostEntry[]> {
       currency: v.currency,
       travelerLabel: v.isGroup ? "Grupo" : coveredIds.map(nameOrOwner).join(", ") || "Sem viajante",
       travelerIds: v.isGroup ? [] : coveredIds,
+      payerIds: [],
       createdAt: v.createdAt.toISOString(),
       editHref: `/trips/${tripId}/lodgings/${v.lodgingId}`,
     });
@@ -167,6 +186,7 @@ export async function listCostEntries(tripId: string): Promise<CostEntry[]> {
       currency: c.currency,
       travelerLabel: nameOrOwner(c.travelerId),
       travelerIds: [c.travelerId],
+      payerIds: [],
       createdAt: c.createdAt.toISOString(),
       editHref: c.travelerId === null ? `/trips/${tripId}/travelers/owner` : `/trips/${tripId}/travelers/${c.travelerId}`,
     });
@@ -183,6 +203,7 @@ export async function listCostEntries(tripId: string): Promise<CostEntry[]> {
       currency: ti.currency,
       travelerLabel: nameOrOwner(ti.travelerId),
       travelerIds: [ti.travelerId],
+      payerIds: [],
       createdAt: ti.createdAt.toISOString(),
       editHref: `/trips/${tripId}/itinerary/items/${ti.itemId}`,
     });
@@ -199,6 +220,7 @@ export async function listCostEntries(tripId: string): Promise<CostEntry[]> {
       currency: p.currency,
       travelerLabel: nameOrOwner(p.travelerId),
       travelerIds: [p.travelerId],
+      payerIds: [],
       createdAt: p.createdAt.toISOString(),
       editHref: p.travelerId === null ? `/trips/${tripId}/travelers/owner` : `/trips/${tripId}/travelers/${p.travelerId}`,
     });
@@ -215,6 +237,7 @@ export async function listCostEntries(tripId: string): Promise<CostEntry[]> {
       currency: ins.currency,
       travelerLabel: nameOrOwner(ins.travelerId),
       travelerIds: [ins.travelerId],
+      payerIds: [],
       createdAt: ins.createdAt.toISOString(),
       editHref: ins.travelerId === null ? `/trips/${tripId}/travelers/owner` : `/trips/${tripId}/travelers/${ins.travelerId}`,
     });
@@ -237,6 +260,7 @@ export async function listCostEntries(tripId: string): Promise<CostEntry[]> {
         currency: it.reservationCurrency ?? "BRL",
         travelerLabel: "Grupo",
         travelerIds: [],
+      payerIds: [],
         createdAt: it.createdAt.toISOString(),
         editHref: `/trips/${tripId}/itinerary/items/${it.id}#reserva`,
       });
@@ -254,10 +278,30 @@ export async function listCostEntries(tripId: string): Promise<CostEntry[]> {
       currency: ie.currency,
       travelerLabel: "Grupo",
       travelerIds: [],
+      payerIds: [],
       createdAt: ie.createdAt.toISOString(),
       editHref: `/trips/${tripId}/itinerary/items/${ie.itemId}`,
     });
   }
+
+  // Preenche "quem pagou" de cada lançamento a partir dos pagamentos já
+  // lançados (pode ter mais de um payer num lançamento pago em partes).
+  // "activity_reservation" usa um id sintético (`${itemId}-reservation`) —
+  // o id real da origem (pra bater com `payments.sourceId`) é o item mesmo.
+  const bySourceType = new Map<PaymentSourceType, { entry: CostEntry; sourceId: string }[]>();
+  for (const entry of entries) {
+    const sourceType = PAYMENT_SOURCE_BY_COST_SOURCE[entry.source];
+    const sourceId = entry.source === "activity_reservation" ? entry.id.replace(/-reservation$/, "") : entry.id;
+    const list = bySourceType.get(sourceType) ?? [];
+    list.push({ entry, sourceId });
+    bySourceType.set(sourceType, list);
+  }
+  await Promise.all(
+    [...bySourceType.entries()].map(async ([sourceType, rows]) => {
+      const payerMap = await payerIdsBySource(sourceType, rows.map((r) => r.sourceId));
+      for (const { entry, sourceId } of rows) entry.payerIds = payerMap.get(sourceId) ?? [];
+    }),
+  );
 
   return entries;
 }
