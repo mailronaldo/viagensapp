@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, gte, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db, t } from "@/db";
 import { todayIn } from "@/lib/format";
@@ -63,7 +63,6 @@ export async function getAgenda(
       address: t.itineraryItems.address,
       notes: t.itineraryItems.notes,
       cityName: t.cities.name,
-      ticketDocumentId: t.itineraryItems.ticketDocumentId,
       reservationProvider: t.itineraryItems.reservationProvider,
       reservationCode: t.itineraryItems.reservationCode,
       reservationPrice: t.itineraryItems.reservationPrice,
@@ -125,6 +124,16 @@ export async function getAgenda(
     ({ leg }) => !leg.originAt || leg.originAt.slice(0, 10) !== leg.destinationAt!.slice(0, 10),
   );
 
+  // Código/voucher do transporte agora vivem só no voucher de grupo (Voucher/Reserva mesclados — ver 0056).
+  const bookingIdsWithLegs = [...new Set([...legRows, ...arrivalRows].map(({ booking: b }) => b.id))];
+  const groupVoucherRows = bookingIdsWithLegs.length
+    ? await db
+        .select({ bookingId: t.transportVouchers.bookingId, reservationCode: t.transportVouchers.reservationCode, voucherDocumentId: t.transportVouchers.voucherDocumentId })
+        .from(t.transportVouchers)
+        .where(and(inArray(t.transportVouchers.bookingId, bookingIdsWithLegs), eq(t.transportVouchers.isGroup, true)))
+    : [];
+  const groupVoucherByBooking = new Map(groupVoucherRows.map((v) => [v.bookingId, v]));
+
   // Hospedagens: check-in e check-out caem no dia como entradas da agenda.
   const lodgingRows = await db
     .select()
@@ -175,8 +184,8 @@ export async function getAgenda(
       address: i.address,
       notes: i.notes,
       cityName: i.cityName,
-      hasTicket: !!i.ticketDocumentId,
-      ticketDocumentId: i.ticketDocumentId,
+      hasTicket: !!i.reservationDocumentId,
+      ticketDocumentId: i.reservationDocumentId,
       reservation:
         i.reservationProvider ||
         i.reservationCode ||
@@ -202,6 +211,7 @@ export async function getAgenda(
         leg.originAt && leg.destinationAt && leg.originAt.slice(0, 10) === leg.destinationAt.slice(0, 10)
           ? leg.destinationAt.slice(11, 16)
           : null;
+      const groupVoucher = groupVoucherByBooking.get(b.id);
       return {
         id: b.id,
         kind: "booking" as const,
@@ -212,16 +222,17 @@ export async function getAgenda(
         type: b.type,
         location: origin || destination ? `${origin} → ${destination}` : null,
         address: null,
-        notes: b.confirmationCode ? `Código: ${b.confirmationCode}` : b.details,
+        notes: groupVoucher?.reservationCode ? `Código: ${groupVoucher.reservationCode}` : b.details,
         cityName: null,
-        hasTicket: !!b.documentId,
-        ticketDocumentId: b.documentId,
+        hasTicket: !!groupVoucher?.voucherDocumentId,
+        ticketDocumentId: groupVoucher?.voucherDocumentId ?? null,
         reservation: null,
       };
     }),
     ...arrivals.map(({ leg, booking: b, originCityName, destinationCityName }) => {
       const origin = [leg.originLocation, originCityName].filter(Boolean).join(" · ");
       const destination = [leg.destinationLocation, destinationCityName].filter(Boolean).join(" · ");
+      const groupVoucher = groupVoucherByBooking.get(b.id);
       return {
         id: b.id,
         kind: "booking" as const,
@@ -232,10 +243,10 @@ export async function getAgenda(
         type: b.type,
         location: destination || origin || null,
         address: null,
-        notes: b.confirmationCode ? `Código: ${b.confirmationCode}` : b.details,
+        notes: groupVoucher?.reservationCode ? `Código: ${groupVoucher.reservationCode}` : b.details,
         cityName: null,
-        hasTicket: !!b.documentId,
-        ticketDocumentId: b.documentId,
+        hasTicket: !!groupVoucher?.voucherDocumentId,
+        ticketDocumentId: groupVoucher?.voucherDocumentId ?? null,
         reservation: null,
       };
     }),

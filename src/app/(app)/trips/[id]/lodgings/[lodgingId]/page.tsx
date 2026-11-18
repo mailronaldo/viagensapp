@@ -13,7 +13,7 @@ import { listLodgingVouchers } from "@/services/lodging-vouchers";
 import { listPayments } from "@/services/payments";
 import { deleteLodgingAction, updateLodgingAction } from "@/app/actions/lodgings";
 import { addVoucherAction, deleteVoucherAction, updateVoucherAction } from "@/app/actions/lodging-vouchers";
-import { addPaymentAction } from "@/app/actions/payments";
+import { addPaymentAction, updatePaymentAction } from "@/app/actions/payments";
 import { LodgingFields, LodgingVoucherFields, PaymentFields, PaymentList } from "@/components/TripFields";
 import { SavedModal } from "@/components/SavedModal";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
@@ -166,7 +166,13 @@ export default async function EditLodgingPage({
                         <p className="mb-2 text-xs font-medium text-slate-600">
                           Pagamentos{(voucherPaymentsByVoucher.get(v.id)?.length ?? 0) > 0 ? ` (${voucherPaymentsByVoucher.get(v.id)!.length})` : ""}
                         </p>
-                        <PaymentList payments={voucherPaymentsByVoucher.get(v.id) ?? []} travelerName={travelerPayerName} />
+                        <PaymentList
+                          payments={voucherPaymentsByVoucher.get(v.id) ?? []}
+                          travelerName={travelerPayerName}
+                          travelers={travelerOptions}
+                          currency={v.currency ?? trip.baseCurrency}
+                          editAction={(paymentId) => updatePaymentAction.bind(null, trip.id, "LODGING_VOUCHER", v.id, paymentId, editBack)}
+                        />
                         <form action={addPaymentAction.bind(null, trip.id, "LODGING_VOUCHER", v.id, editBack)} className="grid gap-3 sm:grid-cols-6">
                           <PaymentFields travelers={travelerOptions} currency={v.currency ?? trip.baseCurrency} />
                           <div className="sm:col-span-6">

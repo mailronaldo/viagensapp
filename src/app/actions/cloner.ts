@@ -52,7 +52,6 @@ export async function cloneItemAction(tripId: string, formData: FormData) {
         longitude: original.longitude,
         notes: original.notes,
         costEstimate: original.costEstimate,
-        ticketDocumentId: original.ticketDocumentId,
         reservationProvider: original.reservationProvider,
         reservationCode: original.reservationCode,
         reservationPrice: original.reservationPrice,

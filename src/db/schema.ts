@@ -382,12 +382,8 @@ export const bookings = pgTable(
     // Número do pedido (ex.: da agência/site) — muitas vezes diferente do
     // código de confirmação do fornecedor.
     orderNumber: text("order_number"),
-    confirmationCode: text("confirmation_code"),
     tripType: bookingTripType("trip_type").notNull().default("ONE_WAY"),
     details: text("details"),
-    documentId: text("document_id").references(() => documents.id, {
-      onDelete: "set null",
-    }),
   },
   (t) => [index("bookings_trip_idx").on(t.tripId)],
 );
@@ -566,23 +562,20 @@ export const itineraryItems = pgTable(
     latitude: doublePrecision("latitude"),
     longitude: doublePrecision("longitude"),
     notes: text("notes"),
+    // Informativo só pra planejamento/orçamento (módulo futuro) — sem status,
+    // sem categoria, sem pagamento vinculado.
     costEstimate: numeric("cost_estimate", { precision: 12, scale: 2 }),
-    costStatus: valueStatus("cost_status").notNull().default("ESTIMADO"),
-    costCategory: text("cost_category").references(() => expenseCategories.id),
-    // Ingresso/voucher e reserva vinculados
-    ticketDocumentId: text("ticket_document_id").references(() => documents.id, {
-      onDelete: "set null",
-    }),
     bookingId: text("booking_id").references(() => bookings.id, {
       onDelete: "set null",
     }),
-    // Reserva da atividade (opcional): existe quando qualquer um destes campos está preenchido.
+    // Voucher/Reserva da atividade (opcional, único — existe quando qualquer
+    // um destes campos está preenchido). Categoria do pagamento vive em
+    // `payments.category`, não aqui.
     reservationProvider: text("reservation_provider"),
     reservationCode: text("reservation_code"),
     reservationPrice: numeric("reservation_price", { precision: 12, scale: 2 }),
     reservationCurrency: text("reservation_currency"),
     reservationStatus: valueStatus("reservation_status").notNull().default("ESTIMADO"),
-    reservationCategory: text("reservation_category").references(() => expenseCategories.id),
     reservationDetails: text("reservation_details"),
     reservationDocumentId: text("reservation_document_id").references(
       () => documents.id,
@@ -664,6 +657,32 @@ export const itineraryItemTips = pgTable(
     index("itinerary_item_tips_item_idx").on(t.itemId),
   ],
 );
+
+// ---------- Custos avulsos da atividade (1 atividade → N lançamentos) ----------
+
+// Lançamento manual de custo dentro de uma atividade (ex.: guia, aluguel de
+// equipamento) — vários por atividade, cada um com seus próprios pagamentos
+// (sourceType "ITEM_EXPENSE"). Sem categoria própria: a categoria vive no
+// pagamento (`payments.category`), igual à Reserva/Voucher da atividade.
+export const itemExpenses = pgTable(
+  "item_expenses",
+  {
+    id: id(),
+    itemId: text("item_id")
+      .notNull()
+      .references(() => itineraryItems.id, { onDelete: "cascade" }),
+    tripId: text("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    description: text("description").notNull(),
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    currency: text("currency").notNull(),
+    status: valueStatus("status").notNull().default("ESTIMADO"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("item_expenses_item_idx").on(t.itemId), index("item_expenses_trip_idx").on(t.tripId)],
+);
+export type ItemExpense = typeof itemExpenses.$inferSelect;
 
 // ---------- Ingressos (1 atividade → N ingressos, 1 por viajante) ----------
 
@@ -856,6 +875,9 @@ export const expenses = pgTable(
 // apaga em cascata linhas filhas, ex.: apagar uma atividade apaga seus
 // ingressos) precisa chamar `deletePaymentsFor` (services/payments.ts) pra
 // não deixar pagamento órfão.
+// "ITEM_COST" continua existindo no enum do Postgres por causa de pagamentos
+// antigos já migrados pra "ITEM_EXPENSE" (ver 0052) — nunca mais é inserido,
+// por isso nem aparece no union TS `PaymentSourceType` em services/payments.ts.
 export const paymentSourceType = pgEnum("payment_source_type", [
   "EXPENSE",
   "ITEM_COST",
@@ -865,6 +887,7 @@ export const paymentSourceType = pgEnum("payment_source_type", [
   "TRANSPORT_VOUCHER",
   "LODGING_VOUCHER",
   "TRAVEL_INSURANCE",
+  "ITEM_EXPENSE",
 ]);
 
 // Pagamentos lançados contra um custo de qualquer módulo da viagem: cada um
@@ -891,6 +914,10 @@ export const payments = pgTable(
     amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
     // Sempre igual à moeda da origem no momento do lançamento (sem câmbio por pagamento).
     currency: text("currency").notNull(),
+    // Pra origens sem categoria própria (reserva/voucher da atividade, custo
+    // avulso) é escolhida no formulário; pras demais é copiada automaticamente
+    // da categoria da origem (ver `addPayment` em services/payments.ts).
+    category: text("category").references(() => expenseCategories.id, { onDelete: "set null" }),
     createdAt: createdAt(),
   },
   (t) => [index("payments_source_idx").on(t.sourceType, t.sourceId), index("payments_trip_idx").on(t.tripId)],

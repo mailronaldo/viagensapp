@@ -38,13 +38,13 @@ export const SOURCE_LABEL: Record<CostSource, string> = {
   ticket: "Ingresso",
   pass: "Passe",
   insurance: "Seguro viagem",
-  activity_cost: "Atividade (estimativa)",
+  activity_cost: "Atividade (custo avulso)",
   activity_reservation: "Atividade (reserva)",
 };
 
 /** Todo lançamento de valor da viagem, de todas as origens, num formato único. */
 export async function listCostEntries(tripId: string): Promise<CostEntry[]> {
-  const [owner, travelers, expenses, bookings, transportVouchers, lodgings, lodgingVouchers, lodgingVoucherTravelers, chips, tickets, passes, insurances, items] =
+  const [owner, travelers, expenses, bookings, transportVouchers, lodgings, lodgingVouchers, lodgingVoucherTravelers, chips, tickets, passes, insurances, items, itemExpenseRows] =
     await Promise.all([
       db
         .select({ id: t.trips.ownerId, name: t.users.name })
@@ -85,6 +85,7 @@ export async function listCostEntries(tripId: string): Promise<CostEntry[]> {
         .where(eq(t.passes.tripId, tripId)),
       db.select().from(t.travelInsurances).where(eq(t.travelInsurances.tripId, tripId)),
       db.select().from(t.itineraryItems).where(eq(t.itineraryItems.tripId, tripId)),
+      db.select().from(t.itemExpenses).where(eq(t.itemExpenses.tripId, tripId)),
     ]);
 
   const travelerName = new Map(travelers.map((tr) => [tr.id, tr.name]));
@@ -219,28 +220,18 @@ export async function listCostEntries(tripId: string): Promise<CostEntry[]> {
     });
   }
 
+  const itemTitleById = new Map(items.map((it) => [it.id, it.title]));
+
   for (const it of items) {
-    if (it.costEstimate) {
-      entries.push({
-        id: `${it.id}-cost`,
-        source: "activity_cost",
-        title: `${it.title} (estimativa)`,
-        category: it.costCategory,
-        status: it.costStatus,
-        amount: it.costEstimate,
-        currency: "BRL",
-        travelerLabel: "Grupo",
-        travelerIds: [],
-        createdAt: it.createdAt.toISOString(),
-        editHref: `/trips/${tripId}/itinerary/items/${it.id}`,
-      });
-    }
+    // "costEstimate" é só informativo (planejamento) desde que o custo avulso
+    // da atividade ganhou lançamentos próprios — não entra mais aqui.
     if (it.reservationPrice) {
       entries.push({
         id: `${it.id}-reservation`,
         source: "activity_reservation",
         title: `${it.title} (reserva)`,
-        category: it.reservationCategory,
+        // Categoria agora é por pagamento (payments.category), não por origem.
+        category: null,
         status: it.reservationStatus,
         amount: it.reservationPrice,
         currency: it.reservationCurrency ?? "BRL",
@@ -250,6 +241,22 @@ export async function listCostEntries(tripId: string): Promise<CostEntry[]> {
         editHref: `/trips/${tripId}/itinerary/items/${it.id}#reserva`,
       });
     }
+  }
+
+  for (const ie of itemExpenseRows) {
+    entries.push({
+      id: ie.id,
+      source: "activity_cost",
+      title: `${itemTitleById.get(ie.itemId) ?? "Atividade"} — ${ie.description}`,
+      category: null,
+      status: ie.status,
+      amount: ie.amount,
+      currency: ie.currency,
+      travelerLabel: "Grupo",
+      travelerIds: [],
+      createdAt: ie.createdAt.toISOString(),
+      editHref: `/trips/${tripId}/itinerary/items/${ie.itemId}`,
+    });
   }
 
   return entries;

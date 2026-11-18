@@ -253,11 +253,6 @@ async function findVoucherCandidates(tripId: string, query: string): Promise<Vou
     .innerJoin(t.lodgings, eq(t.lodgings.id, t.lodgingVouchers.lodgingId))
     .where(and(eq(t.lodgings.tripId, tripId), ilike(t.lodgingVouchers.name, pattern)));
 
-  const bookingMatches = await db
-    .select({ documentId: t.bookings.documentId, title: t.bookings.title, provider: t.bookings.provider })
-    .from(t.bookings)
-    .where(and(eq(t.bookings.tripId, tripId), or(ilike(t.bookings.title, pattern), ilike(t.bookings.provider, pattern))));
-
   const transportVoucherMatches = await db
     .select({ documentId: t.transportVouchers.voucherDocumentId, title: t.bookings.title, provider: t.transportVouchers.provider })
     .from(t.transportVouchers)
@@ -265,13 +260,17 @@ async function findVoucherCandidates(tripId: string, query: string): Promise<Vou
     .where(
       and(
         eq(t.bookings.tripId, tripId),
-        or(ilike(t.bookings.title, pattern), ilike(t.transportVouchers.provider, pattern), ilike(t.transportVouchers.reservationCode, pattern)),
+        or(
+          ilike(t.bookings.title, pattern),
+          ilike(t.bookings.provider, pattern),
+          ilike(t.transportVouchers.provider, pattern),
+          ilike(t.transportVouchers.reservationCode, pattern),
+        ),
       ),
     );
 
   const itemMatches = await db
     .select({
-      ticketDocumentId: t.itineraryItems.ticketDocumentId,
       reservationDocumentId: t.itineraryItems.reservationDocumentId,
       title: t.itineraryItems.title,
     })
@@ -306,12 +305,10 @@ async function findVoucherCandidates(tripId: string, query: string): Promise<Vou
 
   const candidates: VoucherCandidate[] = [...byDoc];
   for (const m of lodgingMatches) if (m.documentId) candidates.push({ documentId: m.documentId, label: `Hospedagem — ${m.label}` });
-  for (const m of bookingMatches) if (m.documentId) candidates.push({ documentId: m.documentId, label: `Transporte — ${m.title}` });
   for (const m of transportVoucherMatches)
-    if (m.documentId) candidates.push({ documentId: m.documentId, label: `Transporte (voucher) — ${m.title}${m.provider ? ` — ${m.provider}` : ""}` });
+    if (m.documentId) candidates.push({ documentId: m.documentId, label: `Transporte — ${m.title}${m.provider ? ` — ${m.provider}` : ""}` });
   for (const m of itemMatches) {
-    if (m.ticketDocumentId) candidates.push({ documentId: m.ticketDocumentId, label: `Ingresso — ${m.title}` });
-    if (m.reservationDocumentId) candidates.push({ documentId: m.reservationDocumentId, label: `Reserva da atividade — ${m.title}` });
+    if (m.reservationDocumentId) candidates.push({ documentId: m.reservationDocumentId, label: `Reserva/voucher da atividade — ${m.title}` });
   }
   for (const m of ticketVoucherMatches)
     if (m.documentId) candidates.push({ documentId: m.documentId, label: `Ingresso — ${m.title}${m.provider ? ` — ${m.provider}` : ""}` });

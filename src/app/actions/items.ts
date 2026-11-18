@@ -7,10 +7,10 @@ import { requireTripAccess } from "@/lib/access";
 import { attachmentFromForm } from "@/lib/attachment";
 import { HH_MM, ISO_DATE, fail, parseDecimal, str } from "@/lib/form";
 import { listClientCurrencyCodes } from "@/services/currencies";
-import { parseOptionalCategory } from "@/services/catalogs";
 import { getActivityRouteUrls } from "@/services/routes";
 import { deletePaymentsFor, recomputeStatus } from "@/services/payments";
 import { listTicketIdsForItem } from "@/services/tickets";
+import { listItemExpenseIdsForItem } from "@/services/item-expenses";
 
 async function parseItem(
   tripId: string,
@@ -65,6 +65,7 @@ async function parseItem(
   }
 
   const costRaw = str(formData, "costEstimate");
+  // Informativo só pra planejamento/orçamento (módulo futuro) — sem status, sem categoria.
   const costEstimate = parseDecimal(costRaw);
   if (costRaw && costEstimate === null) fail(back, "Valor estimado inválido.");
 
@@ -85,7 +86,7 @@ async function parseItem(
     reservationCurrency: reservationPrice ? (resCurrency ?? "BRL") : null,
     // Sem status manual (nem no cadastro nem na edição) — vira "Pago" sozinho
     // quando a soma dos pagamentos bater com o total (ver addItemAction/updateItemAction).
-    reservationCategory: await parseOptionalCategory(str(formData, "reservationCategory")),
+    // Categoria do pagamento da reserva vive em payments.category, não aqui.
     reservationDetails: str(formData, "reservationDetails"),
     cityId,
     neighborhoodId,
@@ -98,7 +99,6 @@ async function parseItem(
     address: str(formData, "address"),
     notes: str(formData, "notes"),
     costEstimate,
-    costCategory: await parseOptionalCategory(str(formData, "costCategory")),
   };
 }
 
@@ -109,15 +109,6 @@ export async function addItemAction(tripId: string, formData: FormData) {
   const back =
     day && ISO_DATE.test(day) ? `/trips/${tripId}/itinerary/day/${day}` : `/trips/${tripId}/itinerary`;
   const v = await parseItem(tripId, trip, formData, back, { requireNeighborhood: true });
-
-  const ticketDocumentId = await attachmentFromForm({
-    tripId,
-    formData,
-    fileField: "ticket",
-    doc: { type: "TICKET", title: `Ingresso — ${v.title}` },
-    back,
-    current: null,
-  });
 
   const reservationDocumentId = await attachmentFromForm({
     tripId,
@@ -131,7 +122,7 @@ export async function addItemAction(tripId: string, formData: FormData) {
   const [item] = await db
     .insert(t.itineraryItems)
     // Sem pagamento ainda — vira "PAGO" sozinho quando a soma dos pagamentos bater com o total.
-    .values({ tripId, ...v, costStatus: "A_PAGAR", reservationStatus: "A_PAGAR", ticketDocumentId, reservationDocumentId })
+    .values({ tripId, ...v, reservationStatus: "A_PAGAR", reservationDocumentId })
     .returning({ id: t.itineraryItems.id });
   // Leva direto pro editar: é lá que aparecem os boxes de Ingressos, Passe, Pontos de
   // interesse, Tips e Região — todos dependem do id da atividade já existir.
@@ -150,15 +141,6 @@ export async function updateItemAction(tripId: string, itemId: string, formData:
   if (!current) redirect(`/trips/${tripId}/itinerary`);
 
   const v = await parseItem(tripId, trip, formData, back);
-  const ticketDocumentId = await attachmentFromForm({
-    tripId,
-    formData,
-    fileField: "ticket",
-    removeField: "removeTicket",
-    doc: { type: "TICKET", title: `Ingresso — ${v.title}` },
-    back,
-    current: current.ticketDocumentId,
-  });
 
   const reservationDocumentId = await attachmentFromForm({
     tripId,
@@ -172,10 +154,9 @@ export async function updateItemAction(tripId: string, itemId: string, formData:
 
   await db
     .update(t.itineraryItems)
-    .set({ ...v, ticketDocumentId, reservationDocumentId })
+    .set({ ...v, reservationDocumentId })
     .where(and(eq(t.itineraryItems.id, itemId), eq(t.itineraryItems.tripId, tripId)));
-  // Os totais podem ter mudado — recalcula se ainda bate com os pagamentos já lançados.
-  await recomputeStatus("ITEM_COST", itemId);
+  // O total da reserva pode ter mudado — recalcula se ainda bate com os pagamentos já lançados.
   await recomputeStatus("ITEM_RESERVATION", itemId);
 
   // "Salvar alterações" e "Salvar reserva" mandam ficar na tela de edição
@@ -190,12 +171,13 @@ export async function updateItemAction(tripId: string, itemId: string, formData:
 export async function deleteItemAction(tripId: string, itemId: string, day: string) {
   await requireTripAccess(tripId, { write: true });
   const ticketIds = await listTicketIdsForItem(itemId);
+  const itemExpenseIds = await listItemExpenseIdsForItem(itemId);
   await db
     .delete(t.itineraryItems)
     .where(and(eq(t.itineraryItems.id, itemId), eq(t.itineraryItems.tripId, tripId)));
-  await deletePaymentsFor("ITEM_COST", itemId);
   await deletePaymentsFor("ITEM_RESERVATION", itemId);
   if (ticketIds.length > 0) await deletePaymentsFor("ACTIVITY_TICKET", ticketIds);
+  if (itemExpenseIds.length > 0) await deletePaymentsFor("ITEM_EXPENSE", itemExpenseIds);
   redirect(
     ISO_DATE.test(day) ? `/trips/${tripId}/itinerary/day/${day}` : `/trips/${tripId}/itinerary`,
   );
@@ -212,7 +194,6 @@ export async function removeReservationAction(tripId: string, itemId: string, re
       reservationPrice: null,
       reservationCurrency: null,
       reservationStatus: "ESTIMADO",
-      reservationCategory: null,
       reservationDetails: null,
       reservationDocumentId: null,
     })

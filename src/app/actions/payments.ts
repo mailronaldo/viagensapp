@@ -1,21 +1,28 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
+import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { ISO_DATE, fail, parseDecimal, str } from "@/lib/form";
 import { isInTripGroup } from "@/services/trip-travelers";
-import { addPayment, sourceBelongsToTrip, type PaymentSourceType } from "@/services/payments";
+import {
+  addPayment,
+  sourceBelongsToTrip,
+  updatePayment,
+  type PaymentSourceType,
+} from "@/services/payments";
 
 const PAYMENT_METHODS = ["PIX", "CREDITO", "DEBITO", "DINHEIRO"] as const;
 const PAYMENT_FORMS = ["AVISTA", "PARCELADO"] as const;
 
 /**
- * Lança um pagamento novo contra qualquer origem de custo da viagem
- * (despesa, custo/reserva de atividade, ingresso, passe, voucher de
- * transporte/hospedagem, seguro) — nunca edita/apaga um pagamento anterior.
- * "OUTRO" não entra nas opções do form (só existe em pagamentos de backfill).
+ * Parse comum entre lançar e editar um pagamento — confere acesso de
+ * escrita, que a origem pertence à viagem, pagador, data, meio, forma,
+ * parcelas, valor e categoria (categoria é ignorada pela origem quando ela
+ * já tem categoria própria — ver `addPayment`/`updatePayment`).
  */
-export async function addPaymentAction(tripId: string, sourceType: PaymentSourceType, sourceId: string, back: string, formData: FormData) {
+async function parsePaymentInput(tripId: string, sourceType: PaymentSourceType, sourceId: string, back: string, formData: FormData) {
   const { trip } = await requireTripAccess(tripId, { write: true });
   if (!(await sourceBelongsToTrip(sourceType, sourceId, tripId))) redirect(`/trips/${tripId}`);
 
@@ -36,17 +43,55 @@ export async function addPaymentAction(tripId: string, sourceType: PaymentSource
   const amount = parseDecimal(str(formData, "amount"), { positive: true });
   if (amount === null) fail(back, "Informe um valor válido maior que zero.");
 
+  const categoryRaw = str(formData, "category");
+  let category: string | null = null;
+  if (categoryRaw) {
+    const [cat] = await db.select({ id: t.expenseCategories.id }).from(t.expenseCategories).where(eq(t.expenseCategories.id, categoryRaw)).limit(1);
+    if (!cat) fail(back, "Categoria inválida.");
+    category = categoryRaw;
+  }
+
+  return {
+    payerTravelerId,
+    paymentDate,
+    method,
+    form,
+    installments: str(formData, "installments"),
+    amount,
+    category,
+  };
+}
+
+/**
+ * Lança um pagamento novo contra qualquer origem de custo da viagem
+ * (despesa, reserva/voucher de atividade, custo avulso, ingresso, passe,
+ * voucher de transporte/hospedagem, seguro).
+ * "OUTRO" não entra nas opções do form (só existe em pagamentos de backfill).
+ */
+export async function addPaymentAction(tripId: string, sourceType: PaymentSourceType, sourceId: string, back: string, formData: FormData) {
+  const input = await parsePaymentInput(tripId, sourceType, sourceId, back, formData);
   try {
-    await addPayment(sourceType, sourceId, {
-      payerTravelerId,
-      paymentDate,
-      method,
-      form,
-      installments: str(formData, "installments"),
-      amount,
-    });
+    await addPayment(sourceType, sourceId, input);
   } catch {
     fail(back, "Não foi possível lançar o pagamento — registro de origem não encontrado.");
+  }
+  redirect(back);
+}
+
+/** Edita um pagamento já lançado — pagador, data, meio, forma, parcelas, valor e categoria. */
+export async function updatePaymentAction(
+  tripId: string,
+  sourceType: PaymentSourceType,
+  sourceId: string,
+  paymentId: string,
+  back: string,
+  formData: FormData,
+) {
+  const input = await parsePaymentInput(tripId, sourceType, sourceId, back, formData);
+  try {
+    await updatePayment(paymentId, sourceType, sourceId, input);
+  } catch {
+    fail(back, "Não foi possível editar o pagamento.");
   }
   redirect(back);
 }

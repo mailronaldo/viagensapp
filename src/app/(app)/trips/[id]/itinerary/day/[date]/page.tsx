@@ -15,7 +15,6 @@ import {
   LEGACY_BOOKING_TYPE_IDS,
   listActivityTypes,
   listBookingTypes,
-  listExpenseCategories,
   listLodgingTypes,
   toNameMap,
 } from "@/services/catalogs";
@@ -48,12 +47,11 @@ export default async function ItineraryDayPage({
   const { trip, canWrite } = await requireTripAccess(id);
   if (!ISO_DATE.test(date) || date < trip.startDate || date > trip.endDate) notFound();
 
-  const [cities, activityTypes, bookingTypes, lodgingTypes, categories, agenda, plan, docs, currencies] = await Promise.all([
+  const [cities, activityTypes, bookingTypes, lodgingTypes, agenda, plan, docs, currencies] = await Promise.all([
     getTripCities(trip.id),
     listActivityTypes(),
     listBookingTypes(),
     listLodgingTypes(),
-    listExpenseCategories(),
     getAgenda(trip, date),
     getDayPlan(trip.id, date),
     db.select({ id: t.documents.id, fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.tripId, trip.id)),
@@ -256,7 +254,6 @@ export default async function ItineraryDayPage({
                 trip={trip}
                 cities={cities}
                 types={activityTypes.filter((ty) => !LEGACY_ACTIVITY_TYPE_IDS.includes(ty.id))}
-                categories={categories}
                 neighborhoods={neighborhoods}
                 defaultDate={date}
                 currencies={currencies}

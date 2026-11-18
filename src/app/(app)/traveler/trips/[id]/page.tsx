@@ -59,6 +59,13 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
   const base = `/traveler/trips/${trip.id}`;
   const legsByBooking = await listLegsForBookings(transports.map((b) => b.id));
   const vouchersByLodging = await listVouchersForLodgings(lodgings.map((l) => l.id));
+  const groupVoucherRows = transports.length
+    ? await db
+        .select({ bookingId: t.transportVouchers.bookingId, reservationCode: t.transportVouchers.reservationCode, voucherDocumentId: t.transportVouchers.voucherDocumentId })
+        .from(t.transportVouchers)
+        .where(and(inArray(t.transportVouchers.bookingId, transports.map((b) => b.id)), eq(t.transportVouchers.isGroup, true)))
+    : [];
+  const groupVoucherByBooking = new Map(groupVoucherRows.map((v) => [v.bookingId, v]));
   const legCityIds = [...legsByBooking.values()].flat().flatMap((leg) => [leg.originCityId, leg.destinationCityId]).filter((v): v is string => !!v);
   const legCities = legCityIds.length ? await db.select().from(t.cities).where(inArray(t.cities.id, legCityIds)) : [];
   const legCityName = toNameMap(legCities);
@@ -156,6 +163,7 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
             <ul className="space-y-2">
               {transports.map((b) => {
                 const legs = legsByBooking.get(b.id) ?? [];
+                const groupVoucher = groupVoucherByBooking.get(b.id);
                 return (
                   <li key={b.id}>
                     <Card className="p-4">
@@ -182,14 +190,19 @@ export default async function TravelerTripPage({ params }: { params: Promise<{ i
                           </div>
                         ))
                       )}
-                      {b.confirmationCode && (
+                      {groupVoucher?.reservationCode && (
                         <p className="text-xs text-slate-500">
-                          Confirmação: <span className="font-mono">{b.confirmationCode}</span>
+                          Confirmação: <span className="font-mono">{groupVoucher.reservationCode}</span>
                         </p>
                       )}
-                      {b.documentId && (
-                        <a href={`/api/files/${trip.id}/${b.documentId}`} target="_blank" rel="noreferrer" className="text-xs text-brand-700 hover:underline">
-                          📎 {docName.get(b.documentId) ?? "Voucher"}
+                      {groupVoucher?.voucherDocumentId && (
+                        <a
+                          href={`/api/files/${trip.id}/${groupVoucher.voucherDocumentId}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-brand-700 hover:underline"
+                        >
+                          📎 {docName.get(groupVoucher.voucherDocumentId) ?? "Voucher"}
                         </a>
                       )}
                     </Card>

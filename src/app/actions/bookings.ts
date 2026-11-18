@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
-import { attachmentFromForm } from "@/lib/attachment";
 import { LOCAL_DATETIME, fail, str, toWallClock } from "@/lib/form";
 import { deletePaymentsFor } from "@/services/payments";
 
@@ -101,7 +100,6 @@ async function parseBooking(tripId: string, formData: FormData, back: string) {
     title,
     provider: str(formData, "provider"),
     orderNumber: str(formData, "orderNumber"),
-    confirmationCode: str(formData, "confirmationCode"),
     tripType: parseTripType(formData),
     details: str(formData, "details"),
   };
@@ -114,16 +112,7 @@ export async function addBookingAction(tripId: string, formData: FormData) {
   const v = await parseBooking(tripId, formData, back);
   const legs = await parseLegs(formData, tripId, v.tripType, back);
 
-  const documentId = await attachmentFromForm({
-    tripId,
-    formData,
-    fileField: "voucher",
-    doc: { type: "RESERVATION", title: `Reserva — ${v.title}` },
-    back,
-    current: null,
-  });
-
-  const [booking] = await db.insert(t.bookings).values({ tripId, ...v, documentId }).returning({ id: t.bookings.id });
+  const [booking] = await db.insert(t.bookings).values({ tripId, ...v }).returning({ id: t.bookings.id });
   if (legs.length > 0) {
     await db.insert(t.bookingLegs).values(legs.map((leg) => ({ bookingId: booking.id, ...leg })));
   }
@@ -147,20 +136,11 @@ export async function updateBookingAction(tripId: string, bookingId: string, for
 
   const v = await parseBooking(tripId, formData, back);
   const legs = await parseLegs(formData, tripId, v.tripType, back);
-  const documentId = await attachmentFromForm({
-    tripId,
-    formData,
-    fileField: "voucher",
-    removeField: "removeVoucher",
-    doc: { type: "RESERVATION", title: `Reserva — ${v.title}` },
-    back,
-    current: current.documentId,
-  });
 
   await db.transaction(async (tx) => {
     await tx
       .update(t.bookings)
-      .set({ ...v, documentId })
+      .set(v)
       .where(and(eq(t.bookings.id, bookingId), eq(t.bookings.tripId, tripId)));
     // Substitui os trechos (somente ida/ida e volta) do zero — evita lidar
     // com sobra de trechos de uma troca de tipo de viagem. Múltiplos trechos

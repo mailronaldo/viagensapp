@@ -9,7 +9,7 @@ import { listTravelerTickets } from "@/services/tickets";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import { listTripTravelerOptions } from "@/services/trip-travelers";
 import { listPayments } from "@/services/payments";
-import { addPaymentAction } from "@/app/actions/payments";
+import { addPaymentAction, updatePaymentAction } from "@/app/actions/payments";
 import { VALUE_STATUS_LABEL, VALUE_STATUS_TONE } from "@/lib/labels";
 import { deleteOwnerChipAction, upsertOwnerChipAction } from "@/app/actions/chips";
 import { addPassAction, deletePassAction, updatePassAction } from "@/app/actions/passes";
@@ -112,7 +112,13 @@ export default async function OwnerTravelerHubPage({
               <p className="mb-2 text-xs font-medium text-slate-600">
                 Pagamentos{insurancePayments.length > 0 ? ` (${insurancePayments.length})` : ""}
               </p>
-              <PaymentList payments={insurancePayments} travelerName={travelerPayerName} />
+              <PaymentList
+                payments={insurancePayments}
+                travelerName={travelerPayerName}
+                travelers={travelerOptions}
+                currency={insurance.currency ?? trip.baseCurrency}
+                editAction={(paymentId) => updatePaymentAction.bind(null, trip.id, "TRAVEL_INSURANCE", insurance.id, paymentId, `/trips/${trip.id}/travelers/owner`)}
+              />
               <form
                 action={addPaymentAction.bind(null, trip.id, "TRAVEL_INSURANCE", insurance.id, `/trips/${trip.id}/travelers/owner`)}
                 className="grid gap-3 sm:grid-cols-6"
@@ -216,7 +222,13 @@ export default async function OwnerTravelerHubPage({
                             <p className="mb-2 text-xs font-medium text-slate-600">
                               Pagamentos{(passPaymentsByPass.get(p.id)?.length ?? 0) > 0 ? ` (${passPaymentsByPass.get(p.id)!.length})` : ""}
                             </p>
-                            <PaymentList payments={passPaymentsByPass.get(p.id) ?? []} travelerName={travelerPayerName} />
+                            <PaymentList
+                              payments={passPaymentsByPass.get(p.id) ?? []}
+                              travelerName={travelerPayerName}
+                              travelers={travelerOptions}
+                              currency={p.currency ?? trip.baseCurrency}
+                              editAction={(paymentId) => updatePaymentAction.bind(null, trip.id, "PASS", p.id, paymentId, `/trips/${trip.id}/travelers/owner`)}
+                            />
                             <form
                               action={addPaymentAction.bind(null, trip.id, "PASS", p.id, `/trips/${trip.id}/travelers/owner`)}
                               className="grid gap-3 sm:grid-cols-6"

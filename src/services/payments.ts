@@ -5,15 +5,21 @@ import { listTripTravelerOptions, type TripTravelerOption } from "./trip-travele
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+// "ITEM_COST" não entra aqui — fica morto no enum do Postgres (ver schema.ts),
+// nunca mais é lançado (migrado pra "ITEM_EXPENSE" em 0052).
 export type PaymentSourceType =
   | "EXPENSE"
-  | "ITEM_COST"
   | "ITEM_RESERVATION"
   | "ACTIVITY_TICKET"
   | "PASS"
   | "TRANSPORT_VOUCHER"
   | "LODGING_VOUCHER"
-  | "TRAVEL_INSURANCE";
+  | "TRAVEL_INSURANCE"
+  | "ITEM_EXPENSE";
+
+// Origens sem categoria própria (Reserva/Voucher da atividade e custo
+// avulso) deixam o pagador escolher a categoria no formulário.
+export const PAYMENT_SOURCE_TYPES_WITH_OWN_CATEGORY = ["ITEM_RESERVATION", "ITEM_EXPENSE"] as const;
 
 export type NewPayment = {
   payerTravelerId: string | null;
@@ -22,9 +28,11 @@ export type NewPayment = {
   form: "AVISTA" | "PARCELADO";
   installments: string | null;
   amount: string;
+  /** Só usado quando a origem não tem categoria própria — ver `PAYMENT_SOURCE_TYPES_WITH_OWN_CATEGORY`. */
+  category?: string | null;
 };
 
-type SourceInfo = { tripId: string; amount: string | null; currency: string };
+type SourceInfo = { tripId: string; amount: string | null; currency: string; category: string | null };
 
 async function baseCurrencyOf(tx: Tx | typeof db, tripId: string): Promise<string> {
   const [row] = await tx.select({ baseCurrency: t.trips.baseCurrency }).from(t.trips).where(eq(t.trips.id, tripId)).limit(1);
@@ -37,27 +45,32 @@ async function getSource(tx: Tx | typeof db, sourceType: PaymentSourceType, sour
     case "EXPENSE": {
       const [row] = await tx.select().from(t.expenses).where(eq(t.expenses.id, sourceId)).limit(1);
       if (!row) return null;
-      return { tripId: row.tripId, amount: row.amount, currency: row.currency };
-    }
-    case "ITEM_COST": {
-      const [row] = await tx.select().from(t.itineraryItems).where(eq(t.itineraryItems.id, sourceId)).limit(1);
-      if (!row) return null;
-      return { tripId: row.tripId, amount: row.costEstimate, currency: await baseCurrencyOf(tx, row.tripId) };
+      return { tripId: row.tripId, amount: row.amount, currency: row.currency, category: row.category };
     }
     case "ITEM_RESERVATION": {
       const [row] = await tx.select().from(t.itineraryItems).where(eq(t.itineraryItems.id, sourceId)).limit(1);
       if (!row) return null;
-      return { tripId: row.tripId, amount: row.reservationPrice, currency: row.reservationCurrency ?? (await baseCurrencyOf(tx, row.tripId)) };
+      return {
+        tripId: row.tripId,
+        amount: row.reservationPrice,
+        currency: row.reservationCurrency ?? (await baseCurrencyOf(tx, row.tripId)),
+        category: null,
+      };
+    }
+    case "ITEM_EXPENSE": {
+      const [row] = await tx.select().from(t.itemExpenses).where(eq(t.itemExpenses.id, sourceId)).limit(1);
+      if (!row) return null;
+      return { tripId: row.tripId, amount: row.amount, currency: row.currency, category: null };
     }
     case "ACTIVITY_TICKET": {
       const [row] = await tx.select().from(t.activityTickets).where(eq(t.activityTickets.id, sourceId)).limit(1);
       if (!row) return null;
-      return { tripId: row.tripId, amount: row.price, currency: row.currency ?? (await baseCurrencyOf(tx, row.tripId)) };
+      return { tripId: row.tripId, amount: row.price, currency: row.currency ?? (await baseCurrencyOf(tx, row.tripId)), category: row.category };
     }
     case "PASS": {
       const [row] = await tx.select().from(t.passes).where(eq(t.passes.id, sourceId)).limit(1);
       if (!row) return null;
-      return { tripId: row.tripId, amount: row.price, currency: row.currency ?? (await baseCurrencyOf(tx, row.tripId)) };
+      return { tripId: row.tripId, amount: row.price, currency: row.currency ?? (await baseCurrencyOf(tx, row.tripId)), category: row.category };
     }
     case "TRANSPORT_VOUCHER": {
       const [row] = await tx
@@ -67,7 +80,12 @@ async function getSource(tx: Tx | typeof db, sourceType: PaymentSourceType, sour
         .where(eq(t.transportVouchers.id, sourceId))
         .limit(1);
       if (!row) return null;
-      return { tripId: row.tripId, amount: row.v.price, currency: row.v.currency ?? (await baseCurrencyOf(tx, row.tripId)) };
+      return {
+        tripId: row.tripId,
+        amount: row.v.price,
+        currency: row.v.currency ?? (await baseCurrencyOf(tx, row.tripId)),
+        category: row.v.category,
+      };
     }
     case "LODGING_VOUCHER": {
       const [row] = await tx
@@ -77,12 +95,17 @@ async function getSource(tx: Tx | typeof db, sourceType: PaymentSourceType, sour
         .where(eq(t.lodgingVouchers.id, sourceId))
         .limit(1);
       if (!row) return null;
-      return { tripId: row.tripId, amount: row.v.price, currency: row.v.currency ?? (await baseCurrencyOf(tx, row.tripId)) };
+      return {
+        tripId: row.tripId,
+        amount: row.v.price,
+        currency: row.v.currency ?? (await baseCurrencyOf(tx, row.tripId)),
+        category: row.v.category,
+      };
     }
     case "TRAVEL_INSURANCE": {
       const [row] = await tx.select().from(t.travelInsurances).where(eq(t.travelInsurances.id, sourceId)).limit(1);
       if (!row) return null;
-      return { tripId: row.tripId, amount: row.price, currency: row.currency ?? (await baseCurrencyOf(tx, row.tripId)) };
+      return { tripId: row.tripId, amount: row.price, currency: row.currency ?? (await baseCurrencyOf(tx, row.tripId)), category: row.category };
     }
   }
 }
@@ -91,10 +114,10 @@ async function setSourceStatus(tx: Tx | typeof db, sourceType: PaymentSourceType
   switch (sourceType) {
     case "EXPENSE":
       return void (await tx.update(t.expenses).set({ status }).where(eq(t.expenses.id, sourceId)));
-    case "ITEM_COST":
-      return void (await tx.update(t.itineraryItems).set({ costStatus: status }).where(eq(t.itineraryItems.id, sourceId)));
     case "ITEM_RESERVATION":
       return void (await tx.update(t.itineraryItems).set({ reservationStatus: status }).where(eq(t.itineraryItems.id, sourceId)));
+    case "ITEM_EXPENSE":
+      return void (await tx.update(t.itemExpenses).set({ status }).where(eq(t.itemExpenses.id, sourceId)));
     case "ACTIVITY_TICKET":
       return void (await tx.update(t.activityTickets).set({ status }).where(eq(t.activityTickets.id, sourceId)));
     case "PASS":
@@ -131,10 +154,44 @@ export async function addPayment(sourceType: PaymentSourceType, sourceId: string
   return db.transaction(async (tx) => {
     const source = await getSource(tx, sourceType, sourceId);
     if (!source) throw new Error("Registro de origem não encontrado.");
+    // Origem com categoria própria: sempre usa a dela (ignora o que vier do
+    // formulário). Sem categoria própria: usa a escolhida no formulário.
+    const category = source.category ?? input.category ?? null;
     const [row] = await tx
       .insert(t.payments)
-      .values({ tripId: source.tripId, sourceType, sourceId, ...input, currency: source.currency })
+      .values({ tripId: source.tripId, sourceType, sourceId, ...input, currency: source.currency, category })
       .returning();
+    await recomputeStatus(sourceType, sourceId, tx);
+    return row;
+  });
+}
+
+export type PaymentPatch = {
+  payerTravelerId: string | null;
+  paymentDate: string;
+  method: "PIX" | "CREDITO" | "DEBITO" | "DINHEIRO" | "OUTRO";
+  form: "AVISTA" | "PARCELADO";
+  installments: string | null;
+  amount: string;
+  category?: string | null;
+};
+
+/**
+ * Edita um pagamento já lançado (payer/data/meio/forma/parcelas/valor/
+ * categoria) e recalcula o status da origem — `sourceType`/`sourceId`/
+ * `tripId`/`currency` nunca são editáveis (moeda sempre vem da origem).
+ */
+export async function updatePayment(paymentId: string, sourceType: PaymentSourceType, sourceId: string, patch: PaymentPatch) {
+  return db.transaction(async (tx) => {
+    const source = await getSource(tx, sourceType, sourceId);
+    if (!source) throw new Error("Registro de origem não encontrado.");
+    const category = source.category ?? patch.category ?? null;
+    const [row] = await tx
+      .update(t.payments)
+      .set({ ...patch, category })
+      .where(and(eq(t.payments.id, paymentId), eq(t.payments.sourceType, sourceType), eq(t.payments.sourceId, sourceId)))
+      .returning();
+    if (!row) throw new Error("Pagamento não encontrado para esta origem.");
     await recomputeStatus(sourceType, sourceId, tx);
     return row;
   });

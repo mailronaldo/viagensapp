@@ -40,17 +40,13 @@ export default async function BookingsPage({
   const { error } = await searchParams;
   const { trip, canWrite } = await requireTripAccess(id);
 
-  const [cities, bookingTypes, rows, [owner]] = await Promise.all([
+  const [cities, bookingTypes, bookingRows, [owner]] = await Promise.all([
     getTripCities(trip.id),
     listBookingTypes(),
-    db
-      .select({ booking: t.bookings, fileName: t.documents.fileName })
-      .from(t.bookings)
-      .leftJoin(t.documents, eq(t.documents.id, t.bookings.documentId))
-      .where(eq(t.bookings.tripId, trip.id))
-      .orderBy(asc(t.bookings.title)),
+    db.select().from(t.bookings).where(eq(t.bookings.tripId, trip.id)).orderBy(asc(t.bookings.title)),
     db.select({ name: t.users.name }).from(t.users).where(eq(t.users.id, trip.ownerId)).limit(1),
   ]);
+  const rows = bookingRows.map((booking) => ({ booking }));
   const neighborhoods = await listNeighborhoodsForCities(cities.map((c) => c.id));
   const typeName = toNameMap(bookingTypes);
   const creatableTypes = bookingTypes.filter((ty) => !LEGACY_BOOKING_TYPE_IDS.includes(ty.id));
@@ -86,7 +82,7 @@ export default async function BookingsPage({
         <EmptyState>Nenhum transporte cadastrado ainda.</EmptyState>
       ) : (
         <ul className="space-y-3">
-          {sortedRows.map(({ booking: b, fileName }) => {
+          {sortedRows.map(({ booking: b }) => {
             const legs = legsByBooking.get(b.id) ?? [];
             const legLabeler = LEG_LABEL[b.tripType] ?? (() => null);
             return (
@@ -145,18 +141,11 @@ export default async function BookingsPage({
                     ) : (
                       b.tripType === "MULTI_LEG" && <p className="text-sm text-amber-700">Nenhum trecho cadastrado ainda</p>
                     )}
-                    <p className="mt-1 text-xs text-slate-500">
-                      {b.orderNumber && (
-                        <span className="mr-3">
-                          Pedido: <span className="font-mono">{b.orderNumber}</span>
-                        </span>
-                      )}
-                      {b.confirmationCode && (
-                        <span className="mr-3">
-                          Confirmação: <span className="font-mono">{b.confirmationCode}</span>
-                        </span>
-                      )}
-                    </p>
+                    {b.orderNumber && (
+                      <p className="mt-1 text-xs text-slate-500">
+                        Pedido: <span className="font-mono">{b.orderNumber}</span>
+                      </p>
+                    )}
                     {(() => {
                       const vouchers = vouchersByBooking.get(b.id) ?? [];
                       return vouchers.length > 0 ? (
@@ -176,16 +165,6 @@ export default async function BookingsPage({
                       );
                     })()}
                     {b.details && <p className="mt-1 text-xs text-slate-500">{b.details}</p>}
-                    {b.documentId && (
-                      <a
-                        href={`/api/files/${trip.id}/${b.documentId}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-1 inline-block text-xs text-brand-700 hover:underline"
-                      >
-                        📎 {fileName ?? "Voucher"}
-                      </a>
-                    )}
                   </div>
                 </Card>
               </li>

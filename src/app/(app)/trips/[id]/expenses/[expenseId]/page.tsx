@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireTripAccess } from "@/lib/access";
 import { deleteExpenseAction, updateExpenseAction } from "@/app/actions/expenses";
-import { addPaymentAction } from "@/app/actions/payments";
+import { addPaymentAction, updatePaymentAction } from "@/app/actions/payments";
 import { listExpenseCategories } from "@/services/catalogs";
 import { listClientCurrencyCodes } from "@/services/currencies";
 import { listPayments } from "@/services/payments";
@@ -64,7 +64,13 @@ export default async function EditExpensePage({
 
       <div className="mt-6">
         <AddPanel title={`Pagamentos${payments.length > 0 ? ` (${payments.length})` : ""}`} defaultOpen>
-          <PaymentList payments={payments} travelerName={travelerName} />
+          <PaymentList
+            payments={payments}
+            travelerName={travelerName}
+            travelers={travelers}
+            currency={expense.currency}
+            editAction={(paymentId) => updatePaymentAction.bind(null, trip.id, "EXPENSE", expense.id, paymentId, back)}
+          />
           <p className="mb-2 text-sm font-medium">Lançar pagamento</p>
           <form action={addPaymentAction.bind(null, trip.id, "EXPENSE", expense.id, back)} className="grid gap-3 sm:grid-cols-6">
             <PaymentFields travelers={travelers} currency={expense.currency} />

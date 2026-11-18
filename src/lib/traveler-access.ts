@@ -1,6 +1,6 @@
 import "server-only";
 import { notFound } from "next/navigation";
-import { and, eq, or } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, t } from "@/db";
 import { requireAuth, type CurrentUser } from "./auth";
 import { getTripAccessFor } from "./access";
@@ -60,24 +60,17 @@ export async function travelerCanReadDocument(
   const [item] = await db
     .select({ id: t.itineraryItems.id })
     .from(t.itineraryItems)
-    .where(
-      and(
-        eq(t.itineraryItems.tripId, tripId),
-        or(
-          eq(t.itineraryItems.ticketDocumentId, doc.id),
-          eq(t.itineraryItems.reservationDocumentId, doc.id),
-        ),
-      ),
-    )
+    .where(and(eq(t.itineraryItems.tripId, tripId), eq(t.itineraryItems.reservationDocumentId, doc.id)))
     .limit(1);
   if (item) return true;
 
-  const [booking] = await db
-    .select({ id: t.bookings.id })
-    .from(t.bookings)
-    .where(and(eq(t.bookings.tripId, tripId), eq(t.bookings.documentId, doc.id)))
+  const [transportVoucher] = await db
+    .select({ id: t.transportVouchers.id })
+    .from(t.transportVouchers)
+    .innerJoin(t.bookings, eq(t.bookings.id, t.transportVouchers.bookingId))
+    .where(and(eq(t.bookings.tripId, tripId), eq(t.transportVouchers.voucherDocumentId, doc.id)))
     .limit(1);
-  if (booking) return true;
+  if (transportVoucher) return true;
 
   const [voucher] = await db
     .select({ id: t.lodgingVouchers.id })

@@ -15,7 +15,7 @@ import { listPayments } from "@/services/payments";
 import { deleteBookingAction, updateBookingAction } from "@/app/actions/bookings";
 import { addVoucherAction, deleteVoucherAction, updateVoucherAction } from "@/app/actions/transport-vouchers";
 import { addLegAction, deleteLegAction, updateLegAction } from "@/app/actions/booking-legs";
-import { addPaymentAction } from "@/app/actions/payments";
+import { addPaymentAction, updatePaymentAction } from "@/app/actions/payments";
 import { BookingFields, LegFields, PaymentFields, PaymentList, TransportVoucherFields } from "@/components/TripFields";
 import { SavedModal } from "@/components/SavedModal";
 import { ConfirmDeleteButton } from "@/components/ConfirmDeleteButton";
@@ -44,17 +44,13 @@ export default async function EditBookingPage({
     .limit(1);
   if (!booking) notFound();
 
-  const [[doc], cities, types, currencies, travelerOptions, [owner]] = await Promise.all([
-    booking.documentId
-      ? db.select({ fileName: t.documents.fileName }).from(t.documents).where(eq(t.documents.id, booking.documentId)).limit(1)
-      : Promise.resolve([]),
+  const [cities, types, currencies, travelerOptions, [owner]] = await Promise.all([
     getTripCities(trip.id),
     listBookingTypes(),
     listClientCurrencyCodes(trip.ownerId),
     listTripTravelerOptions(trip),
     db.select({ name: t.users.name }).from(t.users).where(eq(t.users.id, trip.ownerId)).limit(1),
   ]);
-  const attachment = doc ? { name: doc.fileName, href: `/api/files/${trip.id}/${booking.documentId}` } : null;
   const neighborhoods = await listNeighborhoodsForCities(cities.map((c) => c.id));
   const legs = await listBookingLegs(bookingId);
   const vouchers = await listBookingVouchers(bookingId, owner?.name ?? "Dono");
@@ -106,7 +102,7 @@ export default async function EditBookingPage({
         <ErrorBanner message={error} />
         <form action={updateBookingAction.bind(null, trip.id, booking.id)} className="grid gap-3 sm:grid-cols-6">
           <input type="hidden" name="day" value={day ?? ""} />
-          <BookingFields cities={cities} types={types} neighborhoods={neighborhoods} booking={booking} legs={legs} attachment={attachment} />
+          <BookingFields cities={cities} types={types} neighborhoods={neighborhoods} booking={booking} legs={legs} />
           <div className="flex gap-2 sm:col-span-6">
             <button className={btnPrimary}>Salvar alterações</button>
             <Link href={cancelHref} className={btnGhost}>
@@ -221,7 +217,13 @@ export default async function EditBookingPage({
                         <p className="mb-2 text-xs font-medium text-slate-600">
                           Pagamentos{(voucherPaymentsByVoucher.get(v.id)?.length ?? 0) > 0 ? ` (${voucherPaymentsByVoucher.get(v.id)!.length})` : ""}
                         </p>
-                        <PaymentList payments={voucherPaymentsByVoucher.get(v.id) ?? []} travelerName={travelerPayerName} />
+                        <PaymentList
+                          payments={voucherPaymentsByVoucher.get(v.id) ?? []}
+                          travelerName={travelerPayerName}
+                          travelers={travelerOptions}
+                          currency={v.currency ?? trip.baseCurrency}
+                          editAction={(paymentId) => updatePaymentAction.bind(null, trip.id, "TRANSPORT_VOUCHER", v.id, paymentId, editBack)}
+                        />
                         <form action={addPaymentAction.bind(null, trip.id, "TRANSPORT_VOUCHER", v.id, editBack)} className="grid gap-3 sm:grid-cols-6">
                           <PaymentFields travelers={travelerOptions} currency={v.currency ?? trip.baseCurrency} />
                           <div className="sm:col-span-6">

@@ -358,6 +358,55 @@
       "when": 1794951096482,
       "tag": "0050_backfill_remaining_as_paid",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1795008006158,
+      "tag": "0051_payments_category_and_item_expenses",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1795008118872,
+      "tag": "0052_backfill_item_cost_to_item_expense",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1795008123579,
+      "tag": "0053_backfill_item_reservation_category_to_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1795008127127,
+      "tag": "0054_backfill_fixed_categories_to_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1795008130553,
+      "tag": "0055_merge_ticket_document_into_reservation",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1795008134127,
+      "tag": "0056_merge_booking_reservation_into_voucher",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1795008203691,
+      "tag": "0057_drop_legacy_cost_reservation_columns",
+      "breakpoints": true
     }
   ]
 }

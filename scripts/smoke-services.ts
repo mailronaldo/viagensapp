@@ -57,9 +57,9 @@ async function main() {
         tripId: trip.id,
         type: "FLIGHT",
         title: "Voo GRU→LIS",
-        confirmationCode: "ABC123",
       })
       .returning({ id: t.bookings.id });
+    await db.insert(t.transportVouchers).values({ bookingId: flightBooking.id, isGroup: true, reservationCode: "ABC123" });
     await db.insert(t.bookingLegs).values({
       bookingId: flightBooking.id,
       legOrder: 1,

@@ -1,5 +1,5 @@
 import type { Booking, Chip, Errand, Expense, ItineraryItem, Lodging, Payment, TravelInsurance } from "@/db/schema";
-import { AddPanel, CategoryOptions, EmptyState, EnumSelect, Field, StatusSelect, inputCls } from "@/components/ui";
+import { AddPanel, CategoryOptions, EmptyState, EnumSelect, Field, StatusSelect, btnPrimary, inputCls } from "@/components/ui";
 import { NeighborhoodSelect } from "@/components/NeighborhoodSelect";
 import { TripTypeToggle } from "@/components/TripTypeToggle";
 import { AddStoreButton } from "@/components/AddStoreButton";
@@ -62,20 +62,16 @@ export function ItemMainFields({
   trip,
   cities,
   types,
-  categories,
   neighborhoods,
   item,
   defaultDate,
-  attachment,
 }: {
   trip: { startDate: string; endDate: string };
   cities: { id: string; name: string }[];
   types: { id: string; name: string }[];
-  categories: Category[];
   neighborhoods: { id: string; name: string; cityId: string; cityName: string }[];
   item?: ItineraryItem;
   defaultDate?: string;
-  attachment?: { name: string; href: string } | null;
 }) {
   return (
     <>
@@ -129,20 +125,8 @@ export function ItemMainFields({
       </Field>
       <Field label="Custo estimado" className="sm:col-span-2">
         <input name="costEstimate" inputMode="decimal" defaultValue={dec(item?.costEstimate)} placeholder="0,00" className={inputCls} />
+        <p className="mt-1 text-xs text-slate-500">Informativo, pra planejamento — o controle de pagamento fica em Reserva/Voucher e nos custos avulsos, abaixo.</p>
       </Field>
-      <Field label="Categoria do custo" className="sm:col-span-2">
-        <select name="costCategory" defaultValue={item?.costCategory ?? ""} className={inputCls}>
-          <CategoryOptions categories={categories} />
-        </select>
-      </Field>
-      <AttachmentField
-        label="Ingresso / voucher (PDF ou imagem)"
-        name="ticket"
-        removeName="removeTicket"
-        current={attachment?.name}
-        href={attachment?.href}
-        className="sm:col-span-4"
-      />
       <Field label="Observações" className="sm:col-span-6">
         <textarea name="notes" rows={2} defaultValue={item?.notes ?? ""} className={inputCls} />
       </Field>
@@ -161,14 +145,12 @@ export function ReservationFields({
   reservationAttachment,
   formId,
   currencies,
-  categories,
 }: {
   trip: { baseCurrency: string };
   item?: ItineraryItem;
   reservationAttachment?: { name: string; href: string } | null;
   formId?: string;
   currencies: string[];
-  categories: Category[];
 }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -191,11 +173,6 @@ export function ReservationFields({
       <Field label="Moeda">
         <select name="reservationCurrency" form={formId} defaultValue={item?.reservationCurrency ?? trip.baseCurrency} className={inputCls}>
           <CurrencyOptions currencies={currencies} />
-        </select>
-      </Field>
-      <Field label="Categoria">
-        <select name="reservationCategory" form={formId} defaultValue={item?.reservationCategory ?? ""} className={inputCls}>
-          <CategoryOptions categories={categories} />
         </select>
       </Field>
       <div className="sm:col-span-2">
@@ -225,31 +202,27 @@ export function ItemFields({
   trip,
   cities,
   types,
-  categories,
   neighborhoods,
   item,
   defaultDate,
-  attachment,
   reservationAttachment,
   currencies,
 }: {
   trip: { id: string; startDate: string; endDate: string; baseCurrency: string };
   cities: { id: string; name: string }[];
   types: { id: string; name: string }[];
-  categories: Category[];
   neighborhoods: { id: string; name: string; cityId: string; cityName: string }[];
   item?: ItineraryItem;
   defaultDate?: string;
-  attachment?: { name: string; href: string } | null;
   reservationAttachment?: { name: string; href: string } | null;
   currencies: string[];
 }) {
   return (
     <>
-      <ItemMainFields trip={trip} cities={cities} types={types} categories={categories} neighborhoods={neighborhoods} item={item} defaultDate={defaultDate} attachment={attachment} />
+      <ItemMainFields trip={trip} cities={cities} types={types} neighborhoods={neighborhoods} item={item} defaultDate={defaultDate} />
       <div id="reserva" className="sm:col-span-6">
-        <AddPanel title="Reserva desta atividade (opcional — preencha se já reservou)" defaultOpen={false}>
-          <ReservationFields trip={trip} item={item} reservationAttachment={reservationAttachment} currencies={currencies} categories={categories} />
+        <AddPanel title="Voucher/Reserva desta atividade (opcional — preencha se já reservou)" defaultOpen={false}>
+          <ReservationFields trip={trip} item={item} reservationAttachment={reservationAttachment} currencies={currencies} />
         </AddPanel>
       </div>
     </>
@@ -524,7 +497,6 @@ export function BookingFields({
   booking,
   legs,
   defaultDate,
-  attachment,
 }: {
   cities: { id: string; name: string }[];
   types: { id: string; name: string }[];
@@ -533,7 +505,6 @@ export function BookingFields({
   /** Trechos já cadastrados (modo edição): legs[0] = ida, legs[1] = volta. */
   legs?: LegValue[];
   defaultDate?: string;
-  attachment?: { name: string; href: string } | null;
 }) {
   const outbound = legs?.[0];
   const inbound = legs?.[1];
@@ -582,28 +553,12 @@ export function BookingFields({
           </p>
         }
       />
-      <fieldset
-        id="reserva"
-        className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:col-span-6 sm:grid-cols-6"
-      >
-        <legend className="px-1 text-xs font-medium text-slate-600">
-          Reserva deste transporte (opcional — preencha se já reservou)
-        </legend>
-        <Field label="Código de confirmação" className="sm:col-span-3">
-          <input name="confirmationCode" defaultValue={booking?.confirmationCode ?? ""} className={inputCls} />
-        </Field>
-        <AttachmentField
-          label="Voucher / e-ticket (PDF ou imagem)"
-          name="voucher"
-          removeName="removeVoucher"
-          current={attachment?.name}
-          href={attachment?.href}
-          className="sm:col-span-6"
-        />
-        <Field label="Detalhes" className="sm:col-span-6">
-          <textarea name="details" rows={2} defaultValue={booking?.details ?? ""} className={inputCls} />
-        </Field>
-      </fieldset>
+      <Field label="Detalhes" className="sm:col-span-6">
+        <textarea name="details" rows={2} defaultValue={booking?.details ?? ""} className={inputCls} />
+      </Field>
+      <p className="text-xs text-slate-500 sm:col-span-6">
+        Código de reserva, voucher e custo ficam no painel “Voucher/Reserva”, logo abaixo (depois de salvar).
+      </p>
     </>
   );
 }
@@ -643,21 +598,12 @@ export function QuickBookingFields({
       </Field>
       <LegHalfFields legLabel="Origem" kind="origin" namePrefix="origin" cities={cities} neighborhoods={neighborhoods} defaultDateTime={defaultDate ? `${defaultDate}T09:00` : undefined} />
       <LegHalfFields legLabel="Destino" kind="destination" namePrefix="destination" cities={cities} neighborhoods={neighborhoods} />
-      <fieldset
-        id="reserva"
-        className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:col-span-6 sm:grid-cols-6"
-      >
-        <legend className="px-1 text-xs font-medium text-slate-600">
-          Reserva deste transporte (opcional — preencha se já reservou)
-        </legend>
-        <Field label="Código de confirmação" className="sm:col-span-3">
-          <input name="confirmationCode" className={inputCls} />
-        </Field>
-        <AttachmentField label="Voucher / e-ticket (PDF ou imagem)" name="voucher" removeName="removeVoucher" className="sm:col-span-6" />
-        <Field label="Detalhes" className="sm:col-span-6">
-          <textarea name="details" rows={2} className={inputCls} />
-        </Field>
-      </fieldset>
+      <Field label="Detalhes" className="sm:col-span-6">
+        <textarea name="details" rows={2} className={inputCls} />
+      </Field>
+      <p className="text-xs text-slate-500 sm:col-span-6">
+        Código de reserva, voucher e custo ficam no painel “Voucher/Reserva”, depois de salvar.
+      </p>
     </>
   );
 }
@@ -872,14 +818,20 @@ const MANUAL_PAYMENT_METHOD_LABEL = Object.fromEntries(
 export function PaymentFields({
   travelers,
   currency,
+  categories,
+  payment,
 }: {
   travelers: { id: string | null; name: string }[];
   currency: string;
+  /** Só passado pras origens sem categoria própria (Voucher/Reserva da atividade, custo avulso). */
+  categories?: Category[];
+  /** Pré-preenche o formulário pra editar um pagamento já lançado. */
+  payment?: Payment;
 }) {
   return (
     <>
       <Field label="Pagador" className="sm:col-span-2">
-        <select name="payerTravelerId" required defaultValue="" className={inputCls}>
+        <select name="payerTravelerId" required defaultValue={payment ? payment.payerTravelerId ?? "owner" : ""} className={inputCls}>
           <option value="" disabled>
             Selecione…
           </option>
@@ -891,46 +843,102 @@ export function PaymentFields({
         </select>
       </Field>
       <Field label="Data do pagamento" className="sm:col-span-2">
-        <input name="paymentDate" type="date" required className={inputCls} />
+        <input name="paymentDate" type="date" required defaultValue={payment?.paymentDate ?? ""} className={inputCls} />
       </Field>
       <Field label="Meio de pagamento" className="sm:col-span-2">
-        <EnumSelect name="method" options={MANUAL_PAYMENT_METHOD_LABEL} defaultValue="PIX" />
+        <EnumSelect name="method" options={MANUAL_PAYMENT_METHOD_LABEL} defaultValue={payment?.method ?? "PIX"} />
       </Field>
       <Field label="Forma de pagamento" className="sm:col-span-2">
-        <EnumSelect name="form" options={PAYMENT_FORM_LABEL} defaultValue="AVISTA" />
+        <EnumSelect name="form" options={PAYMENT_FORM_LABEL} defaultValue={payment?.form ?? "AVISTA"} />
       </Field>
       <Field label="Parcelas" hint="Opcional." className="sm:col-span-2">
-        <input name="installments" placeholder="Ex.: 3x" className={inputCls} />
+        <input name="installments" placeholder="Ex.: 3x" defaultValue={payment?.installments ?? ""} className={inputCls} />
       </Field>
       <Field label="Valor" className="sm:col-span-1">
-        <input name="amount" required inputMode="decimal" placeholder="0,00" className={inputCls} />
+        <input name="amount" required inputMode="decimal" placeholder="0,00" defaultValue={dec(payment?.amount)} className={inputCls} />
       </Field>
       <Field label="Moeda" className="sm:col-span-1">
         <input value={currency} disabled className={inputCls} />
       </Field>
+      {categories && (
+        <Field label="Categoria" className="sm:col-span-2">
+          <select name="category" defaultValue={payment?.category ?? ""} className={inputCls}>
+            <CategoryOptions categories={categories} />
+          </select>
+        </Field>
+      )}
     </>
   );
 }
 
-/** Histórico de pagamentos (append-only) de qualquer origem — mesma lista reusada em todo lugar que tem `PaymentFields`. */
-export function PaymentList({ payments, travelerName }: { payments: Payment[]; travelerName: Map<string, string> }) {
+/**
+ * Histórico de pagamentos de qualquer origem — mesma lista reusada em todo
+ * lugar que tem `PaymentFields`. Passando `editAction`/`travelers`/`currency`
+ * cada pagamento vira um `<details>` com formulário de edição embutido;
+ * sem eles, fica só leitura (histórico).
+ */
+export function PaymentList({
+  payments,
+  travelerName,
+  travelers,
+  currency,
+  categories,
+  editAction,
+}: {
+  payments: Payment[];
+  travelerName: Map<string, string>;
+  travelers?: { id: string | null; name: string }[];
+  currency?: string;
+  categories?: Category[];
+  editAction?: (paymentId: string) => (formData: FormData) => Promise<void>;
+}) {
   if (payments.length === 0) return <EmptyState>Nenhum pagamento lançado ainda.</EmptyState>;
+  const categoryName = new Map((categories ?? []).map((c) => [c.id, c.name]));
   return (
     <ul className="mb-4 space-y-2">
-      {payments.map((payment) => (
-        <li key={payment.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 p-3 text-sm">
-          <div className="min-w-0">
-            <p className="text-xs text-slate-400">
-              {formatDate(payment.paymentDate)} · {travelerName.get(payment.payerTravelerId ?? "owner") ?? "Viajante removido"}
+      {payments.map((payment) => {
+        const summary = (
+          <div className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
+            <div className="min-w-0">
+              <p className="text-xs text-slate-400">
+                {formatDate(payment.paymentDate)} · {travelerName.get(payment.payerTravelerId ?? "owner") ?? "Viajante removido"}
+              </p>
+              <p className="font-medium tabular-nums">{formatMoney(payment.amount, payment.currency)}</p>
+            </div>
+            <p className="text-xs text-slate-500">
+              {PAYMENT_METHOD_LABEL[payment.method]} · {PAYMENT_FORM_LABEL[payment.form]}
+              {payment.installments ? ` · ${payment.installments}` : ""}
+              {payment.category && categoryName.get(payment.category) ? ` · ${categoryName.get(payment.category)}` : ""}
             </p>
-            <p className="font-medium tabular-nums">{formatMoney(payment.amount, payment.currency)}</p>
           </div>
-          <p className="text-xs text-slate-500">
-            {PAYMENT_METHOD_LABEL[payment.method]} · {PAYMENT_FORM_LABEL[payment.form]}
-            {payment.installments ? ` · ${payment.installments}` : ""}
-          </p>
-        </li>
-      ))}
+        );
+        if (!editAction || !travelers || !currency) {
+          return (
+            <li key={payment.id} className="rounded-lg border border-slate-200">
+              {summary}
+            </li>
+          );
+        }
+        return (
+          <li key={payment.id} className="rounded-lg border border-slate-200">
+            <details className="group">
+              <summary className="cursor-pointer list-none">
+                {summary}
+                <span className="block px-3 pb-2 text-xs text-brand-700 group-open:hidden">editar</span>
+                <span className="hidden px-3 pb-2 text-xs text-brand-700 group-open:inline">fechar</span>
+              </summary>
+              <div className="border-t border-slate-100 p-3">
+                <form action={editAction(payment.id)} className="grid gap-3 sm:grid-cols-6">
+                  <PaymentFields travelers={travelers} currency={currency} categories={categories} payment={payment} />
+                  <div className="sm:col-span-6">
+                    <button className={btnPrimary}>Salvar pagamento</button>
+                  </div>
+                </form>
+              </div>
+            </details>
+          </li>
+        );
+      })}
     </ul>
   );
 }
